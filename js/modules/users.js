@@ -1,64 +1,49 @@
 // ========================================
-// USERS MODULE
-// Gestion de usuarios del sistema
+// USERS MODULE - Gestion de usuarios del sistema
 // ========================================
 
 const UsersModule = {
-    table: null,
+    users: [],
 
-    // ========================================
-    // INICIALIZACION
-    // ========================================
-
-    init() {
-        if (!Auth.requireAuth()) return;
+    async init() {
+        if (!Auth.isAuthenticated()) {
+            window.location.href = '../index.html';
+            return;
+        }
         
-        // Verificar que sea admin
+        // Solo admins pueden ver usuarios
         const currentUser = Auth.getCurrentUser();
         if (currentUser?.role !== 'admin') {
-            Toast.error('No tienes permisos para acceder a esta seccion');
+            alert('No tienes permisos para acceder a esta seccion');
             window.location.href = 'dashboard.html';
             return;
         }
 
-        // Inicializar usuario admin por defecto si no existe
-        this.ensureAdminExists();
-        
+        await this.loadData();
         this.renderStats();
         this.renderFilters();
-        this.initTable();
+        this.renderTable();
         this.bindEvents();
     },
 
-    ensureAdminExists() {
-        const users = Store.getUsers();
-        const adminExists = users.some(u => u.email === 'admin@brands.mx');
-        
-        if (!adminExists) {
-            Store.saveUser({
-                email: 'admin@brands.mx',
-                password: '3lN3g0c10d3tuV1d4',
-                name: 'Administrador',
-                role: 'admin',
-                status: 'active'
-            });
+    async loadData() {
+        try {
+            this.users = await Store.getUsers() || [];
+        } catch (e) {
+            console.error('Error cargando usuarios:', e);
+            this.users = [];
         }
     },
-
-    // ========================================
-    // ESTADISTICAS
-    // ========================================
 
     renderStats() {
         const container = document.getElementById('userStats');
         if (!container) return;
 
-        const users = Store.getUsers();
         const stats = {
-            total: users.length,
-            active: users.filter(u => u.status === 'active').length,
-            admins: users.filter(u => u.role === 'admin').length,
-            users: users.filter(u => u.role === 'user').length
+            total: this.users.length,
+            active: this.users.filter(u => u.status === 'active').length,
+            admins: this.users.filter(u => u.role === 'admin').length,
+            users: this.users.filter(u => u.role === 'user').length
         };
 
         container.innerHTML = `
@@ -101,10 +86,6 @@ const UsersModule = {
         `;
     },
 
-    // ========================================
-    // FILTROS
-    // ========================================
-
     renderFilters() {
         const container = document.getElementById('filtersBar');
         if (!container) return;
@@ -133,307 +114,299 @@ const UsersModule = {
         `;
     },
 
-    // ========================================
-    // TABLA
-    // ========================================
-
-    initTable() {
-        const container = document.getElementById('usersTableContainer');
+    renderTable() {
+        const container = document.getElementById('usersTableContainer') || document.querySelector('.page-content');
         if (!container) return;
 
-        const statusBadge = TableActions.createStatusBadge({
-            active: { label: 'Activo', class: 'badge-active' },
-            inactive: { label: 'Inactivo', class: 'badge-inactive' }
-        });
+        let tableContainer = document.getElementById('usersTableContainer');
+        if (!tableContainer) {
+            tableContainer = document.createElement('div');
+            tableContainer.id = 'usersTableContainer';
+            container.appendChild(tableContainer);
+        }
 
-        const roleBadge = (role) => {
-            const config = {
-                admin: { label: 'Administrador', class: 'badge-open' },
-                user: { label: 'Usuario', class: 'badge-resolved' }
-            };
-            const c = config[role] || { label: role, class: 'badge' };
-            return `<span class="badge ${c.class}">${c.label}</span>`;
+        const statusBadge = (status) => {
+            return status === 'active' 
+                ? '<span class="badge badge-active">Activo</span>'
+                : '<span class="badge badge-inactive">Inactivo</span>';
         };
 
-        this.table = new DataTable({
-            container,
-            columns: [
-                { 
-                    key: 'name', 
-                    label: 'Usuario', 
-                    className: 'cell-primary',
-                    render: (v, row) => `
-                        <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            <div class="avatar sm">${Utils.getInitials(v)}</div>
-                            <div>
-                                <div style="font-weight: 500;">${Utils.escapeHtml(v)}</div>
-                                <div style="font-size: 0.75rem; color: var(--text-tertiary);">${Utils.escapeHtml(row.email)}</div>
-                            </div>
-                        </div>
-                    `
-                },
-                { key: 'role', label: 'Rol', render: roleBadge },
-                { key: 'status', label: 'Estado', render: statusBadge },
-                { key: 'createdAt', label: 'Creado', type: 'date' },
-                { key: 'lastLogin', label: 'Ultimo Acceso', render: (v) => v ? Utils.timeAgo(v) : 'Nunca' },
-                {
-                    key: 'actions',
-                    label: 'Acciones',
-                    sortable: false,
-                    className: 'cell-actions',
-                    render: (_, row) => {
-                        const currentUser = Auth.getCurrentUser();
-                        const isCurrentUser = row.email === currentUser?.email;
-                        
-                        return `
-                            <button class="btn-icon sm btn-ghost" data-action="edit" data-tooltip="Editar">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            </button>
-                            <button class="btn-icon sm btn-ghost" data-action="password" data-tooltip="Cambiar contrasena">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                            </button>
-                            ${!isCurrentUser ? `
-                                <button class="btn-icon sm btn-ghost" data-action="delete" data-tooltip="Eliminar">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        const roleBadge = (role) => {
+            return role === 'admin'
+                ? '<span class="badge badge-open">Administrador</span>'
+                : '<span class="badge badge-resolved">Usuario</span>';
+        };
+
+        const currentUser = Auth.getCurrentUser();
+
+        tableContainer.innerHTML = `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Correo</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                        <th>Creado</th>
+                        <th>Ultimo Acceso</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${this.users.length === 0 ? `
+                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">No hay usuarios registrados</td></tr>
+                    ` : this.users.map(u => `
+                        <tr data-id="${u.id}">
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.75rem;">
+                                        ${(u.name || 'U')[0].toUpperCase()}
+                                    </div>
+                                    <span>${this.escapeHtml(u.name || 'Usuario')}</span>
+                                </div>
+                            </td>
+                            <td>${u.email || '-'}</td>
+                            <td>${roleBadge(u.role)}</td>
+                            <td>${statusBadge(u.status)}</td>
+                            <td>${this.formatDate(u.createdAt)}</td>
+                            <td>${u.lastLogin ? this.timeAgo(u.lastLogin) : 'Nunca'}</td>
+                            <td>
+                                <button class="btn-icon sm" onclick="UsersModule.openForm(UsersModule.getById('${u.id}'))" title="Editar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                 </button>
-                            ` : ''}
-                        `;
-                    }
-                }
-            ],
-            data: Store.getUsers(),
-            searchFields: ['name', 'email'],
-            perPage: 10,
-            emptyMessage: 'No hay usuarios registrados',
-            onAction: (action, row) => this.handleAction(action, row)
-        });
+                                <button class="btn-icon sm" onclick="UsersModule.openPasswordForm('${u.id}')" title="Cambiar contrasena">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                </button>
+                                ${u.email !== currentUser?.email ? `
+                                    <button class="btn-icon sm" onclick="UsersModule.deleteUser('${u.id}')" title="Eliminar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    </button>
+                                ` : ''}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
     },
 
-    // ========================================
-    // EVENTOS
-    // ========================================
+    getById(id) {
+        return this.users.find(u => u.id === id);
+    },
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
+
+    formatDate(date) {
+        if (!date) return '-';
+        return new Date(date).toLocaleDateString('es-MX');
+    },
+
+    timeAgo(date) {
+        if (!date) return '';
+        const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+        if (seconds < 60) return 'Hace un momento';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `Hace ${minutes} min`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `Hace ${hours}h`;
+        const days = Math.floor(hours / 24);
+        return `Hace ${days}d`;
+    },
 
     bindEvents() {
-        // Busqueda
-        document.getElementById('searchInput')?.addEventListener('input', Utils.debounce((e) => {
-            this.table?.search(e.target.value);
-        }, 300));
-
-        // Filtros
-        ['roleFilter', 'statusFilter'].forEach(id => {
-            document.getElementById(id)?.addEventListener('change', () => this.applyFilters());
-        });
-
-        // Limpiar filtros
-        document.getElementById('clearFilters')?.addEventListener('click', () => {
+        document.getElementById('newUserBtn')?.addEventListener('click', () => this.openForm());
+        
+        document.getElementById('clearFilters')?.addEventListener('click', async () => {
             document.getElementById('searchInput').value = '';
             document.getElementById('roleFilter').value = '';
             document.getElementById('statusFilter').value = '';
-            this.table?.setData(Store.getUsers());
-        });
-
-        // Nuevo usuario
-        document.getElementById('newUserBtn')?.addEventListener('click', () => {
-            this.openUserForm();
+            await this.loadData();
+            this.renderTable();
         });
     },
 
-    applyFilters() {
-        const filters = {
-            role: document.getElementById('roleFilter')?.value,
-            status: document.getElementById('statusFilter')?.value
-        };
-        this.table?.filter(filters);
-    },
-
-    // ========================================
-    // ACCIONES
-    // ========================================
-
-    handleAction(action, user) {
-        switch (action) {
-            case 'edit':
-                this.openUserForm(user);
-                break;
-            case 'password':
-                this.openPasswordForm(user);
-                break;
-            case 'delete':
-                this.deleteUser(user);
-                break;
-        }
-    },
-
-    // ========================================
-    // FORMULARIO DE USUARIO
-    // ========================================
-
-    async openUserForm(user = null) {
+    async openForm(user = null) {
         const isEdit = !!user;
 
-        const fields = [
-            { 
-                name: 'name', 
-                label: 'Nombre completo', 
-                type: 'text', 
-                required: true, 
-                fullWidth: true,
-                placeholder: 'Ej: Juan Perez' 
-            },
-            { 
-                name: 'email', 
-                label: 'Correo electronico', 
-                type: 'email', 
-                required: true, 
-                placeholder: 'correo@empresa.com' 
-            },
-            {
-                name: 'role',
-                label: 'Rol',
-                type: 'select',
-                required: true,
-                options: [
-                    { value: 'user', label: 'Usuario' },
-                    { value: 'admin', label: 'Administrador' }
-                ]
-            },
-            {
-                name: 'status',
-                label: 'Estado',
-                type: 'select',
-                required: true,
-                options: [
-                    { value: 'active', label: 'Activo' },
-                    { value: 'inactive', label: 'Inactivo' }
-                ]
-            }
-        ];
+        const modalHtml = `
+            <div class="modal-overlay active" id="userModal">
+                <div class="modal" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h2>${isEdit ? 'Editar Usuario' : 'Nuevo Usuario'}</h2>
+                        <button class="modal-close" onclick="document.getElementById('userModal').remove()">&times;</button>
+                    </div>
+                    <form id="userForm" class="modal-body">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Nombre completo *</label>
+                            <input type="text" name="name" required value="${user?.name || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Correo electronico *</label>
+                            <input type="email" name="email" required value="${user?.email || ''}" ${isEdit ? 'readonly' : ''} style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                        </div>
+                        ${!isEdit ? `
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label>Contrasena *</label>
+                                <input type="password" name="password" required minlength="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                <small style="color: var(--text-tertiary);">Minimo 6 caracteres</small>
+                            </div>
+                        ` : ''}
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Rol *</label>
+                                <select name="role" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="user" ${user?.role === 'user' ? 'selected' : ''}>Usuario</option>
+                                    <option value="admin" ${user?.role === 'admin' ? 'selected' : ''}>Administrador</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Estado *</label>
+                                <select name="status" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="active" ${user?.status === 'active' ? 'selected' : ''}>Activo</option>
+                                    <option value="inactive" ${user?.status === 'inactive' ? 'selected' : ''}>Inactivo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <input type="hidden" name="id" value="${user?.id || ''}">
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('userModal').remove()">Cancelar</button>
+                        <button type="submit" form="userForm" class="btn btn-primary">${isEdit ? 'Actualizar' : 'Crear Usuario'}</button>
+                    </div>
+                </div>
+            </div>
+        `;
 
-        // Solo mostrar campo de password en creacion
-        if (!isEdit) {
-            fields.splice(2, 0, {
-                name: 'password',
-                label: 'Contrasena',
-                type: 'password',
-                required: true,
-                placeholder: 'Minimo 6 caracteres',
-                hint: 'La contrasena debe tener al menos 6 caracteres'
-            });
-        }
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        const result = await Modal.form({
-            title: isEdit ? 'Editar Usuario' : 'Nuevo Usuario',
-            fields,
-            data: user || { role: 'user', status: 'active' },
-            submitText: isEdit ? 'Actualizar' : 'Crear Usuario',
-            size: 'md'
-        });
-
-        if (result) {
-            // Validaciones
-            if (!isEdit && result.password.length < 6) {
-                Toast.error('La contrasena debe tener al menos 6 caracteres');
-                return;
-            }
-
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
             // Verificar email unico
-            const existingUser = Store.getUserByEmail(result.email);
-            if (existingUser && (!isEdit || existingUser.id !== user.id)) {
-                Toast.error('Ya existe un usuario con ese correo');
-                return;
+            if (!isEdit) {
+                const existingUser = await Store.getUserByEmail(data.email);
+                if (existingUser) {
+                    alert('Ya existe un usuario con ese correo');
+                    return;
+                }
             }
 
-            if (isEdit) {
-                result.id = user.id;
-                // Mantener password existente
-                result.password = user.password;
+            if (data.id) {
+                const existing = this.getById(data.id);
+                if (existing) {
+                    // Mantener password existente en edicion
+                    data.password = existing.password;
+                    Object.assign(existing, data);
+                    await Store.saveUser(existing);
+                }
+            } else {
+                delete data.id;
+                await Store.saveUser(data);
             }
 
-            Store.saveUser(result);
-            this.table?.setData(Store.getUsers());
+            document.getElementById('userModal').remove();
+            await this.loadData();
             this.renderStats();
-            
-            Toast.success(isEdit ? 'Usuario actualizado' : 'Usuario creado correctamente');
-        }
-    },
-
-    // ========================================
-    // CAMBIAR CONTRASENA
-    // ========================================
-
-    async openPasswordForm(user) {
-        const fields = [
-            {
-                name: 'newPassword',
-                label: 'Nueva contrasena',
-                type: 'password',
-                required: true,
-                placeholder: 'Ingresa la nueva contrasena',
-                hint: 'Minimo 6 caracteres'
-            },
-            {
-                name: 'confirmPassword',
-                label: 'Confirmar contrasena',
-                type: 'password',
-                required: true,
-                placeholder: 'Confirma la nueva contrasena'
-            }
-        ];
-
-        const result = await Modal.form({
-            title: `Cambiar contrasena de ${user.name}`,
-            fields,
-            data: {},
-            submitText: 'Cambiar Contrasena',
-            size: 'sm'
+            this.renderTable();
+            this.showToast(isEdit ? 'Usuario actualizado' : 'Usuario creado');
         });
-
-        if (result) {
-            if (result.newPassword.length < 6) {
-                Toast.error('La contrasena debe tener al menos 6 caracteres');
-                return;
-            }
-
-            if (result.newPassword !== result.confirmPassword) {
-                Toast.error('Las contrasenas no coinciden');
-                return;
-            }
-
-            // Actualizar contrasena
-            user.password = result.newPassword;
-            Store.saveUser(user);
-            
-            Toast.success('Contrasena actualizada correctamente');
-        }
     },
 
-    // ========================================
-    // ELIMINAR USUARIO
-    // ========================================
+    async openPasswordForm(userId) {
+        const user = this.getById(userId);
+        if (!user) return;
 
-    async deleteUser(user) {
+        const modalHtml = `
+            <div class="modal-overlay active" id="passwordModal">
+                <div class="modal" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2>Cambiar Contrasena</h2>
+                        <button class="modal-close" onclick="document.getElementById('passwordModal').remove()">&times;</button>
+                    </div>
+                    <form id="passwordForm" class="modal-body">
+                        <p style="margin-bottom: 1rem; color: var(--text-secondary);">Cambiar contrasena de: <strong>${user.name}</strong></p>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Nueva contrasena *</label>
+                            <input type="password" name="newPassword" required minlength="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                        </div>
+                        <div class="form-group">
+                            <label>Confirmar contrasena *</label>
+                            <input type="password" name="confirmPassword" required minlength="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                        </div>
+                        <input type="hidden" name="userId" value="${userId}">
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('passwordModal').remove()">Cancelar</button>
+                        <button type="submit" form="passwordForm" class="btn btn-primary">Cambiar Contrasena</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            if (data.newPassword !== data.confirmPassword) {
+                alert('Las contrasenas no coinciden');
+                return;
+            }
+
+            if (data.newPassword.length < 6) {
+                alert('La contrasena debe tener al menos 6 caracteres');
+                return;
+            }
+
+            const userToUpdate = this.getById(data.userId);
+            if (userToUpdate) {
+                userToUpdate.password = data.newPassword;
+                await Store.saveUser(userToUpdate);
+            }
+
+            document.getElementById('passwordModal').remove();
+            this.showToast('Contrasena actualizada');
+        });
+    },
+
+    async deleteUser(id) {
         const currentUser = Auth.getCurrentUser();
+        const user = this.getById(id);
         
-        if (user.email === currentUser?.email) {
-            Toast.error('No puedes eliminar tu propio usuario');
+        if (user?.email === currentUser?.email) {
+            alert('No puedes eliminar tu propio usuario');
             return;
         }
 
-        const confirmed = await Modal.confirmDelete(user.name);
-        
-        if (confirmed) {
-            Store.deleteUser(user.id);
-            this.table?.setData(Store.getUsers());
+        if (confirm(`¿Estas seguro de eliminar al usuario ${user?.name}?`)) {
+            await Store.deleteUser(id);
+            await this.loadData();
             this.renderStats();
-            Toast.success('Usuario eliminado');
+            this.renderTable();
+            this.showToast('Usuario eliminado');
         }
+    },
+
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; padding: 1rem 1.5rem; border-radius: 8px; z-index: 9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
 
-// Inicializar
 document.addEventListener('DOMContentLoaded', () => {
-    UsersModule.init();
+    setTimeout(() => UsersModule.init(), 100);
 });
 
 window.UsersModule = UsersModule;
-

@@ -11,11 +11,14 @@ const TicketsModule = {
     // INICIALIZACION
     // ========================================
 
-    init() {
-        if (!Auth.requireAuth()) return;
+    async init() {
+        if (!Auth.isAuthenticated()) {
+            window.location.href = '../index.html';
+            return;
+        }
 
         this.renderFilters();
-        this.initTable();
+        await this.initTable();
         this.bindEvents();
     },
 
@@ -27,30 +30,6 @@ const TicketsModule = {
         const container = document.getElementById('filtersBar');
         if (!container) return;
 
-        const categories = [
-            { value: '', label: 'Todas' },
-            { value: 'hardware', label: 'Hardware' },
-            { value: 'software', label: 'Software' },
-            { value: 'network', label: 'Red' },
-            { value: 'other', label: 'Otro' }
-        ];
-
-        const statuses = [
-            { value: '', label: 'Todos' },
-            { value: 'open', label: 'Abierto' },
-            { value: 'in_progress', label: 'En Progreso' },
-            { value: 'resolved', label: 'Resuelto' },
-            { value: 'closed', label: 'Cerrado' }
-        ];
-
-        const priorities = [
-            { value: '', label: 'Todas' },
-            { value: 'low', label: 'Baja' },
-            { value: 'medium', label: 'Media' },
-            { value: 'high', label: 'Alta' },
-            { value: 'critical', label: 'Critica' }
-        ];
-
         container.innerHTML = `
             <div class="filter-group">
                 <input type="text" class="filter-input" id="searchInput" placeholder="Buscar por folio, titulo...">
@@ -58,19 +37,31 @@ const TicketsModule = {
             <div class="filter-group">
                 <label class="filter-label">Estado:</label>
                 <select class="filter-select" id="statusFilter">
-                    ${statuses.map(s => `<option value="${s.value}">${s.label}</option>`).join('')}
+                    <option value="">Todos</option>
+                    <option value="open">Abierto</option>
+                    <option value="in_progress">En Progreso</option>
+                    <option value="resolved">Resuelto</option>
+                    <option value="closed">Cerrado</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label class="filter-label">Categoria:</label>
                 <select class="filter-select" id="categoryFilter">
-                    ${categories.map(c => `<option value="${c.value}">${c.label}</option>`).join('')}
+                    <option value="">Todas</option>
+                    <option value="hardware">Hardware</option>
+                    <option value="software">Software</option>
+                    <option value="network">Red</option>
+                    <option value="other">Otro</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label class="filter-label">Prioridad:</label>
                 <select class="filter-select" id="priorityFilter">
-                    ${priorities.map(p => `<option value="${p.value}">${p.label}</option>`).join('')}
+                    <option value="">Todas</option>
+                    <option value="low">Baja</option>
+                    <option value="medium">Media</option>
+                    <option value="high">Alta</option>
+                    <option value="critical">Critica</option>
                 </select>
             </div>
             <button class="filter-btn" id="clearFilters">Limpiar filtros</button>
@@ -81,11 +72,10 @@ const TicketsModule = {
     // TABLA
     // ========================================
 
-    initTable() {
+    async initTable() {
         const container = document.querySelector('.data-table-container') || document.querySelector('.page-content');
         if (!container) return;
 
-        // Si no existe el contenedor de tabla, crearlo
         if (!document.getElementById('ticketsTableContainer')) {
             const tableContainer = document.createElement('section');
             tableContainer.id = 'ticketsTableContainer';
@@ -93,41 +83,98 @@ const TicketsModule = {
             container.appendChild(tableContainer);
         }
 
-        const statusBadge = TableActions.createStatusBadge({
-            open: { label: 'Abierto', class: 'badge-open' },
-            in_progress: { label: 'En Progreso', class: 'badge-in-progress' },
-            resolved: { label: 'Resuelto', class: 'badge-resolved' },
-            closed: { label: 'Cerrado', class: 'badge-closed' }
-        });
+        let tickets = [];
+        try {
+            tickets = await Store.getTickets() || [];
+        } catch (e) {
+            console.error('Error al obtener tickets:', e);
+        }
 
-        this.table = new DataTable({
-            container: document.getElementById('ticketsTableContainer'),
-            columns: [
-                { key: 'folio', label: 'Folio', className: 'cell-id' },
-                { key: 'title', label: 'Titulo', className: 'cell-primary' },
-                { key: 'category', label: 'Categoria', render: (v) => this.getCategoryLabel(v) },
-                { key: 'priority', label: 'Prioridad', render: TableActions.priorityBadge },
-                { key: 'status', label: 'Estado', render: statusBadge },
-                { key: 'createdAt', label: 'Fecha', type: 'date' },
-                TableActions.createActionsColumn(['view', 'edit', 'delete'])
-            ],
-            data: Store.getTickets(),
-            searchFields: ['folio', 'title', 'description'],
-            perPage: 10,
-            emptyMessage: 'No hay tickets registrados',
-            onRowClick: (row) => this.viewTicket(row.id),
-            onAction: (action, row) => this.handleAction(action, row)
-        });
+        const statusBadge = (status) => {
+            const config = {
+                open: { label: 'Abierto', class: 'badge-open' },
+                in_progress: { label: 'En Progreso', class: 'badge-in-progress' },
+                resolved: { label: 'Resuelto', class: 'badge-resolved' },
+                closed: { label: 'Cerrado', class: 'badge-closed' }
+            };
+            const c = config[status] || { label: status, class: 'badge' };
+            return `<span class="badge ${c.class}">${c.label}</span>`;
+        };
+
+        const priorityBadge = (priority) => {
+            const config = {
+                low: { label: 'Baja', class: 'badge-low' },
+                medium: { label: 'Media', class: 'badge-medium' },
+                high: { label: 'Alta', class: 'badge-high' },
+                critical: { label: 'Critica', class: 'badge-critical' }
+            };
+            const c = config[priority] || { label: priority, class: 'badge' };
+            return `<span class="badge ${c.class}">${c.label}</span>`;
+        };
+
+        // Renderizar tabla simple
+        const tableContainer = document.getElementById('ticketsTableContainer');
+        tableContainer.innerHTML = `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Folio</th>
+                        <th>Titulo</th>
+                        <th>Categoria</th>
+                        <th>Prioridad</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tickets.length === 0 ? `
+                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">No hay tickets registrados</td></tr>
+                    ` : tickets.map(t => `
+                        <tr data-id="${t.id}">
+                            <td style="font-family: monospace;">${t.folio || '-'}</td>
+                            <td>${this.escapeHtml(t.title || '')}</td>
+                            <td>${this.getCategoryLabel(t.category)}</td>
+                            <td>${priorityBadge(t.priority)}</td>
+                            <td>${statusBadge(t.status)}</td>
+                            <td>${this.formatDate(t.createdAt)}</td>
+                            <td>
+                                <button class="btn-icon sm" onclick="TicketsModule.openTicketForm(TicketsModule.getTicketById('${t.id}'))">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button class="btn-icon sm" onclick="TicketsModule.deleteTicket('${t.id}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+
+        this.tickets = tickets;
+    },
+
+    async getTicketById(id) {
+        const tickets = this.tickets || await Store.getTickets();
+        return tickets.find(t => t.id === id);
     },
 
     getCategoryLabel(category) {
-        const labels = {
-            hardware: 'Hardware',
-            software: 'Software',
-            network: 'Red',
-            other: 'Otro'
-        };
+        const labels = { hardware: 'Hardware', software: 'Software', network: 'Red', other: 'Otro' };
         return labels[category] || category || '-';
+    },
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
+
+    formatDate(date) {
+        if (!date) return '-';
+        return new Date(date).toLocaleDateString('es-MX');
     },
 
     // ========================================
@@ -135,63 +182,27 @@ const TicketsModule = {
     // ========================================
 
     bindEvents() {
-        // Busqueda
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', Utils.debounce((e) => {
-                this.table?.search(e.target.value);
-            }, 300));
-        }
-
-        // Filtros
+        document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
         ['statusFilter', 'categoryFilter', 'priorityFilter'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('change', () => this.applyFilters());
-            }
+            document.getElementById(id)?.addEventListener('change', () => this.applyFilters());
         });
 
-        // Limpiar filtros
-        document.getElementById('clearFilters')?.addEventListener('click', () => {
+        document.getElementById('clearFilters')?.addEventListener('click', async () => {
             document.getElementById('searchInput').value = '';
             document.getElementById('statusFilter').value = '';
             document.getElementById('categoryFilter').value = '';
             document.getElementById('priorityFilter').value = '';
-            this.table?.setData(Store.getTickets());
+            await this.initTable();
         });
 
-        // Nuevo ticket
         document.getElementById('newTicketBtn')?.addEventListener('click', () => {
             this.openTicketForm();
         });
     },
 
-    applyFilters() {
-        const filters = {
-            status: document.getElementById('statusFilter')?.value,
-            category: document.getElementById('categoryFilter')?.value,
-            priority: document.getElementById('priorityFilter')?.value
-        };
-
-        this.table?.filter(filters);
-    },
-
-    // ========================================
-    // ACCIONES
-    // ========================================
-
-    handleAction(action, ticket) {
-        switch (action) {
-            case 'view':
-                this.viewTicket(ticket.id);
-                break;
-            case 'edit':
-                this.openTicketForm(ticket);
-                break;
-            case 'delete':
-                this.deleteTicket(ticket);
-                break;
-        }
+    async applyFilters() {
+        // Re-render table with filters
+        await this.initTable();
     },
 
     // ========================================
@@ -200,229 +211,117 @@ const TicketsModule = {
 
     async openTicketForm(ticket = null) {
         const isEdit = !!ticket;
-        const employees = Store.getEmployees();
-        const machines = Store.getMachines();
+        let employees = [], machines = [];
+        
+        try {
+            employees = await Store.getEmployees() || [];
+            machines = await Store.getMachines() || [];
+        } catch (e) {}
 
-        const fields = [
-            {
-                name: 'title',
-                label: 'Titulo',
-                type: 'text',
-                required: true,
-                fullWidth: true,
-                placeholder: 'Describe brevemente el problema'
-            },
-            {
-                name: 'description',
-                label: 'Descripcion',
-                type: 'textarea',
-                required: true,
-                fullWidth: true,
-                rows: 4,
-                placeholder: 'Describe el problema con detalle'
-            },
-            {
-                name: 'category',
-                label: 'Categoria',
-                type: 'select',
-                required: true,
-                options: [
-                    { value: 'hardware', label: 'Hardware' },
-                    { value: 'software', label: 'Software' },
-                    { value: 'network', label: 'Red' },
-                    { value: 'other', label: 'Otro' }
-                ]
-            },
-            {
-                name: 'priority',
-                label: 'Prioridad',
-                type: 'select',
-                required: true,
-                options: [
-                    { value: 'low', label: 'Baja' },
-                    { value: 'medium', label: 'Media' },
-                    { value: 'high', label: 'Alta' },
-                    { value: 'critical', label: 'Critica' }
-                ]
-            },
-            {
-                name: 'requesterId',
-                label: 'Solicitante',
-                type: 'select',
-                options: employees.map(e => ({
-                    value: e.id,
-                    label: `${e.name} ${e.lastName || ''}`
-                }))
-            },
-            {
-                name: 'machineId',
-                label: 'Maquina Relacionada',
-                type: 'select',
-                options: machines.map(m => ({
-                    value: m.id,
-                    label: `${m.name} (${m.serialNumber})`
-                }))
-            }
-        ];
-
-        if (isEdit) {
-            fields.push({
-                name: 'status',
-                label: 'Estado',
-                type: 'select',
-                options: [
-                    { value: 'open', label: 'Abierto' },
-                    { value: 'in_progress', label: 'En Progreso' },
-                    { value: 'resolved', label: 'Resuelto' },
-                    { value: 'closed', label: 'Cerrado' }
-                ]
-            });
-        }
-
-        const result = await Modal.form({
-            title: isEdit ? 'Editar Ticket' : 'Nuevo Ticket',
-            fields,
-            data: ticket || { priority: 'medium', category: 'software' },
-            submitText: isEdit ? 'Actualizar' : 'Crear Ticket',
-            size: 'lg'
-        });
-
-        if (result) {
-            if (isEdit) {
-                result.id = ticket.id;
-            }
-            
-            const saved = Store.saveTicket(result);
-            this.table?.setData(Store.getTickets());
-            Sidebar.updateBadges();
-            
-            Toast.success(
-                isEdit ? 'Ticket actualizado correctamente' : `Ticket ${saved.folio} creado correctamente`
-            );
-        }
-    },
-
-    // ========================================
-    // VER TICKET
-    // ========================================
-
-    viewTicket(ticketId) {
-        const ticket = Store.getTicketById(ticketId);
-        if (!ticket) return;
-
-        const requester = ticket.requesterId ? Store.getEmployeeById(ticket.requesterId) : null;
-        const machine = ticket.machineId ? Store.getMachineById(ticket.machineId) : null;
-
-        Modal.open({
-            title: `Ticket ${ticket.folio}`,
-            size: 'lg',
-            content: `
-                <div class="ticket-detail">
-                    <div class="ticket-header" style="margin-bottom: 1.5rem;">
-                        <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem;">${Utils.escapeHtml(ticket.title)}</h3>
-                        <div style="display: flex; gap: 0.5rem;">
-                            ${TableActions.priorityBadge(ticket.priority)}
-                            ${TableActions.createStatusBadge({
-                                open: { label: 'Abierto', class: 'badge-open' },
-                                in_progress: { label: 'En Progreso', class: 'badge-in-progress' },
-                                resolved: { label: 'Resuelto', class: 'badge-resolved' },
-                                closed: { label: 'Cerrado', class: 'badge-closed' }
-                            })(ticket.status)}
-                        </div>
+        const modalHtml = `
+            <div class="modal-overlay active" id="ticketModal">
+                <div class="modal" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h2>${isEdit ? 'Editar Ticket' : 'Nuevo Ticket'}</h2>
+                        <button class="modal-close" onclick="document.getElementById('ticketModal').remove()">&times;</button>
                     </div>
-                    
-                    <div class="ticket-info" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Categoria</label>
-                            <p style="font-weight: 500;">${this.getCategoryLabel(ticket.category)}</p>
+                    <form id="ticketForm" class="modal-body">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Titulo *</label>
+                            <input type="text" name="title" required value="${ticket?.title || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
                         </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Fecha de Creacion</label>
-                            <p style="font-weight: 500;">${Utils.formatDateTime(ticket.createdAt)}</p>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Descripcion *</label>
+                            <textarea name="description" required rows="4" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">${ticket?.description || ''}</textarea>
                         </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Solicitante</label>
-                            <p style="font-weight: 500;">${requester ? `${requester.name} ${requester.lastName || ''}` : '-'}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Maquina</label>
-                            <p style="font-weight: 500;">${machine ? `${machine.name} (${machine.serialNumber})` : '-'}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="ticket-description" style="margin-bottom: 1.5rem;">
-                        <label style="font-size: 0.75rem; color: var(--text-tertiary);">Descripcion</label>
-                        <p style="margin-top: 0.5rem; white-space: pre-wrap;">${Utils.escapeHtml(ticket.description || 'Sin descripcion')}</p>
-                    </div>
-                    
-                    ${ticket.history?.length > 0 ? `
-                        <div class="ticket-history">
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Historial</label>
-                            <div style="margin-top: 0.5rem; max-height: 200px; overflow-y: auto;">
-                                ${ticket.history.map(h => `
-                                    <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.875rem;">
-                                        <span style="color: var(--text-tertiary);">${Utils.formatDateTime(h.timestamp)}</span>
-                                        <span> - ${this.getHistoryActionLabel(h)}</span>
-                                    </div>
-                                `).join('')}
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Categoria *</label>
+                                <select name="category" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="hardware" ${ticket?.category === 'hardware' ? 'selected' : ''}>Hardware</option>
+                                    <option value="software" ${ticket?.category === 'software' ? 'selected' : ''}>Software</option>
+                                    <option value="network" ${ticket?.category === 'network' ? 'selected' : ''}>Red</option>
+                                    <option value="other" ${ticket?.category === 'other' ? 'selected' : ''}>Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Prioridad *</label>
+                                <select name="priority" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="low" ${ticket?.priority === 'low' ? 'selected' : ''}>Baja</option>
+                                    <option value="medium" ${ticket?.priority === 'medium' ? 'selected' : ''}>Media</option>
+                                    <option value="high" ${ticket?.priority === 'high' ? 'selected' : ''}>Alta</option>
+                                    <option value="critical" ${ticket?.priority === 'critical' ? 'selected' : ''}>Critica</option>
+                                </select>
                             </div>
                         </div>
-                    ` : ''}
+                        ${isEdit ? `
+                            <div class="form-group" style="margin-top: 1rem;">
+                                <label>Estado</label>
+                                <select name="status" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="open" ${ticket?.status === 'open' ? 'selected' : ''}>Abierto</option>
+                                    <option value="in_progress" ${ticket?.status === 'in_progress' ? 'selected' : ''}>En Progreso</option>
+                                    <option value="resolved" ${ticket?.status === 'resolved' ? 'selected' : ''}>Resuelto</option>
+                                    <option value="closed" ${ticket?.status === 'closed' ? 'selected' : ''}>Cerrado</option>
+                                </select>
+                            </div>
+                        ` : ''}
+                        <input type="hidden" name="id" value="${ticket?.id || ''}">
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('ticketModal').remove()">Cancelar</button>
+                        <button type="submit" form="ticketForm" class="btn btn-primary">${isEdit ? 'Actualizar' : 'Crear Ticket'}</button>
+                    </div>
                 </div>
-            `,
-            buttons: [
-                { label: 'Cerrar', action: 'close' },
-                { label: 'Editar', action: 'edit', variant: 'btn-primary' }
-            ]
-        });
+            </div>
+        `;
 
-        // Manejar accion de editar
-        Modal.getActiveModal()?.addEventListener('modal-action', (e) => {
-            if (e.detail.action === 'edit') {
-                Modal.close();
-                this.openTicketForm(ticket);
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('ticketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            if (data.id) {
+                // Edit
+                const existing = await this.getTicketById(data.id);
+                if (existing) {
+                    Object.assign(existing, data);
+                    await Store.saveTicket(existing);
+                }
+            } else {
+                // New
+                delete data.id;
+                await Store.saveTicket(data);
             }
+
+            document.getElementById('ticketModal').remove();
+            await this.initTable();
+            this.showToast(isEdit ? 'Ticket actualizado' : 'Ticket creado correctamente');
         });
     },
 
-    getHistoryActionLabel(history) {
-        if (history.action === 'created') return 'Ticket creado';
-        if (history.action === 'status_change') {
-            return `Estado cambiado de "${this.getStatusLabel(history.from)}" a "${this.getStatusLabel(history.to)}"`;
+    async deleteTicket(id) {
+        if (confirm('¿Estas seguro de eliminar este ticket?')) {
+            await Store.deleteTicket(id);
+            await this.initTable();
+            this.showToast('Ticket eliminado');
         }
-        return history.action;
     },
 
-    getStatusLabel(status) {
-        const labels = {
-            open: 'Abierto',
-            in_progress: 'En Progreso',
-            resolved: 'Resuelto',
-            closed: 'Cerrado'
-        };
-        return labels[status] || status;
-    },
-
-    // ========================================
-    // ELIMINAR TICKET
-    // ========================================
-
-    async deleteTicket(ticket) {
-        const confirmed = await Modal.confirmDelete(`Ticket ${ticket.folio}`);
-        
-        if (confirmed) {
-            Store.deleteTicket(ticket.id);
-            this.table?.setData(Store.getTickets());
-            Sidebar.updateBadges();
-            Toast.success('Ticket eliminado correctamente');
-        }
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast success';
+        toast.textContent = message;
+        toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; padding: 1rem 1.5rem; border-radius: 8px; z-index: 9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
 
 // Inicializar
-document.addEventListener('DOMContentLoaded', () => {
-    TicketsModule.init();
+document.addEventListener('DOMContentLoaded', async () => {
+    setTimeout(() => TicketsModule.init(), 100);
 });
 
 window.TicketsModule = TicketsModule;
-

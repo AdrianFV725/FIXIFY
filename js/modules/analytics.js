@@ -1,307 +1,189 @@
 // ========================================
 // ANALYTICS MODULE
-// Reportes y graficas de analitica
 // ========================================
 
 const AnalyticsModule = {
-    dateRange: '30d',
+    async init() {
+        if (!Auth.isAuthenticated()) {
+            window.location.href = '../index.html';
+            return;
+        }
 
-    init() {
-        if (!Auth.requireAuth()) return;
-        this.bindEvents();
-        this.renderAll();
+        await this.renderDashboard();
     },
 
-    bindEvents() {
-        document.querySelectorAll('.date-btn')?.forEach(btn => {
-            btn.addEventListener('click', () => this.setDateRange(btn.dataset.range));
-        });
-
-        document.getElementById('exportReportBtn')?.addEventListener('click', () => this.exportReport());
-    },
-
-    setDateRange(range) {
-        this.dateRange = range;
-        document.querySelectorAll('.date-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.range === range);
-        });
-        this.renderAll();
-    },
-
-    renderAll() {
-        this.renderKPIs();
-        this.renderTicketsCharts();
-        this.renderMachinesCharts();
-        this.renderLicensesCharts();
-        this.renderInsights();
-    },
-
-    renderKPIs() {
-        const container = document.getElementById('analyticsKpis');
+    async renderDashboard() {
+        const container = document.querySelector('.page-content');
         if (!container) return;
 
-        const stats = Store.getStats();
-        const tickets = Store.getTickets();
-        const resolved = tickets.filter(t => t.status === 'resolved' || t.status === 'closed');
-
-        const kpis = [
-            { label: 'Tickets Resueltos', value: resolved.length, icon: 'check', color: '#22c55e' },
-            { label: 'Tiempo Prom. Resolucion', value: this.getAvgResolutionTime(resolved), icon: 'clock', color: '#3b82f6' },
-            { label: 'Tickets Abiertos', value: stats.tickets.open, icon: 'alert', color: '#f97316' },
-            { label: 'Maq. Problematicas', value: Store.getMostProblematicMachines(1).length, icon: 'warning', color: '#ef4444' }
-        ];
-
-        container.innerHTML = kpis.map(kpi => `
-            <div class="kpi-card">
-                <div class="kpi-value">${kpi.value}</div>
-                <div class="kpi-label">${kpi.label}</div>
-            </div>
-        `).join('');
-    },
-
-    getAvgResolutionTime(resolvedTickets) {
-        if (resolvedTickets.length === 0) return '0 hrs';
+        let stats, tickets, machines, licenses, employees;
         
-        const totalHours = resolvedTickets.reduce((sum, t) => {
-            if (!t.resolvedAt) return sum;
-            const created = new Date(t.createdAt);
-            const resolved = new Date(t.resolvedAt);
-            return sum + (resolved - created) / (1000 * 60 * 60);
-        }, 0);
-
-        const avg = totalHours / resolvedTickets.length;
-        if (avg < 1) return `${Math.round(avg * 60)} min`;
-        if (avg < 24) return `${Math.round(avg)} hrs`;
-        return `${Math.round(avg / 24)} dias`;
-    },
-
-    renderTicketsCharts() {
-        // Tendencia de tickets
-        const trendContainer = document.getElementById('ticketsTrendChart');
-        if (trendContainer) {
-            trendContainer.innerHTML = `
-                <h3 class="chart-title">Tendencia de Tickets</h3>
-                <div class="chart-container"><canvas id="ticketsTrendCanvas"></canvas></div>
-            `;
-
-            const labels = Charts.getMonthLabels(6);
-            const data = [12, 8, 15, 10, 18, 14]; // TODO: Calcular real
-
-            Charts.line('ticketsTrendCanvas', {
-                labels,
-                datasets: [{ label: 'Tickets', data, borderColor: '#3b82f6' }]
-            });
+        try {
+            stats = await Store.getStats();
+            tickets = await Store.getTickets() || [];
+            machines = await Store.getMachines() || [];
+            licenses = await Store.getLicenses() || [];
+            employees = await Store.getEmployees() || [];
+        } catch (e) {
+            console.error('Error cargando datos:', e);
+            stats = { tickets: {}, machines: {}, licenses: {}, employees: {} };
+            tickets = [];
+            machines = [];
+            licenses = [];
+            employees = [];
         }
 
-        // Por categoria
-        const catContainer = document.getElementById('ticketsByCategoryChart');
-        if (catContainer) {
-            catContainer.innerHTML = `
-                <h3 class="chart-title">Tickets por Categoria</h3>
-                <div class="chart-container"><canvas id="ticketsCategoryCanvas"></canvas></div>
-            `;
+        // Top maquinas problematicas
+        const problematicMachines = machines
+            .filter(m => (m.ticketCount || 0) > 0)
+            .sort((a, b) => (b.ticketCount || 0) - (a.ticketCount || 0))
+            .slice(0, 5);
 
-            const tickets = Store.getTickets();
-            const byCategory = Utils.groupBy(tickets, 'category');
-
-            Charts.doughnut('ticketsCategoryCanvas', {
-                labels: Object.keys(byCategory).map(k => k || 'Sin categoria'),
-                values: Object.values(byCategory).map(arr => arr.length)
-            });
-        }
-
-        // Por prioridad
-        const prioContainer = document.getElementById('ticketsByPriorityChart');
-        if (prioContainer) {
-            prioContainer.innerHTML = `
-                <h3 class="chart-title">Por Prioridad</h3>
-                <div class="chart-container"><canvas id="ticketsPriorityCanvas"></canvas></div>
-            `;
-
-            const tickets = Store.getTickets();
-            const byPriority = Utils.groupBy(tickets, 'priority');
-
-            Charts.horizontalBar('ticketsPriorityCanvas', {
-                labels: ['Critica', 'Alta', 'Media', 'Baja'],
-                datasets: [{
-                    label: 'Tickets',
-                    data: [
-                        byPriority.critical?.length || 0,
-                        byPriority.high?.length || 0,
-                        byPriority.medium?.length || 0,
-                        byPriority.low?.length || 0
-                    ],
-                    backgroundColor: ['#ef4444', '#f97316', '#eab308', '#6b7280']
-                }]
-            });
-        }
-    },
-
-    renderMachinesCharts() {
-        const failuresContainer = document.getElementById('machineFailuresChart');
-        if (failuresContainer) {
-            failuresContainer.innerHTML = `
-                <h3 class="chart-title">Maquinas con Mas Fallas</h3>
-                <div class="chart-container"><canvas id="machineFailuresCanvas"></canvas></div>
-                <div class="chart-highlight" id="machineHighlight"></div>
-            `;
-
-            const problematic = Store.getMostProblematicMachines(5);
-            
-            if (problematic.length > 0) {
-                Charts.horizontalBar('machineFailuresCanvas', {
-                    labels: problematic.map(m => m.name || m.serialNumber),
-                    datasets: [{
-                        label: 'Tickets',
-                        data: problematic.map(m => m.ticketCount),
-                        backgroundColor: '#ef4444'
-                    }]
-                });
-
-                const worst = problematic[0];
-                document.getElementById('machineHighlight').innerHTML = `
-                    <p style="font-size: 0.875rem;"><strong>Maquina mas problematica:</strong> ${worst.name}</p>
-                    <p style="font-size: 0.8rem; color: var(--text-tertiary);">${worst.ticketCount} tickets registrados</p>
-                `;
-            }
-        }
-
-        const typeContainer = document.getElementById('machinesByTypeChart');
-        if (typeContainer) {
-            typeContainer.innerHTML = `
-                <h3 class="chart-title">Maquinas por Tipo</h3>
-                <div class="chart-container"><canvas id="machinesTypeCanvas"></canvas></div>
-            `;
-
-            const machines = Store.getMachines();
-            const byType = Utils.groupBy(machines, 'type');
-
-            Charts.doughnut('machinesTypeCanvas', {
-                labels: Object.keys(byType).map(k => k || 'Sin tipo'),
-                values: Object.values(byType).map(arr => arr.length)
-            });
-        }
-    },
-
-    renderLicensesCharts() {
-        const distContainer = document.getElementById('licenseDistributionChart');
-        if (distContainer) {
-            distContainer.innerHTML = `
-                <h3 class="chart-title">Licencias Mas Utilizadas</h3>
-                <div class="chart-container"><canvas id="licenseDistCanvas"></canvas></div>
-                <div class="chart-highlight" id="licenseHighlight"></div>
-            `;
-
-            const mostUsed = Store.getMostUsedLicenses(5);
-            
-            if (mostUsed.length > 0) {
-                Charts.horizontalBar('licenseDistCanvas', {
-                    labels: mostUsed.map(l => l.software),
-                    datasets: [{
-                        label: 'Asignaciones',
-                        data: mostUsed.map(l => l.assignedCount || 0),
-                        backgroundColor: '#3b82f6'
-                    }]
-                });
-
-                const top = mostUsed[0];
-                document.getElementById('licenseHighlight').innerHTML = `
-                    <p style="font-size: 0.875rem;"><strong>Licencia mas popular:</strong> ${top.software}</p>
-                    <p style="font-size: 0.8rem; color: var(--text-tertiary);">${top.assignedCount || 0} asignaciones</p>
-                `;
-            }
-        }
-    },
-
-    renderInsights() {
-        const container = document.getElementById('insightsSection');
-        if (!container) return;
-
-        const insights = this.generateInsights();
-        
-        const gridHtml = insights.length > 0 ? `
-            <div class="insights-grid">
-                ${insights.map(i => `
-                    <div class="insight-card ${i.type}">
-                        <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem;">${i.title}</h4>
-                        <p style="font-size: 0.8rem; color: var(--text-secondary);">${i.message}</p>
-                    </div>
-                `).join('')}
-            </div>
-        ` : '<p class="text-muted">No hay insights disponibles con los datos actuales</p>';
-
-        container.innerHTML = `<h2 class="section-title">Insights y Recomendaciones</h2>${gridHtml}`;
-    },
-
-    generateInsights() {
-        const insights = [];
-        const stats = Store.getStats();
-
-        // Maquinas problematicas
-        const problematic = Store.getMostProblematicMachines(1)[0];
-        if (problematic && problematic.ticketCount >= 3) {
-            insights.push({
-                type: 'warning',
-                title: 'Maquina con alta incidencia',
-                message: `${problematic.name} tiene ${problematic.ticketCount} tickets. Considera revisar o reemplazar este equipo.`
-            });
-        }
-
-        // Licencias por vencer
-        const expiring = Store.getExpiringLicenses(30);
-        if (expiring.length > 0) {
-            insights.push({
-                type: 'danger',
-                title: 'Licencias por vencer',
-                message: `${expiring.length} licencia${expiring.length > 1 ? 's' : ''} vencera${expiring.length > 1 ? 'n' : ''} en los proximos 30 dias. Revisa las renovaciones.`
-            });
-        }
-
-        // Tickets abiertos
-        if (stats.tickets.open > 5) {
-            insights.push({
-                type: 'warning',
-                title: 'Tickets pendientes',
-                message: `Hay ${stats.tickets.open} tickets abiertos. Revisa la carga de trabajo del equipo.`
-            });
-        }
-
-        // Maquinas sin asignar
-        if (stats.machines.available > stats.machines.total * 0.3) {
-            insights.push({
-                type: '',
-                title: 'Equipos disponibles',
-                message: `${stats.machines.available} maquinas estan sin asignar. Considera redistribuir recursos.`
-            });
-        }
-
-        return insights;
-    },
-
-    exportReport() {
-        Toast.info('Generando reporte...');
-        
-        const stats = Store.getStats();
-        const report = {
-            generatedAt: new Date().toISOString(),
-            period: this.dateRange,
-            summary: stats,
-            problematicMachines: Store.getMostProblematicMachines(10),
-            expiringLicenses: Store.getExpiringLicenses(30),
-            insights: this.generateInsights()
+        // Tickets por estado
+        const ticketsByStatus = {
+            open: tickets.filter(t => t.status === 'open').length,
+            in_progress: tickets.filter(t => t.status === 'in_progress').length,
+            resolved: tickets.filter(t => t.status === 'resolved').length,
+            closed: tickets.filter(t => t.status === 'closed').length
         };
 
-        // Simular descarga de JSON
-        const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `fixify-report-${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
+        // Tickets por categoria
+        const ticketsByCategory = {
+            hardware: tickets.filter(t => t.category === 'hardware').length,
+            software: tickets.filter(t => t.category === 'software').length,
+            network: tickets.filter(t => t.category === 'network').length,
+            other: tickets.filter(t => t.category === 'other').length
+        };
 
-        Toast.success('Reporte exportado');
+        container.innerHTML = `
+            <!-- KPIs Resumen -->
+            <section class="kpi-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                    <div style="font-size: 0.875rem; color: var(--text-tertiary); margin-bottom: 0.5rem;">Total Tickets</div>
+                    <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">${tickets.length}</div>
+                    <div style="font-size: 0.75rem; color: #3b82f6; margin-top: 0.5rem;">${ticketsByStatus.open} abiertos</div>
+                </div>
+                <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                    <div style="font-size: 0.875rem; color: var(--text-tertiary); margin-bottom: 0.5rem;">Maquinas</div>
+                    <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">${machines.length}</div>
+                    <div style="font-size: 0.75rem; color: #22c55e; margin-top: 0.5rem;">${machines.filter(m => m.assignedTo).length} asignadas</div>
+                </div>
+                <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                    <div style="font-size: 0.875rem; color: var(--text-tertiary); margin-bottom: 0.5rem;">Empleados</div>
+                    <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">${employees.length}</div>
+                    <div style="font-size: 0.75rem; color: #a855f7; margin-top: 0.5rem;">${employees.filter(e => e.status === 'active').length} activos</div>
+                </div>
+                <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                    <div style="font-size: 0.875rem; color: var(--text-tertiary); margin-bottom: 0.5rem;">Licencias</div>
+                    <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">${licenses.length}</div>
+                    <div style="font-size: 0.75rem; color: #f97316; margin-top: 0.5rem;">${stats.licenses?.expiring || 0} por vencer</div>
+                </div>
+            </section>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <!-- Tickets por Estado -->
+                <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1.5rem;">Tickets por Estado</h3>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="width: 100px; font-size: 0.875rem;">Abiertos</span>
+                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${tickets.length ? (ticketsByStatus.open / tickets.length * 100) : 0}%; height: 100%; background: #3b82f6;"></div>
+                            </div>
+                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByStatus.open}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="width: 100px; font-size: 0.875rem;">En Progreso</span>
+                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${tickets.length ? (ticketsByStatus.in_progress / tickets.length * 100) : 0}%; height: 100%; background: #f97316;"></div>
+                            </div>
+                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByStatus.in_progress}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="width: 100px; font-size: 0.875rem;">Resueltos</span>
+                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${tickets.length ? (ticketsByStatus.resolved / tickets.length * 100) : 0}%; height: 100%; background: #22c55e;"></div>
+                            </div>
+                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByStatus.resolved}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="width: 100px; font-size: 0.875rem;">Cerrados</span>
+                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${tickets.length ? (ticketsByStatus.closed / tickets.length * 100) : 0}%; height: 100%; background: #6b7280;"></div>
+                            </div>
+                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByStatus.closed}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tickets por Categoria -->
+                <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1.5rem;">Tickets por Categoria</h3>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="width: 100px; font-size: 0.875rem;">Hardware</span>
+                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${tickets.length ? (ticketsByCategory.hardware / tickets.length * 100) : 0}%; height: 100%; background: #ef4444;"></div>
+                            </div>
+                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByCategory.hardware}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="width: 100px; font-size: 0.875rem;">Software</span>
+                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${tickets.length ? (ticketsByCategory.software / tickets.length * 100) : 0}%; height: 100%; background: #8b5cf6;"></div>
+                            </div>
+                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByCategory.software}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="width: 100px; font-size: 0.875rem;">Red</span>
+                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${tickets.length ? (ticketsByCategory.network / tickets.length * 100) : 0}%; height: 100%; background: #06b6d4;"></div>
+                            </div>
+                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByCategory.network}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span style="width: 100px; font-size: 0.875rem;">Otro</span>
+                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${tickets.length ? (ticketsByCategory.other / tickets.length * 100) : 0}%; height: 100%; background: #6b7280;"></div>
+                            </div>
+                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByCategory.other}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Maquinas Problematicas -->
+                <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; grid-column: span 2;">
+                    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1.5rem;">Maquinas con Mas Fallas</h3>
+                    ${problematicMachines.length === 0 ? `
+                        <p style="color: var(--text-tertiary); text-align: center; padding: 2rem;">No hay datos de fallas registradas</p>
+                    ` : `
+                        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;">
+                            ${problematicMachines.map((m, i) => `
+                                <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 1rem; text-align: center;">
+                                    <div style="width: 48px; height: 48px; background: rgba(239, 68, 68, ${0.2 - i * 0.03}); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem; color: #ef4444; font-weight: 700; font-size: 1.25rem;">
+                                        ${m.ticketCount || 0}
+                                    </div>
+                                    <div style="font-weight: 500; font-size: 0.875rem; margin-bottom: 0.25rem;">${this.escapeHtml(m.name)}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-tertiary);">${m.serialNumber}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+    },
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => AnalyticsModule.init());
-window.AnalyticsModule = AnalyticsModule;
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => AnalyticsModule.init(), 100);
+});
 
+window.AnalyticsModule = AnalyticsModule;

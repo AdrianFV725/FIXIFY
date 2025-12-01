@@ -1,312 +1,229 @@
 // ========================================
 // ASSIGNMENTS MODULE
-// Centro de asignaciones de maquinas y licencias
 // ========================================
 
 const AssignmentsModule = {
-    currentTab: 'machines',
-    selectedEmployee: null,
-    selectedResource: null,
+    employees: [],
+    machines: [],
+    licenses: [],
 
-    init() {
-        if (!Auth.requireAuth()) return;
+    async init() {
+        if (!Auth.isAuthenticated()) {
+            window.location.href = '../index.html';
+            return;
+        }
+
+        await this.loadData();
+        this.renderContent();
         this.bindEvents();
-        this.renderEmployeesList();
-        this.renderResourcesList();
-        this.renderHistory();
+    },
+
+    async loadData() {
+        try {
+            this.employees = await Store.getEmployees() || [];
+            this.machines = await Store.getMachines() || [];
+            this.licenses = await Store.getLicenses() || [];
+        } catch (e) {
+            console.error('Error cargando datos:', e);
+        }
+    },
+
+    renderContent() {
+        const container = document.querySelector('.page-content');
+        if (!container) return;
+
+        const assignedMachines = this.machines.filter(m => m.assignedTo);
+        const availableMachines = this.machines.filter(m => !m.assignedTo && m.status === 'available');
+
+        container.innerHTML = `
+            <div class="tabs" style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color);">
+                <button class="tab-btn active" data-tab="machines" style="padding: 1rem 1.5rem; background: none; border: none; border-bottom: 2px solid var(--accent-primary); color: var(--text-primary); font-weight: 500; cursor: pointer;">Asignar Maquinas</button>
+                <button class="tab-btn" data-tab="licenses" style="padding: 1rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); font-weight: 500; cursor: pointer;">Asignar Licencias</button>
+            </div>
+
+            <div id="machinesTab" class="tab-content">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <!-- Maquinas disponibles -->
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                        <h3 style="margin-bottom: 1rem; font-size: 1rem;">Maquinas Disponibles (${availableMachines.length})</h3>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            ${availableMachines.length === 0 ? `
+                                <p style="color: var(--text-tertiary); text-align: center; padding: 2rem;">No hay maquinas disponibles</p>
+                            ` : availableMachines.map(m => `
+                                <div class="assignment-item" data-machine-id="${m.id}" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; transition: background 0.2s;">
+                                    <div style="width: 40px; height: 40px; background: var(--bg-tertiary); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 500;">${this.escapeHtml(m.name)}</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-tertiary);">${m.serialNumber}</div>
+                                    </div>
+                                    <button class="btn btn-sm btn-primary" onclick="AssignmentsModule.showAssignModal('machine', '${m.id}')">Asignar</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Maquinas asignadas -->
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                        <h3 style="margin-bottom: 1rem; font-size: 1rem;">Maquinas Asignadas (${assignedMachines.length})</h3>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            ${assignedMachines.length === 0 ? `
+                                <p style="color: var(--text-tertiary); text-align: center; padding: 2rem;">No hay maquinas asignadas</p>
+                            ` : assignedMachines.map(m => {
+                                const employee = this.employees.find(e => e.id === m.assignedTo);
+                                return `
+                                    <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 0.5rem;">
+                                        <div style="width: 40px; height: 40px; background: rgba(34, 197, 94, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #22c55e;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <div style="font-weight: 500;">${this.escapeHtml(m.name)}</div>
+                                            <div style="font-size: 0.75rem; color: var(--text-tertiary);">Asignada a: ${employee ? `${employee.name} ${employee.lastName || ''}` : 'Desconocido'}</div>
+                                        </div>
+                                        <button class="btn btn-sm btn-secondary" onclick="AssignmentsModule.unassignMachine('${m.id}')">Desasignar</button>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="licensesTab" class="tab-content" style="display: none;">
+                <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem; font-size: 1rem;">Licencias Disponibles</h3>
+                    <div style="max-height: 500px; overflow-y: auto;">
+                        ${this.licenses.length === 0 ? `
+                            <p style="color: var(--text-tertiary); text-align: center; padding: 2rem;">No hay licencias registradas</p>
+                        ` : this.licenses.map(l => `
+                            <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 0.5rem;">
+                                <div style="width: 40px; height: 40px; background: rgba(168, 85, 247, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #a855f7;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 500;">${this.escapeHtml(l.software)}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-tertiary);">Disponibles: ${(l.quantity || 0) - (l.assignedCount || 0)} de ${l.quantity || 0}</div>
+                                </div>
+                                <button class="btn btn-sm btn-primary" onclick="AssignmentsModule.showAssignModal('license', '${l.id}')" ${(l.assignedCount || 0) >= (l.quantity || 0) ? 'disabled' : ''}>Asignar</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     },
 
     bindEvents() {
-        // Tabs
-        document.querySelectorAll('.tab')?.forEach(tab => {
-            tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('active');
+                    b.style.borderBottomColor = 'transparent';
+                    b.style.color = 'var(--text-secondary)';
+                });
+                btn.classList.add('active');
+                btn.style.borderBottomColor = 'var(--accent-primary)';
+                btn.style.color = 'var(--text-primary)';
+
+                const tab = btn.dataset.tab;
+                document.getElementById('machinesTab').style.display = tab === 'machines' ? 'block' : 'none';
+                document.getElementById('licensesTab').style.display = tab === 'licenses' ? 'block' : 'none';
+            });
         });
-
-        // Busqueda de empleados
-        document.getElementById('searchEmployee')?.addEventListener('input', Utils.debounce((e) => {
-            this.renderEmployeesList(e.target.value);
-        }, 300));
-
-        document.getElementById('searchEmployeeLic')?.addEventListener('input', Utils.debounce((e) => {
-            this.renderEmployeesList(e.target.value, 'licensesPanel');
-        }, 300));
-
-        // Busqueda de recursos
-        document.getElementById('searchMachine')?.addEventListener('input', Utils.debounce((e) => {
-            this.renderMachinesList(e.target.value);
-        }, 300));
-
-        document.getElementById('searchLicense')?.addEventListener('input', Utils.debounce((e) => {
-            this.renderLicensesList(e.target.value);
-        }, 300));
-
-        // Botones de asignacion
-        document.getElementById('assignMachineBtn')?.addEventListener('click', () => this.assignMachine());
-        document.getElementById('unassignMachineBtn')?.addEventListener('click', () => this.unassignMachine());
-        document.getElementById('assignLicenseBtn')?.addEventListener('click', () => this.assignLicense());
-        document.getElementById('unassignLicenseBtn')?.addEventListener('click', () => this.unassignLicense());
     },
 
-    switchTab(tab) {
-        this.currentTab = tab;
-        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-        document.getElementById('machinesPanel')?.classList.toggle('hidden', tab !== 'machines');
-        document.getElementById('licensesPanel')?.classList.toggle('hidden', tab !== 'licenses');
-        
-        this.selectedEmployee = null;
-        this.selectedResource = null;
-        this.updateButtons();
+    showAssignModal(type, itemId) {
+        const item = type === 'machine' 
+            ? this.machines.find(m => m.id === itemId)
+            : this.licenses.find(l => l.id === itemId);
 
-        if (tab === 'machines') {
-            this.renderEmployeesList();
-            this.renderMachinesList();
-        } else {
-            this.renderEmployeesList('', 'licensesPanel');
-            this.renderLicensesList();
-        }
-    },
+        if (!item) return;
 
-    renderEmployeesList(search = '', panel = 'machinesPanel') {
-        const containerId = panel === 'machinesPanel' ? 'employeesList' : 'employeesListLic';
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        let employees = Store.getEmployees().filter(e => e.status === 'active');
-        if (search) {
-            employees = Utils.searchInFields(employees, search, ['name', 'lastName', 'email']);
-        }
-
-        container.innerHTML = employees.map(emp => {
-            const machines = Store.getMachinesByEmployee(emp.id);
-            const licenses = Store.getLicensesByEmployee(emp.id);
-            
-            return `
-                <div class="selection-item" data-id="${emp.id}">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <div class="avatar sm">${Utils.getInitials(`${emp.name} ${emp.lastName || ''}`)}</div>
-                        <div>
-                            <div style="font-weight: 500; font-size: 0.875rem;">${emp.name} ${emp.lastName || ''}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-tertiary);">
-                                ${machines.length} maq. / ${licenses.length} lic.
-                            </div>
+        const modalHtml = `
+            <div class="modal-overlay active" id="assignModal">
+                <div class="modal" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2>Asignar ${type === 'machine' ? 'Maquina' : 'Licencia'}</h2>
+                        <button class="modal-close" onclick="document.getElementById('assignModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="margin-bottom: 1rem;">
+                            <strong>${type === 'machine' ? item.name : item.software}</strong>
+                        </p>
+                        <div class="form-group">
+                            <label>Seleccionar Empleado *</label>
+                            <select id="employeeSelect" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                <option value="">-- Seleccionar --</option>
+                                ${this.employees.filter(e => e.status === 'active').map(e => `
+                                    <option value="${e.id}">${e.name} ${e.lastName || ''}</option>
+                                `).join('')}
+                            </select>
                         </div>
                     </div>
-                </div>
-            `;
-        }).join('') || '<p class="text-muted" style="padding: 1rem;">No hay empleados</p>';
-
-        container.querySelectorAll('.selection-item').forEach(item => {
-            item.addEventListener('click', () => this.selectEmployee(item.dataset.id, containerId));
-        });
-    },
-
-    renderMachinesList(search = '') {
-        const container = document.getElementById('machinesList');
-        if (!container) return;
-
-        let machines = Store.getMachines().filter(m => m.status === 'available' || m.status === 'assigned');
-        if (search) {
-            machines = Utils.searchInFields(machines, search, ['name', 'serialNumber', 'brand']);
-        }
-
-        container.innerHTML = machines.map(m => `
-            <div class="selection-item ${m.assignedTo ? 'assigned' : ''}" data-id="${m.id}">
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <div style="width: 32px; height: 32px; border-radius: 8px; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button class="btn btn-secondary" onclick="document.getElementById('assignModal').remove()">Cancelar</button>
+                        <button class="btn btn-primary" onclick="AssignmentsModule.confirmAssign('${type}', '${itemId}')">Asignar</button>
                     </div>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 500; font-size: 0.875rem;">${m.name}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-tertiary);">${m.serialNumber}</div>
-                    </div>
-                    <span class="badge ${m.assignedTo ? 'badge-open' : 'badge-active'}">${m.assignedTo ? 'Asignada' : 'Disponible'}</span>
                 </div>
             </div>
-        `).join('') || '<p class="text-muted" style="padding: 1rem;">No hay maquinas</p>';
+        `;
 
-        container.querySelectorAll('.selection-item').forEach(item => {
-            item.addEventListener('click', () => this.selectResource(item.dataset.id, 'machine'));
-        });
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
 
-    renderLicensesList(search = '') {
-        const container = document.getElementById('licensesList');
-        if (!container) return;
-
-        let licenses = Store.getLicenses();
-        if (search) {
-            licenses = Utils.searchInFields(licenses, search, ['software', 'vendor']);
-        }
-
-        container.innerHTML = licenses.map(l => {
-            const available = l.quantity ? l.quantity - (l.assignedCount || 0) : 'Ilimitadas';
-            return `
-                <div class="selection-item" data-id="${l.id}">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <div style="width: 32px; height: 32px; border-radius: 8px; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline></svg>
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-weight: 500; font-size: 0.875rem;">${l.software}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-tertiary);">Disponibles: ${available}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('') || '<p class="text-muted" style="padding: 1rem;">No hay licencias</p>';
-
-        container.querySelectorAll('.selection-item').forEach(item => {
-            item.addEventListener('click', () => this.selectResource(item.dataset.id, 'license'));
-        });
-    },
-
-    selectEmployee(id, containerId) {
-        this.selectedEmployee = id;
-        document.querySelectorAll(`#${containerId} .selection-item`).forEach(item => {
-            item.classList.toggle('selected', item.dataset.id === id);
-        });
-        this.updateButtons();
-    },
-
-    selectResource(id, type) {
-        this.selectedResource = { id, type };
-        const containerId = type === 'machine' ? 'machinesList' : 'licensesList';
-        document.querySelectorAll(`#${containerId} .selection-item`).forEach(item => {
-            item.classList.toggle('selected', item.dataset.id === id);
-        });
-        this.updateButtons();
-    },
-
-    updateButtons() {
-        const hasSelection = this.selectedEmployee && this.selectedResource;
-        
-        if (this.currentTab === 'machines') {
-            const assignBtn = document.getElementById('assignMachineBtn');
-            const unassignBtn = document.getElementById('unassignMachineBtn');
-            if (assignBtn) assignBtn.disabled = !hasSelection;
-            if (unassignBtn) unassignBtn.disabled = !hasSelection;
-        } else {
-            const assignBtn = document.getElementById('assignLicenseBtn');
-            const unassignBtn = document.getElementById('unassignLicenseBtn');
-            if (assignBtn) assignBtn.disabled = !hasSelection;
-            if (unassignBtn) unassignBtn.disabled = !hasSelection;
-        }
-    },
-
-    async assignMachine() {
-        if (!this.selectedEmployee || !this.selectedResource) return;
-
-        const employee = Store.getEmployeeById(this.selectedEmployee);
-        const machine = Store.getMachineById(this.selectedResource.id);
-
-        const confirmed = await Modal.confirm({
-            title: 'Confirmar Asignacion',
-            message: `Asignar <strong>${machine.name}</strong> a <strong>${employee.name} ${employee.lastName || ''}</strong>?`
-        });
-
-        if (confirmed) {
-            Store.assignMachineToEmployee(this.selectedResource.id, this.selectedEmployee);
-            this.renderMachinesList();
-            this.renderHistory();
-            Toast.success('Maquina asignada correctamente');
-            this.selectedResource = null;
-            this.updateButtons();
-        }
-    },
-
-    async unassignMachine() {
-        if (!this.selectedResource) return;
-
-        const machine = Store.getMachineById(this.selectedResource.id);
-        if (!machine.assignedTo) {
-            Toast.warning('Esta maquina no esta asignada');
+    async confirmAssign(type, itemId) {
+        const employeeId = document.getElementById('employeeSelect').value;
+        if (!employeeId) {
+            alert('Selecciona un empleado');
             return;
         }
-
-        const confirmed = await Modal.confirm({
-            title: 'Confirmar Desasignacion',
-            message: `Desasignar <strong>${machine.name}</strong>?`
-        });
-
-        if (confirmed) {
-            Store.unassignMachine(this.selectedResource.id);
-            this.renderMachinesList();
-            this.renderHistory();
-            Toast.success('Maquina desasignada');
-        }
-    },
-
-    async assignLicense() {
-        if (!this.selectedEmployee || !this.selectedResource) return;
 
         try {
-            Store.assignLicenseToEmployee(this.selectedResource.id, this.selectedEmployee);
-            this.renderLicensesList();
-            this.renderHistory();
-            Toast.success('Licencia asignada correctamente');
-            this.selectedResource = null;
-            this.updateButtons();
-        } catch (error) {
-            Toast.error(error.message);
+            if (type === 'machine') {
+                await Store.assignMachineToEmployee(itemId, employeeId);
+            } else {
+                await Store.assignLicenseToEmployee(itemId, employeeId);
+            }
+
+            document.getElementById('assignModal').remove();
+            await this.loadData();
+            this.renderContent();
+            this.bindEvents();
+            this.showToast('Asignacion realizada correctamente');
+        } catch (e) {
+            alert(e.message || 'Error al realizar la asignacion');
         }
     },
 
-    async unassignLicense() {
-        if (!this.selectedEmployee || !this.selectedResource) return;
-
-        const confirmed = await Modal.confirm({
-            title: 'Confirmar Desasignacion',
-            message: 'Desasignar esta licencia del empleado seleccionado?'
-        });
-
-        if (confirmed) {
-            Store.unassignLicense(this.selectedResource.id, this.selectedEmployee);
-            this.renderLicensesList();
-            this.renderHistory();
-            Toast.success('Licencia desasignada');
+    async unassignMachine(machineId) {
+        if (confirm('¿Estas seguro de desasignar esta maquina?')) {
+            await Store.unassignMachine(machineId);
+            await this.loadData();
+            this.renderContent();
+            this.bindEvents();
+            this.showToast('Maquina desasignada');
         }
     },
 
-    renderHistory() {
-        const container = document.getElementById('assignmentsHistoryTable');
-        if (!container) return;
-
-        const machineAssignments = Store.getMachineAssignments().slice(-10).reverse();
-        const licenseAssignments = Store.getLicenseAssignments().slice(-10).reverse();
-
-        const all = [...machineAssignments.map(a => ({ ...a, type: 'machine' })),
-                     ...licenseAssignments.map(a => ({ ...a, type: 'license' }))]
-            .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
-            .slice(0, 10);
-
-        if (all.length === 0) {
-            container.innerHTML = '<p class="text-muted" style="padding: 1rem;">No hay historial de asignaciones</p>';
-            return;
-        }
-
-        container.innerHTML = `
-            <thead><tr>
-                <th>Fecha</th><th>Tipo</th><th>Recurso</th><th>Empleado</th><th>Accion</th>
-            </tr></thead>
-            <tbody>
-                ${all.map(a => {
-                    const resource = a.type === 'machine' 
-                        ? Store.getMachineById(a.machineId) 
-                        : Store.getLicenseById(a.licenseId);
-                    const employee = Store.getEmployeeById(a.employeeId);
-                    return `<tr>
-                        <td>${Utils.formatDate(a.startDate)}</td>
-                        <td>${a.type === 'machine' ? 'Maquina' : 'Licencia'}</td>
-                        <td>${resource?.name || resource?.software || '-'}</td>
-                        <td>${employee ? `${employee.name} ${employee.lastName || ''}` : '-'}</td>
-                        <td><span class="badge badge-active">${a.endDate ? 'Desasignacion' : 'Asignacion'}</span></td>
-                    </tr>`;
-                }).join('')}
-            </tbody>
-        `;
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; padding: 1rem 1.5rem; border-radius: 8px; z-index: 9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => AssignmentsModule.init());
-window.AssignmentsModule = AssignmentsModule;
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => AssignmentsModule.init(), 100);
+});
 
+window.AssignmentsModule = AssignmentsModule;

@@ -4,36 +4,45 @@
 // ========================================
 
 const MachinesModule = {
-    table: null,
-    viewMode: 'table',
+    machines: [],
 
-    // ========================================
-    // INICIALIZACION
-    // ========================================
+    async init() {
+        if (!Auth.isAuthenticated()) {
+            window.location.href = '../index.html';
+            return;
+        }
 
-    init() {
-        if (!Auth.requireAuth()) return;
-
+        await this.loadData();
         this.renderStats();
         this.renderFilters();
-        this.initTable();
+        this.renderTable();
         this.bindEvents();
     },
 
-    // ========================================
-    // ESTADISTICAS
-    // ========================================
+    async loadData() {
+        try {
+            this.machines = await Store.getMachines() || [];
+        } catch (e) {
+            console.error('Error cargando maquinas:', e);
+            this.machines = [];
+        }
+    },
 
     renderStats() {
         const container = document.getElementById('machineStats');
         if (!container) return;
 
-        const stats = Store.getStats().machines;
+        const stats = {
+            total: this.machines.length,
+            assigned: this.machines.filter(m => m.assignedTo).length,
+            available: this.machines.filter(m => !m.assignedTo && m.status !== 'maintenance').length,
+            maintenance: this.machines.filter(m => m.status === 'maintenance').length
+        };
 
         container.innerHTML = `
             <div class="mini-stat">
                 <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                 </div>
                 <div class="mini-stat-content">
                     <span class="mini-stat-value">${stats.total}</span>
@@ -70,30 +79,9 @@ const MachinesModule = {
         `;
     },
 
-    // ========================================
-    // FILTROS
-    // ========================================
-
     renderFilters() {
         const container = document.getElementById('filtersBar');
         if (!container) return;
-
-        const types = [
-            { value: '', label: 'Todos' },
-            { value: 'laptop', label: 'Laptop' },
-            { value: 'desktop', label: 'Desktop' },
-            { value: 'server', label: 'Servidor' },
-            { value: 'printer', label: 'Impresora' },
-            { value: 'other', label: 'Otro' }
-        ];
-
-        const statuses = [
-            { value: '', label: 'Todos' },
-            { value: 'available', label: 'Disponible' },
-            { value: 'assigned', label: 'Asignada' },
-            { value: 'maintenance', label: 'Mantenimiento' },
-            { value: 'retired', label: 'Dada de baja' }
-        ];
 
         container.innerHTML = `
             <div class="filter-group">
@@ -102,376 +90,222 @@ const MachinesModule = {
             <div class="filter-group">
                 <label class="filter-label">Tipo:</label>
                 <select class="filter-select" id="typeFilter">
-                    ${types.map(t => `<option value="${t.value}">${t.label}</option>`).join('')}
+                    <option value="">Todos</option>
+                    <option value="laptop">Laptop</option>
+                    <option value="desktop">Desktop</option>
+                    <option value="server">Servidor</option>
+                    <option value="printer">Impresora</option>
+                    <option value="other">Otro</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label class="filter-label">Estado:</label>
                 <select class="filter-select" id="statusFilter">
-                    ${statuses.map(s => `<option value="${s.value}">${s.label}</option>`).join('')}
+                    <option value="">Todos</option>
+                    <option value="available">Disponible</option>
+                    <option value="assigned">Asignada</option>
+                    <option value="maintenance">Mantenimiento</option>
+                    <option value="retired">Dada de baja</option>
                 </select>
             </div>
             <button class="filter-btn" id="clearFilters">Limpiar</button>
         `;
     },
 
-    // ========================================
-    // TABLA
-    // ========================================
-
-    initTable() {
+    renderTable() {
         const container = document.getElementById('tableView') || document.querySelector('.page-content');
         if (!container) return;
 
-        if (!document.getElementById('machinesTableContainer')) {
-            const tableContainer = document.createElement('div');
+        const statusBadge = (status) => {
+            const config = {
+                available: { label: 'Disponible', class: 'badge-active' },
+                assigned: { label: 'Asignada', class: 'badge-open' },
+                maintenance: { label: 'Mantenimiento', class: 'badge-maintenance' },
+                retired: { label: 'Baja', class: 'badge-inactive' }
+            };
+            const c = config[status] || { label: status || '-', class: 'badge' };
+            return `<span class="badge ${c.class}">${c.label}</span>`;
+        };
+
+        const typeLabel = (type) => {
+            const labels = { laptop: 'Laptop', desktop: 'Desktop', server: 'Servidor', printer: 'Impresora', other: 'Otro' };
+            return labels[type] || type || '-';
+        };
+
+        let tableContainer = document.getElementById('machinesTableContainer');
+        if (!tableContainer) {
+            tableContainer = document.createElement('div');
             tableContainer.id = 'machinesTableContainer';
             container.appendChild(tableContainer);
         }
 
-        const statusBadge = TableActions.createStatusBadge({
-            available: { label: 'Disponible', class: 'badge-active' },
-            assigned: { label: 'Asignada', class: 'badge-open' },
-            maintenance: { label: 'Mantenimiento', class: 'badge-maintenance' },
-            retired: { label: 'Baja', class: 'badge-inactive' }
-        });
-
-        this.table = new DataTable({
-            container: document.getElementById('machinesTableContainer'),
-            columns: [
-                { key: 'serialNumber', label: 'No. Serie', className: 'cell-id' },
-                { key: 'name', label: 'Nombre', className: 'cell-primary' },
-                { key: 'type', label: 'Tipo', render: (v) => this.getTypeLabel(v) },
-                { key: 'brand', label: 'Marca' },
-                { key: 'model', label: 'Modelo' },
-                { key: 'status', label: 'Estado', render: statusBadge },
-                { 
-                    key: 'assignedTo', 
-                    label: 'Asignada a', 
-                    render: (v) => {
-                        if (!v) return '-';
-                        const emp = Store.getEmployeeById(v);
-                        return emp ? `${emp.name} ${emp.lastName || ''}` : '-';
-                    }
-                },
-                { key: 'ticketCount', label: 'Tickets', render: (v) => v || 0 },
-                TableActions.createActionsColumn(['view', 'edit', 'delete'])
-            ],
-            data: Store.getMachines(),
-            searchFields: ['serialNumber', 'name', 'brand', 'model'],
-            perPage: 10,
-            emptyMessage: 'No hay maquinas registradas',
-            onRowClick: (row) => this.viewMachine(row.id),
-            onAction: (action, row) => this.handleAction(action, row)
-        });
+        tableContainer.innerHTML = `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>No. Serie</th>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Marca</th>
+                        <th>Modelo</th>
+                        <th>Estado</th>
+                        <th>Tickets</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${this.machines.length === 0 ? `
+                        <tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">No hay maquinas registradas</td></tr>
+                    ` : this.machines.map(m => `
+                        <tr data-id="${m.id}">
+                            <td style="font-family: monospace;">${m.serialNumber || '-'}</td>
+                            <td>${this.escapeHtml(m.name || '')}</td>
+                            <td>${typeLabel(m.type)}</td>
+                            <td>${m.brand || '-'}</td>
+                            <td>${m.model || '-'}</td>
+                            <td>${statusBadge(m.status)}</td>
+                            <td>${m.ticketCount || 0}</td>
+                            <td>
+                                <button class="btn-icon sm" onclick="MachinesModule.openForm(MachinesModule.getMachineById('${m.id}'))">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button class="btn-icon sm" onclick="MachinesModule.deleteMachine('${m.id}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
     },
 
-    getTypeLabel(type) {
-        const labels = {
-            laptop: 'Laptop',
-            desktop: 'Desktop',
-            server: 'Servidor',
-            printer: 'Impresora',
-            other: 'Otro'
-        };
-        return labels[type] || type || '-';
+    getMachineById(id) {
+        return this.machines.find(m => m.id === id);
     },
 
-    // ========================================
-    // EVENTOS
-    // ========================================
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
 
     bindEvents() {
-        // Busqueda
-        document.getElementById('searchInput')?.addEventListener('input', Utils.debounce((e) => {
-            this.table?.search(e.target.value);
-        }, 300));
-
-        // Filtros
-        ['typeFilter', 'statusFilter'].forEach(id => {
-            document.getElementById(id)?.addEventListener('change', () => this.applyFilters());
-        });
-
-        // Limpiar filtros
-        document.getElementById('clearFilters')?.addEventListener('click', () => {
+        document.getElementById('newMachineBtn')?.addEventListener('click', () => this.openForm());
+        
+        document.getElementById('clearFilters')?.addEventListener('click', async () => {
             document.getElementById('searchInput').value = '';
             document.getElementById('typeFilter').value = '';
             document.getElementById('statusFilter').value = '';
-            this.table?.setData(Store.getMachines());
-        });
-
-        // Nueva maquina
-        document.getElementById('newMachineBtn')?.addEventListener('click', () => {
-            this.openMachineForm();
-        });
-
-        // Exportar
-        document.getElementById('exportBtn')?.addEventListener('click', () => {
-            this.exportMachines();
-        });
-
-        // Toggle vista
-        document.querySelectorAll('.view-btn')?.forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.toggleView(btn.dataset.view);
-            });
+            await this.loadData();
+            this.renderTable();
         });
     },
 
-    applyFilters() {
-        const filters = {
-            type: document.getElementById('typeFilter')?.value,
-            status: document.getElementById('statusFilter')?.value
-        };
-        this.table?.filter(filters);
-    },
-
-    toggleView(view) {
-        this.viewMode = view;
-        document.querySelectorAll('.view-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.view === view);
-        });
-
-        const tableView = document.getElementById('tableView');
-        const cardsView = document.getElementById('cardsView');
-
-        if (view === 'table') {
-            tableView?.classList.remove('hidden');
-            cardsView?.classList.add('hidden');
-        } else {
-            tableView?.classList.add('hidden');
-            cardsView?.classList.remove('hidden');
-            this.renderCards();
-        }
-    },
-
-    // ========================================
-    // ACCIONES
-    // ========================================
-
-    handleAction(action, machine) {
-        switch (action) {
-            case 'view':
-                this.viewMachine(machine.id);
-                break;
-            case 'edit':
-                this.openMachineForm(machine);
-                break;
-            case 'delete':
-                this.deleteMachine(machine);
-                break;
-        }
-    },
-
-    // ========================================
-    // FORMULARIO
-    // ========================================
-
-    async openMachineForm(machine = null) {
+    async openForm(machine = null) {
         const isEdit = !!machine;
 
-        const fields = [
-            { name: 'serialNumber', label: 'Numero de Serie', type: 'text', required: true, placeholder: 'Ej: SN001234' },
-            { name: 'name', label: 'Nombre/Identificador', type: 'text', required: true, placeholder: 'Ej: MacBook Pro 16' },
-            {
-                name: 'type',
-                label: 'Tipo',
-                type: 'select',
-                required: true,
-                options: [
-                    { value: 'laptop', label: 'Laptop' },
-                    { value: 'desktop', label: 'Desktop' },
-                    { value: 'server', label: 'Servidor' },
-                    { value: 'printer', label: 'Impresora' },
-                    { value: 'other', label: 'Otro' }
-                ]
-            },
-            { name: 'brand', label: 'Marca', type: 'text', placeholder: 'Ej: Apple, Dell, HP' },
-            { name: 'model', label: 'Modelo', type: 'text', placeholder: 'Ej: MacBook Pro 16 2023' },
-            {
-                name: 'status',
-                label: 'Estado',
-                type: 'select',
-                required: true,
-                options: [
-                    { value: 'available', label: 'Disponible' },
-                    { value: 'assigned', label: 'Asignada' },
-                    { value: 'maintenance', label: 'En Mantenimiento' },
-                    { value: 'retired', label: 'Dada de Baja' }
-                ]
-            },
-            { name: 'acquisitionDate', label: 'Fecha de Adquisicion', type: 'date' },
-            { name: 'cost', label: 'Costo de Adquisicion', type: 'number', min: 0, placeholder: '0.00' },
-            { name: 'warrantyEnd', label: 'Garantia hasta', type: 'date' },
-            { name: 'notes', label: 'Notas', type: 'textarea', fullWidth: true, rows: 3 }
-        ];
-
-        const result = await Modal.form({
-            title: isEdit ? 'Editar Maquina' : 'Nueva Maquina',
-            fields,
-            data: machine || { status: 'available', type: 'laptop' },
-            submitText: isEdit ? 'Actualizar' : 'Registrar',
-            size: 'lg'
-        });
-
-        if (result) {
-            // Validar numero de serie unico
-            if (!isEdit) {
-                const existing = Store.getMachineBySerial(result.serialNumber);
-                if (existing) {
-                    Toast.error('Ya existe una maquina con ese numero de serie');
-                    return;
-                }
-            }
-
-            if (isEdit) result.id = machine.id;
-            if (result.cost) result.cost = parseFloat(result.cost);
-
-            Store.saveMachine(result);
-            this.table?.setData(Store.getMachines());
-            this.renderStats();
-            
-            Toast.success(isEdit ? 'Maquina actualizada' : 'Maquina registrada correctamente');
-        }
-    },
-
-    // ========================================
-    // VER MAQUINA
-    // ========================================
-
-    viewMachine(machineId) {
-        const machine = Store.getMachineById(machineId);
-        if (!machine) return;
-
-        const assignedTo = machine.assignedTo ? Store.getEmployeeById(machine.assignedTo) : null;
-        const tickets = Store.getTickets().filter(t => t.machineId === machineId);
-
-        Modal.open({
-            title: machine.name,
-            size: 'lg',
-            content: `
-                <div class="machine-detail">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Numero de Serie</label>
-                            <p style="font-weight: 500; font-family: monospace;">${machine.serialNumber}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Tipo</label>
-                            <p style="font-weight: 500;">${this.getTypeLabel(machine.type)}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Marca / Modelo</label>
-                            <p style="font-weight: 500;">${machine.brand || '-'} ${machine.model || ''}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Estado</label>
-                            <p>${TableActions.createStatusBadge({
-                                available: { label: 'Disponible', class: 'badge-active' },
-                                assigned: { label: 'Asignada', class: 'badge-open' },
-                                maintenance: { label: 'Mantenimiento', class: 'badge-maintenance' },
-                                retired: { label: 'Baja', class: 'badge-inactive' }
-                            })(machine.status)}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Asignada a</label>
-                            <p style="font-weight: 500;">${assignedTo ? `${assignedTo.name} ${assignedTo.lastName || ''}` : 'Sin asignar'}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Tickets Registrados</label>
-                            <p style="font-weight: 500;">${machine.ticketCount || 0}</p>
-                        </div>
-                        ${machine.acquisitionDate ? `
-                            <div>
-                                <label style="font-size: 0.75rem; color: var(--text-tertiary);">Fecha Adquisicion</label>
-                                <p style="font-weight: 500;">${Utils.formatDate(machine.acquisitionDate)}</p>
-                            </div>
-                        ` : ''}
-                        ${machine.warrantyEnd ? `
-                            <div>
-                                <label style="font-size: 0.75rem; color: var(--text-tertiary);">Garantia hasta</label>
-                                <p style="font-weight: 500;">${Utils.formatDate(machine.warrantyEnd)}</p>
-                            </div>
-                        ` : ''}
+        const modalHtml = `
+            <div class="modal-overlay active" id="machineModal">
+                <div class="modal" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h2>${isEdit ? 'Editar Maquina' : 'Nueva Maquina'}</h2>
+                        <button class="modal-close" onclick="document.getElementById('machineModal').remove()">&times;</button>
                     </div>
-                    
-                    ${machine.notes ? `
-                        <div style="margin-bottom: 1.5rem;">
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Notas</label>
-                            <p style="margin-top: 0.5rem;">${Utils.escapeHtml(machine.notes)}</p>
-                        </div>
-                    ` : ''}
-
-                    ${tickets.length > 0 ? `
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Ultimos Tickets</label>
-                            <div style="margin-top: 0.5rem; max-height: 150px; overflow-y: auto;">
-                                ${tickets.slice(0, 5).map(t => `
-                                    <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.875rem;">
-                                        <span style="font-family: monospace; color: var(--text-tertiary);">${t.folio}</span>
-                                        <span> - ${Utils.escapeHtml(t.title)}</span>
-                                    </div>
-                                `).join('')}
+                    <form id="machineForm" class="modal-body">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Numero de Serie *</label>
+                                <input type="text" name="serialNumber" required value="${machine?.serialNumber || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Nombre *</label>
+                                <input type="text" name="name" required value="${machine?.name || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo *</label>
+                                <select name="type" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="laptop" ${machine?.type === 'laptop' ? 'selected' : ''}>Laptop</option>
+                                    <option value="desktop" ${machine?.type === 'desktop' ? 'selected' : ''}>Desktop</option>
+                                    <option value="server" ${machine?.type === 'server' ? 'selected' : ''}>Servidor</option>
+                                    <option value="printer" ${machine?.type === 'printer' ? 'selected' : ''}>Impresora</option>
+                                    <option value="other" ${machine?.type === 'other' ? 'selected' : ''}>Otro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Estado *</label>
+                                <select name="status" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="available" ${machine?.status === 'available' ? 'selected' : ''}>Disponible</option>
+                                    <option value="assigned" ${machine?.status === 'assigned' ? 'selected' : ''}>Asignada</option>
+                                    <option value="maintenance" ${machine?.status === 'maintenance' ? 'selected' : ''}>Mantenimiento</option>
+                                    <option value="retired" ${machine?.status === 'retired' ? 'selected' : ''}>Dada de Baja</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Marca</label>
+                                <input type="text" name="brand" value="${machine?.brand || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Modelo</label>
+                                <input type="text" name="model" value="${machine?.model || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
                             </div>
                         </div>
-                    ` : ''}
+                        <input type="hidden" name="id" value="${machine?.id || ''}">
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('machineModal').remove()">Cancelar</button>
+                        <button type="submit" form="machineForm" class="btn btn-primary">${isEdit ? 'Actualizar' : 'Registrar'}</button>
+                    </div>
                 </div>
-            `,
-            buttons: [
-                { label: 'Cerrar', action: 'close' },
-                { label: 'Editar', action: 'edit', variant: 'btn-primary' }
-            ]
-        });
+            </div>
+        `;
 
-        Modal.getActiveModal()?.addEventListener('modal-action', (e) => {
-            if (e.detail.action === 'edit') {
-                Modal.close();
-                this.openMachineForm(machine);
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('machineForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            if (data.id) {
+                const existing = this.getMachineById(data.id);
+                if (existing) Object.assign(existing, data);
+                await Store.saveMachine(existing || data);
+            } else {
+                delete data.id;
+                await Store.saveMachine(data);
             }
+
+            document.getElementById('machineModal').remove();
+            await this.loadData();
+            this.renderStats();
+            this.renderTable();
+            this.showToast(isEdit ? 'Maquina actualizada' : 'Maquina registrada');
         });
     },
 
-    // ========================================
-    // ELIMINAR
-    // ========================================
-
-    async deleteMachine(machine) {
-        const confirmed = await Modal.confirmDelete(`${machine.name} (${machine.serialNumber})`);
-        
-        if (confirmed) {
-            Store.deleteMachine(machine.id);
-            this.table?.setData(Store.getMachines());
+    async deleteMachine(id) {
+        if (confirm('¿Estas seguro de eliminar esta maquina?')) {
+            await Store.deleteMachine(id);
+            await this.loadData();
             this.renderStats();
-            Toast.success('Maquina eliminada');
+            this.renderTable();
+            this.showToast('Maquina eliminada');
         }
     },
 
-    // ========================================
-    // EXPORTAR
-    // ========================================
-
-    exportMachines() {
-        const machines = this.table?.getFilteredData() || Store.getMachines();
-        
-        Utils.exportToCSV(machines, 'maquinas', [
-            { key: 'serialNumber', label: 'Numero de Serie' },
-            { key: 'name', label: 'Nombre' },
-            { key: 'type', label: 'Tipo' },
-            { key: 'brand', label: 'Marca' },
-            { key: 'model', label: 'Modelo' },
-            { key: 'status', label: 'Estado' },
-            { key: 'acquisitionDate', label: 'Fecha Adquisicion' },
-            { key: 'cost', label: 'Costo' }
-        ]);
-
-        Toast.success('Archivo exportado correctamente');
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; padding: 1rem 1.5rem; border-radius: 8px; z-index: 9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
 
-// Inicializar
 document.addEventListener('DOMContentLoaded', () => {
-    MachinesModule.init();
+    setTimeout(() => MachinesModule.init(), 100);
 });
 
 window.MachinesModule = MachinesModule;
-

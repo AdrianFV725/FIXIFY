@@ -1,36 +1,53 @@
 // ========================================
 // LICENSES MODULE
-// Gestion de licencias de software
 // ========================================
 
 const LicensesModule = {
-    table: null,
+    licenses: [],
 
-    init() {
-        if (!Auth.requireAuth()) return;
+    async init() {
+        if (!Auth.isAuthenticated()) {
+            window.location.href = '../index.html';
+            return;
+        }
+
+        await this.loadData();
         this.renderStats();
-        this.renderAlerts();
         this.renderFilters();
-        this.initTable();
+        this.renderTable();
         this.bindEvents();
+    },
+
+    async loadData() {
+        try {
+            this.licenses = await Store.getLicenses() || [];
+        } catch (e) {
+            console.error('Error cargando licencias:', e);
+            this.licenses = [];
+        }
     },
 
     renderStats() {
         const container = document.getElementById('licenseStats');
         if (!container) return;
 
-        const licenses = Store.getLicenses();
-        const expiring = Store.getExpiringLicenses(30);
-        const expired = licenses.filter(l => l.expirationDate && new Date(l.expirationDate) < new Date());
-        const totalAssigned = licenses.reduce((sum, l) => sum + (l.assignedCount || 0), 0);
+        const now = new Date();
+        const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        
+        const stats = {
+            total: this.licenses.length,
+            active: this.licenses.filter(l => !l.expirationDate || new Date(l.expirationDate) > now).length,
+            expiring: this.licenses.filter(l => l.expirationDate && new Date(l.expirationDate) <= in30Days && new Date(l.expirationDate) > now).length,
+            expired: this.licenses.filter(l => l.expirationDate && new Date(l.expirationDate) < now).length
+        };
 
         container.innerHTML = `
             <div class="mini-stat">
                 <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                 </div>
                 <div class="mini-stat-content">
-                    <span class="mini-stat-value">${licenses.length}</span>
+                    <span class="mini-stat-value">${stats.total}</span>
                     <span class="mini-stat-label">Total Licencias</span>
                 </div>
             </div>
@@ -39,8 +56,8 @@ const LicensesModule = {
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
                 <div class="mini-stat-content">
-                    <span class="mini-stat-value">${totalAssigned}</span>
-                    <span class="mini-stat-label">Asignadas</span>
+                    <span class="mini-stat-value">${stats.active}</span>
+                    <span class="mini-stat-label">Activas</span>
                 </div>
             </div>
             <div class="mini-stat">
@@ -48,8 +65,8 @@ const LicensesModule = {
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                 </div>
                 <div class="mini-stat-content">
-                    <span class="mini-stat-value">${expiring.length}</span>
-                    <span class="mini-stat-label">Por Vencer</span>
+                    <span class="mini-stat-value">${stats.expiring}</span>
+                    <span class="mini-stat-label">Por Vencer (30d)</span>
                 </div>
             </div>
             <div class="mini-stat">
@@ -57,30 +74,11 @@ const LicensesModule = {
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                 </div>
                 <div class="mini-stat-content">
-                    <span class="mini-stat-value">${expired.length}</span>
+                    <span class="mini-stat-value">${stats.expired}</span>
                     <span class="mini-stat-label">Vencidas</span>
                 </div>
             </div>
         `;
-    },
-
-    renderAlerts() {
-        const container = document.getElementById('expirationAlerts');
-        if (!container) return;
-
-        const expiring = Store.getExpiringLicenses(30);
-        if (expiring.length === 0) {
-            container.style.display = 'none';
-            return;
-        }
-
-        container.innerHTML = `
-            <span class="alert-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-            </span>
-            <span class="alert-text">Tienes <strong>${expiring.length}</strong> licencia${expiring.length > 1 ? 's' : ''} proxima${expiring.length > 1 ? 's' : ''} a vencer en los proximos 30 dias</span>
-        `;
-        container.classList.add('warning');
     },
 
     renderFilters() {
@@ -97,162 +95,193 @@ const LicensesModule = {
                     <option value="">Todos</option>
                     <option value="perpetual">Perpetua</option>
                     <option value="subscription">Suscripcion</option>
-                    <option value="per_user">Por Usuario</option>
-                    <option value="per_device">Por Dispositivo</option>
+                    <option value="volume">Por Volumen</option>
                 </select>
             </div>
             <button class="filter-btn" id="clearFilters">Limpiar</button>
         `;
     },
 
-    initTable() {
+    renderTable() {
         const container = document.querySelector('.data-table-container') || document.querySelector('.page-content');
         if (!container) return;
 
-        if (!document.getElementById('licensesTableContainer')) {
-            const tableContainer = document.createElement('div');
+        let tableContainer = document.getElementById('licensesTableContainer');
+        if (!tableContainer) {
+            tableContainer = document.createElement('div');
             tableContainer.id = 'licensesTableContainer';
             container.appendChild(tableContainer);
         }
 
-        this.table = new DataTable({
-            container: document.getElementById('licensesTableContainer'),
-            columns: [
-                { key: 'software', label: 'Software', className: 'cell-primary' },
-                { key: 'type', label: 'Tipo', render: (v) => this.getTypeLabel(v) },
-                { key: 'quantity', label: 'Cantidad', render: (v) => v || 'Ilimitada' },
-                { key: 'assignedCount', label: 'Asignadas', render: (v) => v || 0 },
-                { key: 'expirationDate', label: 'Vencimiento', type: 'date', render: (v) => this.renderExpiration(v) },
-                { key: 'cost', label: 'Costo', type: 'currency' },
-                TableActions.createActionsColumn(['view', 'edit', 'delete'])
-            ],
-            data: Store.getLicenses(),
-            searchFields: ['software', 'licenseKey', 'vendor'],
-            perPage: 10,
-            emptyMessage: 'No hay licencias registradas',
-            onAction: (action, row) => this.handleAction(action, row)
-        });
+        const formatDate = (date) => date ? new Date(date).toLocaleDateString('es-MX') : '-';
+        
+        const getStatus = (expirationDate) => {
+            if (!expirationDate) return '<span class="badge badge-active">Activa</span>';
+            const exp = new Date(expirationDate);
+            const now = new Date();
+            const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            
+            if (exp < now) return '<span class="badge badge-inactive">Vencida</span>';
+            if (exp <= in30Days) return '<span class="badge badge-maintenance">Por Vencer</span>';
+            return '<span class="badge badge-active">Activa</span>';
+        };
+
+        tableContainer.innerHTML = `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Software</th>
+                        <th>Tipo</th>
+                        <th>Cantidad</th>
+                        <th>Asignadas</th>
+                        <th>Vencimiento</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${this.licenses.length === 0 ? `
+                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">No hay licencias registradas</td></tr>
+                    ` : this.licenses.map(l => `
+                        <tr data-id="${l.id}">
+                            <td>${this.escapeHtml(l.software || '')}</td>
+                            <td>${l.type || '-'}</td>
+                            <td>${l.quantity || '-'}</td>
+                            <td>${l.assignedCount || 0}</td>
+                            <td>${formatDate(l.expirationDate)}</td>
+                            <td>${getStatus(l.expirationDate)}</td>
+                            <td>
+                                <button class="btn-icon sm" onclick="LicensesModule.openForm(LicensesModule.getById('${l.id}'))">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button class="btn-icon sm" onclick="LicensesModule.deleteLicense('${l.id}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
     },
 
-    getTypeLabel(type) {
-        const labels = { perpetual: 'Perpetua', subscription: 'Suscripcion', per_user: 'Por Usuario', per_device: 'Por Dispositivo' };
-        return labels[type] || type || '-';
+    getById(id) {
+        return this.licenses.find(l => l.id === id);
     },
 
-    renderExpiration(date) {
-        if (!date) return '-';
-        const days = Utils.daysUntil(date);
-        const formatted = Utils.formatDate(date);
-        if (days < 0) return `<span class="badge badge-expired">${formatted}</span>`;
-        if (days <= 30) return `<span class="badge badge-expiring">${formatted}</span>`;
-        return formatted;
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     },
 
     bindEvents() {
-        document.getElementById('searchInput')?.addEventListener('input', Utils.debounce((e) => {
-            this.table?.search(e.target.value);
-        }, 300));
-
-        document.getElementById('typeFilter')?.addEventListener('change', () => this.applyFilters());
-        document.getElementById('clearFilters')?.addEventListener('click', () => {
+        document.getElementById('newLicenseBtn')?.addEventListener('click', () => this.openForm());
+        
+        document.getElementById('clearFilters')?.addEventListener('click', async () => {
             document.getElementById('searchInput').value = '';
             document.getElementById('typeFilter').value = '';
-            this.table?.setData(Store.getLicenses());
+            await this.loadData();
+            this.renderTable();
         });
-        document.getElementById('newLicenseBtn')?.addEventListener('click', () => this.openLicenseForm());
     },
 
-    applyFilters() {
-        const filters = { type: document.getElementById('typeFilter')?.value };
-        this.table?.filter(filters);
-    },
-
-    handleAction(action, license) {
-        switch (action) {
-            case 'view': this.viewLicense(license.id); break;
-            case 'edit': this.openLicenseForm(license); break;
-            case 'delete': this.deleteLicense(license); break;
-        }
-    },
-
-    async openLicenseForm(license = null) {
+    async openForm(license = null) {
         const isEdit = !!license;
-        const fields = [
-            { name: 'software', label: 'Software/Producto', type: 'text', required: true, placeholder: 'Ej: Microsoft Office 365' },
-            { name: 'licenseKey', label: 'Clave de Licencia', type: 'text', placeholder: 'XXXXX-XXXXX-XXXXX' },
-            { name: 'type', label: 'Tipo', type: 'select', required: true, options: [
-                { value: 'perpetual', label: 'Perpetua' },
-                { value: 'subscription', label: 'Suscripcion' },
-                { value: 'per_user', label: 'Por Usuario' },
-                { value: 'per_device', label: 'Por Dispositivo' }
-            ]},
-            { name: 'quantity', label: 'Cantidad', type: 'number', min: 1, placeholder: 'Dejar vacio si ilimitada' },
-            { name: 'expirationDate', label: 'Fecha de Vencimiento', type: 'date' },
-            { name: 'cost', label: 'Costo', type: 'number', min: 0, placeholder: '0.00' },
-            { name: 'vendor', label: 'Proveedor', type: 'text' },
-            { name: 'notes', label: 'Notas', type: 'textarea', fullWidth: true }
-        ];
 
-        const result = await Modal.form({
-            title: isEdit ? 'Editar Licencia' : 'Nueva Licencia',
-            fields, data: license || { type: 'subscription' },
-            submitText: isEdit ? 'Actualizar' : 'Registrar', size: 'lg'
-        });
-
-        if (result) {
-            if (isEdit) result.id = license.id;
-            if (result.quantity) result.quantity = parseInt(result.quantity);
-            if (result.cost) result.cost = parseFloat(result.cost);
-
-            Store.saveLicense(result);
-            this.table?.setData(Store.getLicenses());
-            this.renderStats();
-            this.renderAlerts();
-            Toast.success(isEdit ? 'Licencia actualizada' : 'Licencia registrada');
-        }
-    },
-
-    viewLicense(licenseId) {
-        const license = Store.getLicenseById(licenseId);
-        if (!license) return;
-
-        const assignments = Store.getLicenseAssignments().filter(a => a.licenseId === licenseId && !a.endDate);
-        const employees = assignments.map(a => Store.getEmployeeById(a.employeeId)).filter(Boolean);
-
-        Modal.open({
-            title: license.software, size: 'lg',
-            content: `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                    <div><label style="font-size: 0.75rem; color: var(--text-tertiary);">Tipo</label><p style="font-weight: 500;">${this.getTypeLabel(license.type)}</p></div>
-                    <div><label style="font-size: 0.75rem; color: var(--text-tertiary);">Cantidad</label><p style="font-weight: 500;">${license.quantity || 'Ilimitada'}</p></div>
-                    <div><label style="font-size: 0.75rem; color: var(--text-tertiary);">Asignadas</label><p style="font-weight: 500;">${license.assignedCount || 0}</p></div>
-                    <div><label style="font-size: 0.75rem; color: var(--text-tertiary);">Vencimiento</label><p style="font-weight: 500;">${license.expirationDate ? Utils.formatDate(license.expirationDate) : 'Sin vencimiento'}</p></div>
-                </div>
-                ${employees.length > 0 ? `
-                    <h4 style="font-size: 0.875rem; margin-bottom: 0.5rem;">Empleados con esta licencia</h4>
-                    <div style="max-height: 150px; overflow-y: auto;">
-                        ${employees.map(e => `<div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 0.5rem;">${e.name} ${e.lastName || ''}</div>`).join('')}
+        const modalHtml = `
+            <div class="modal-overlay active" id="licenseModal">
+                <div class="modal" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h2>${isEdit ? 'Editar Licencia' : 'Nueva Licencia'}</h2>
+                        <button class="modal-close" onclick="document.getElementById('licenseModal').remove()">&times;</button>
                     </div>
-                ` : '<p class="text-muted">Sin asignaciones</p>'}
-            `,
-            buttons: [{ label: 'Cerrar', action: 'close' }, { label: 'Editar', action: 'edit', variant: 'btn-primary' }]
-        });
+                    <form id="licenseForm" class="modal-body">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label>Software/Producto *</label>
+                                <input type="text" name="software" required value="${license?.software || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo *</label>
+                                <select name="type" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="subscription" ${license?.type === 'subscription' ? 'selected' : ''}>Suscripcion</option>
+                                    <option value="perpetual" ${license?.type === 'perpetual' ? 'selected' : ''}>Perpetua</option>
+                                    <option value="volume" ${license?.type === 'volume' ? 'selected' : ''}>Por Volumen</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Cantidad</label>
+                                <input type="number" name="quantity" min="1" value="${license?.quantity || 1}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha de Vencimiento</label>
+                                <input type="date" name="expirationDate" value="${license?.expirationDate?.split('T')[0] || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Costo</label>
+                                <input type="number" name="cost" min="0" step="0.01" value="${license?.cost || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                        </div>
+                        <input type="hidden" name="id" value="${license?.id || ''}">
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('licenseModal').remove()">Cancelar</button>
+                        <button type="submit" form="licenseForm" class="btn btn-primary">${isEdit ? 'Actualizar' : 'Registrar'}</button>
+                    </div>
+                </div>
+            </div>
+        `;
 
-        Modal.getActiveModal()?.addEventListener('modal-action', (e) => {
-            if (e.detail.action === 'edit') { Modal.close(); this.openLicenseForm(license); }
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('licenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            if (data.quantity) data.quantity = parseInt(data.quantity);
+            if (data.cost) data.cost = parseFloat(data.cost);
+            
+            if (data.id) {
+                const existing = this.getById(data.id);
+                if (existing) Object.assign(existing, data);
+                await Store.saveLicense(existing || data);
+            } else {
+                delete data.id;
+                await Store.saveLicense(data);
+            }
+
+            document.getElementById('licenseModal').remove();
+            await this.loadData();
+            this.renderStats();
+            this.renderTable();
+            this.showToast(isEdit ? 'Licencia actualizada' : 'Licencia registrada');
         });
     },
 
-    async deleteLicense(license) {
-        if (await Modal.confirmDelete(license.software)) {
-            Store.deleteLicense(license.id);
-            this.table?.setData(Store.getLicenses());
+    async deleteLicense(id) {
+        if (confirm('¿Estas seguro de eliminar esta licencia?')) {
+            await Store.deleteLicense(id);
+            await this.loadData();
             this.renderStats();
-            Toast.success('Licencia eliminada');
+            this.renderTable();
+            this.showToast('Licencia eliminada');
         }
+    },
+
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; padding: 1rem 1.5rem; border-radius: 8px; z-index: 9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => LicensesModule.init());
-window.LicensesModule = LicensesModule;
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => LicensesModule.init(), 100);
+});
 
+window.LicensesModule = LicensesModule;

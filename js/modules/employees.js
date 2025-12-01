@@ -1,37 +1,43 @@
 // ========================================
 // EMPLOYEES MODULE
-// Gestion de empleados
 // ========================================
 
 const EmployeesModule = {
-    table: null,
+    employees: [],
+    departments: [],
 
-    // ========================================
-    // INICIALIZACION
-    // ========================================
+    async init() {
+        if (!Auth.isAuthenticated()) {
+            window.location.href = '../index.html';
+            return;
+        }
 
-    init() {
-        if (!Auth.requireAuth()) return;
-
+        await this.loadData();
         this.renderStats();
         this.renderFilters();
-        this.initTable();
+        this.renderTable();
         this.bindEvents();
     },
 
-    // ========================================
-    // ESTADISTICAS
-    // ========================================
+    async loadData() {
+        try {
+            this.employees = await Store.getEmployees() || [];
+            this.departments = await Store.getDepartments() || [];
+        } catch (e) {
+            console.error('Error cargando empleados:', e);
+            this.employees = [];
+            this.departments = [];
+        }
+    },
 
     renderStats() {
         const container = document.getElementById('employeeStats');
         if (!container) return;
 
-        const employees = Store.getEmployees();
         const stats = {
-            total: employees.length,
-            active: employees.filter(e => e.status === 'active').length,
-            withMachine: employees.filter(e => Store.getMachinesByEmployee(e.id).length > 0).length
+            total: this.employees.length,
+            active: this.employees.filter(e => e.status === 'active').length,
+            inactive: this.employees.filter(e => e.status === 'inactive').length
         };
 
         container.innerHTML = `
@@ -54,36 +60,30 @@ const EmployeesModule = {
                 </div>
             </div>
             <div class="mini-stat">
-                <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                <div class="mini-stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                 </div>
                 <div class="mini-stat-content">
-                    <span class="mini-stat-value">${stats.withMachine}</span>
-                    <span class="mini-stat-label">Con Equipo Asignado</span>
+                    <span class="mini-stat-value">${stats.inactive}</span>
+                    <span class="mini-stat-label">Inactivos</span>
                 </div>
             </div>
         `;
     },
 
-    // ========================================
-    // FILTROS
-    // ========================================
-
     renderFilters() {
         const container = document.getElementById('filtersBar');
         if (!container) return;
 
-        const departments = Store.getDepartments();
-
         container.innerHTML = `
             <div class="filter-group">
-                <input type="text" class="filter-input" id="searchInput" placeholder="Buscar por nombre, correo, numero...">
+                <input type="text" class="filter-input" id="searchInput" placeholder="Buscar por nombre, correo...">
             </div>
             <div class="filter-group">
                 <label class="filter-label">Departamento:</label>
                 <select class="filter-select" id="departmentFilter">
                     <option value="">Todos</option>
-                    ${departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+                    ${this.departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
                 </select>
             </div>
             <div class="filter-group">
@@ -98,357 +98,194 @@ const EmployeesModule = {
         `;
     },
 
-    // ========================================
-    // TABLA
-    // ========================================
-
-    initTable() {
+    renderTable() {
         const container = document.querySelector('.data-table-container') || document.querySelector('.page-content');
         if (!container) return;
 
-        if (!document.getElementById('employeesTableContainer')) {
-            const tableContainer = document.createElement('div');
+        const statusBadge = (status) => {
+            const config = {
+                active: { label: 'Activo', class: 'badge-active' },
+                inactive: { label: 'Inactivo', class: 'badge-inactive' }
+            };
+            const c = config[status] || { label: status || '-', class: 'badge' };
+            return `<span class="badge ${c.class}">${c.label}</span>`;
+        };
+
+        const getDeptName = (deptId) => {
+            const dept = this.departments.find(d => d.id === deptId);
+            return dept ? dept.name : '-';
+        };
+
+        let tableContainer = document.getElementById('employeesTableContainer');
+        if (!tableContainer) {
+            tableContainer = document.createElement('div');
             tableContainer.id = 'employeesTableContainer';
             container.appendChild(tableContainer);
         }
 
-        const departments = Store.getDepartments();
-
-        this.table = new DataTable({
-            container: document.getElementById('employeesTableContainer'),
-            columns: [
-                { key: 'employeeNumber', label: 'No. Empleado', className: 'cell-id' },
-                { 
-                    key: 'name', 
-                    label: 'Nombre', 
-                    className: 'cell-primary',
-                    render: (v, row) => `${v} ${row.lastName || ''}`
-                },
-                { key: 'email', label: 'Correo' },
-                { 
-                    key: 'department', 
-                    label: 'Departamento',
-                    render: (v) => {
-                        const dept = departments.find(d => d.id === v);
-                        return dept ? dept.name : '-';
-                    }
-                },
-                { key: 'position', label: 'Puesto' },
-                {
-                    key: 'status',
-                    label: 'Estado',
-                    render: TableActions.createStatusBadge({
-                        active: { label: 'Activo', class: 'badge-active' },
-                        inactive: { label: 'Inactivo', class: 'badge-inactive' }
-                    })
-                },
-                {
-                    key: 'id',
-                    label: 'Activos',
-                    render: (id) => {
-                        const machines = Store.getMachinesByEmployee(id).length;
-                        const licenses = Store.getLicensesByEmployee(id).length;
-                        return `${machines} / ${licenses}`;
-                    }
-                },
-                TableActions.createActionsColumn(['view', 'edit', 'delete'])
-            ],
-            data: Store.getEmployees(),
-            searchFields: ['name', 'lastName', 'email', 'employeeNumber', 'position'],
-            perPage: 10,
-            emptyMessage: 'No hay empleados registrados',
-            onRowClick: (row) => this.viewEmployee(row.id),
-            onAction: (action, row) => this.handleAction(action, row)
-        });
+        tableContainer.innerHTML = `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>No. Empleado</th>
+                        <th>Nombre</th>
+                        <th>Correo</th>
+                        <th>Departamento</th>
+                        <th>Puesto</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${this.employees.length === 0 ? `
+                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">No hay empleados registrados</td></tr>
+                    ` : this.employees.map(e => `
+                        <tr data-id="${e.id}">
+                            <td style="font-family: monospace;">${e.employeeNumber || '-'}</td>
+                            <td>${this.escapeHtml(e.name || '')} ${this.escapeHtml(e.lastName || '')}</td>
+                            <td>${e.email || '-'}</td>
+                            <td>${getDeptName(e.department)}</td>
+                            <td>${e.position || '-'}</td>
+                            <td>${statusBadge(e.status)}</td>
+                            <td>
+                                <button class="btn-icon sm" onclick="EmployeesModule.openForm(EmployeesModule.getById('${e.id}'))">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button class="btn-icon sm" onclick="EmployeesModule.deleteEmployee('${e.id}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
     },
 
-    // ========================================
-    // EVENTOS
-    // ========================================
+    getById(id) {
+        return this.employees.find(e => e.id === id);
+    },
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
 
     bindEvents() {
-        // Busqueda
-        document.getElementById('searchInput')?.addEventListener('input', Utils.debounce((e) => {
-            this.table?.search(e.target.value);
-        }, 300));
-
-        // Filtros
-        ['departmentFilter', 'statusFilter'].forEach(id => {
-            document.getElementById(id)?.addEventListener('change', () => this.applyFilters());
-        });
-
-        // Limpiar filtros
-        document.getElementById('clearFilters')?.addEventListener('click', () => {
+        document.getElementById('newEmployeeBtn')?.addEventListener('click', () => this.openForm());
+        
+        document.getElementById('clearFilters')?.addEventListener('click', async () => {
             document.getElementById('searchInput').value = '';
             document.getElementById('departmentFilter').value = '';
             document.getElementById('statusFilter').value = '';
-            this.table?.setData(Store.getEmployees());
-        });
-
-        // Nuevo empleado
-        document.getElementById('newEmployeeBtn')?.addEventListener('click', () => {
-            this.openEmployeeForm();
-        });
-
-        // Importar CSV
-        document.getElementById('importBtn')?.addEventListener('click', () => {
-            this.importEmployees();
+            await this.loadData();
+            this.renderTable();
         });
     },
 
-    applyFilters() {
-        const filters = {
-            department: document.getElementById('departmentFilter')?.value,
-            status: document.getElementById('statusFilter')?.value
-        };
-        this.table?.filter(filters);
-    },
-
-    // ========================================
-    // ACCIONES
-    // ========================================
-
-    handleAction(action, employee) {
-        switch (action) {
-            case 'view':
-                this.viewEmployee(employee.id);
-                break;
-            case 'edit':
-                this.openEmployeeForm(employee);
-                break;
-            case 'delete':
-                this.deleteEmployee(employee);
-                break;
-        }
-    },
-
-    // ========================================
-    // FORMULARIO
-    // ========================================
-
-    async openEmployeeForm(employee = null) {
+    async openForm(employee = null) {
         const isEdit = !!employee;
-        const departments = Store.getDepartments();
 
-        const fields = [
-            { name: 'employeeNumber', label: 'Numero de Empleado', type: 'text', placeholder: 'Ej: EMP001' },
-            { name: 'name', label: 'Nombre(s)', type: 'text', required: true, placeholder: 'Nombre(s)' },
-            { name: 'lastName', label: 'Apellidos', type: 'text', required: true, placeholder: 'Apellido Paterno Materno' },
-            { name: 'email', label: 'Correo Corporativo', type: 'email', required: true, placeholder: 'correo@empresa.com' },
-            { name: 'phone', label: 'Telefono', type: 'text', placeholder: '55 1234 5678' },
-            {
-                name: 'department',
-                label: 'Departamento',
-                type: 'select',
-                required: true,
-                options: departments.map(d => ({ value: d.id, label: d.name }))
-            },
-            { name: 'position', label: 'Puesto', type: 'text', required: true, placeholder: 'Ej: Desarrollador Senior' },
-            { name: 'startDate', label: 'Fecha de Ingreso', type: 'date' },
-            {
-                name: 'status',
-                label: 'Estado',
-                type: 'select',
-                required: true,
-                options: [
-                    { value: 'active', label: 'Activo' },
-                    { value: 'inactive', label: 'Inactivo' }
-                ]
-            },
-            { name: 'notes', label: 'Notas', type: 'textarea', fullWidth: true, rows: 2 }
-        ];
-
-        const result = await Modal.form({
-            title: isEdit ? 'Editar Empleado' : 'Nuevo Empleado',
-            fields,
-            data: employee || { status: 'active' },
-            submitText: isEdit ? 'Actualizar' : 'Registrar',
-            size: 'lg'
-        });
-
-        if (result) {
-            if (isEdit) result.id = employee.id;
-
-            Store.saveEmployee(result);
-            this.table?.setData(Store.getEmployees());
-            this.renderStats();
-            
-            Toast.success(isEdit ? 'Empleado actualizado' : 'Empleado registrado correctamente');
-        }
-    },
-
-    // ========================================
-    // VER EMPLEADO
-    // ========================================
-
-    viewEmployee(employeeId) {
-        const employee = Store.getEmployeeById(employeeId);
-        if (!employee) return;
-
-        const departments = Store.getDepartments();
-        const dept = departments.find(d => d.id === employee.department);
-        const machines = Store.getMachinesByEmployee(employeeId);
-        const licenses = Store.getLicensesByEmployee(employeeId);
-        const tickets = Store.getTickets().filter(t => t.requesterId === employeeId);
-
-        Modal.open({
-            title: `${employee.name} ${employee.lastName || ''}`,
-            size: 'xl',
-            content: `
-                <div class="employee-detail">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Numero de Empleado</label>
-                            <p style="font-weight: 500;">${employee.employeeNumber || '-'}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Correo</label>
-                            <p style="font-weight: 500;">${employee.email}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Departamento</label>
-                            <p style="font-weight: 500;">${dept ? dept.name : '-'}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Puesto</label>
-                            <p style="font-weight: 500;">${employee.position || '-'}</p>
-                        </div>
-                        <div>
-                            <label style="font-size: 0.75rem; color: var(--text-tertiary);">Estado</label>
-                            <p>${TableActions.createStatusBadge({
-                                active: { label: 'Activo', class: 'badge-active' },
-                                inactive: { label: 'Inactivo', class: 'badge-inactive' }
-                            })(employee.status)}</p>
-                        </div>
-                        ${employee.startDate ? `
-                            <div>
-                                <label style="font-size: 0.75rem; color: var(--text-tertiary);">Fecha de Ingreso</label>
-                                <p style="font-weight: 500;">${Utils.formatDate(employee.startDate)}</p>
+        const modalHtml = `
+            <div class="modal-overlay active" id="employeeModal">
+                <div class="modal" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h2>${isEdit ? 'Editar Empleado' : 'Nuevo Empleado'}</h2>
+                        <button class="modal-close" onclick="document.getElementById('employeeModal').remove()">&times;</button>
+                    </div>
+                    <form id="employeeForm" class="modal-body">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>No. Empleado</label>
+                                <input type="text" name="employeeNumber" value="${employee?.employeeNumber || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
                             </div>
-                        ` : ''}
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
-                        <div>
-                            <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem;">Maquinas Asignadas (${machines.length})</h4>
-                            ${machines.length === 0 ? '<p class="text-muted" style="font-size: 0.875rem;">Sin maquinas asignadas</p>' : `
-                                <div style="max-height: 150px; overflow-y: auto;">
-                                    ${machines.map(m => `
-                                        <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.875rem;">
-                                            <strong>${m.name}</strong>
-                                            <span style="color: var(--text-tertiary); display: block; font-size: 0.75rem;">${m.serialNumber}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            `}
-                        </div>
-
-                        <div>
-                            <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem;">Licencias Asignadas (${licenses.length})</h4>
-                            ${licenses.length === 0 ? '<p class="text-muted" style="font-size: 0.875rem;">Sin licencias asignadas</p>' : `
-                                <div style="max-height: 150px; overflow-y: auto;">
-                                    ${licenses.map(l => `
-                                        <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.875rem;">
-                                            <strong>${l.software}</strong>
-                                            ${l.expirationDate ? `<span style="color: var(--text-tertiary); display: block; font-size: 0.75rem;">Vence: ${Utils.formatDate(l.expirationDate)}</span>` : ''}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            `}
-                        </div>
-                    </div>
-
-                    ${tickets.length > 0 ? `
-                        <div style="margin-top: 1.5rem;">
-                            <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem;">Tickets Creados (${tickets.length})</h4>
-                            <div style="max-height: 150px; overflow-y: auto;">
-                                ${tickets.slice(0, 5).map(t => `
-                                    <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.875rem;">
-                                        <span style="font-family: monospace; color: var(--text-tertiary);">${t.folio}</span>
-                                        <span> - ${Utils.escapeHtml(t.title)}</span>
-                                    </div>
-                                `).join('')}
+                            <div class="form-group">
+                                <label>Nombre(s) *</label>
+                                <input type="text" name="name" required value="${employee?.name || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Apellidos *</label>
+                                <input type="text" name="lastName" required value="${employee?.lastName || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Correo *</label>
+                                <input type="email" name="email" required value="${employee?.email || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Departamento *</label>
+                                <select name="department" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    ${this.departments.map(d => `<option value="${d.id}" ${employee?.department === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Puesto *</label>
+                                <input type="text" name="position" required value="${employee?.position || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Estado</label>
+                                <select name="status" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="active" ${employee?.status === 'active' ? 'selected' : ''}>Activo</option>
+                                    <option value="inactive" ${employee?.status === 'inactive' ? 'selected' : ''}>Inactivo</option>
+                                </select>
                             </div>
                         </div>
-                    ` : ''}
+                        <input type="hidden" name="id" value="${employee?.id || ''}">
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('employeeModal').remove()">Cancelar</button>
+                        <button type="submit" form="employeeForm" class="btn btn-primary">${isEdit ? 'Actualizar' : 'Registrar'}</button>
+                    </div>
                 </div>
-            `,
-            buttons: [
-                { label: 'Cerrar', action: 'close' },
-                { label: 'Editar', action: 'edit', variant: 'btn-primary' }
-            ]
-        });
+            </div>
+        `;
 
-        Modal.getActiveModal()?.addEventListener('modal-action', (e) => {
-            if (e.detail.action === 'edit') {
-                Modal.close();
-                this.openEmployeeForm(employee);
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('employeeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            if (data.id) {
+                const existing = this.getById(data.id);
+                if (existing) Object.assign(existing, data);
+                await Store.saveEmployee(existing || data);
+            } else {
+                delete data.id;
+                await Store.saveEmployee(data);
             }
+
+            document.getElementById('employeeModal').remove();
+            await this.loadData();
+            this.renderStats();
+            this.renderTable();
+            this.showToast(isEdit ? 'Empleado actualizado' : 'Empleado registrado');
         });
     },
 
-    // ========================================
-    // ELIMINAR
-    // ========================================
-
-    async deleteEmployee(employee) {
-        const confirmed = await Modal.confirmDelete(`${employee.name} ${employee.lastName || ''}`);
-        
-        if (confirmed) {
-            Store.deleteEmployee(employee.id);
-            this.table?.setData(Store.getEmployees());
+    async deleteEmployee(id) {
+        if (confirm('¿Estas seguro de eliminar este empleado?')) {
+            await Store.deleteEmployee(id);
+            await this.loadData();
             this.renderStats();
-            Toast.success('Empleado eliminado');
+            this.renderTable();
+            this.showToast('Empleado eliminado');
         }
     },
 
-    // ========================================
-    // IMPORTAR
-    // ========================================
-
-    importEmployees() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.csv';
-        
-        input.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            try {
-                const data = await Utils.importFromCSV(file);
-                let imported = 0;
-
-                data.forEach(row => {
-                    if (row.name || row.nombre) {
-                        Store.saveEmployee({
-                            name: row.name || row.nombre,
-                            lastName: row.lastname || row.apellidos || row.apellido,
-                            email: row.email || row.correo,
-                            department: row.department || row.departamento,
-                            position: row.position || row.puesto,
-                            status: 'active'
-                        });
-                        imported++;
-                    }
-                });
-
-                this.table?.setData(Store.getEmployees());
-                this.renderStats();
-                Toast.success(`${imported} empleados importados`);
-            } catch (error) {
-                Toast.error('Error al importar el archivo');
-            }
-        };
-
-        input.click();
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; padding: 1rem 1.5rem; border-radius: 8px; z-index: 9999;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
 
-// Inicializar
 document.addEventListener('DOMContentLoaded', () => {
-    EmployeesModule.init();
+    setTimeout(() => EmployeesModule.init(), 100);
 });
 
 window.EmployeesModule = EmployeesModule;
-
