@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIXIFY - Analitica y Reportes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="main-header">
+            <div class="header-left">
+                <button class="menu-toggle" id="menuToggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <h1 class="page-title">Analitica y Reportes</h1>
+            </div>
+            <div class="header-right">
+                <!-- Selector de rango de fechas -->
+                <div class="date-range-picker" id="dateRangePicker">
+                    <button class="date-btn" data-range="7d">7 dias</button>
+                    <button class="date-btn active" data-range="30d">30 dias</button>
+                    <button class="date-btn" data-range="90d">90 dias</button>
+                    <button class="date-btn" data-range="1y">1 ano</button>
+                    <button class="date-btn" data-range="custom">Personalizado</button>
+                </div>
+                <button class="btn btn-secondary" id="exportReportBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    Exportar Reporte
+                </button>
+                <button class="theme-toggle" id="themeToggle"></button>
+                <div class="user-menu" id="userMenu"></div>
+            </div>
+        </header>
+
+        <div class="page-content">
+            <!-- KPIs principales con comparativa -->
+            <section class="analytics-kpis" id="analyticsKpis">
+                <!--
+                    KPIs con tendencia:
+                    - Tickets resueltos (vs periodo anterior)
+                    - Tiempo promedio de resolucion
+                    - Tasa de satisfaccion
+                    - Incidentes recurrentes
+                -->
+            </section>
+
+            <!-- Seccion: Analisis de Tickets -->
+            <section class="analytics-section">
+                <h2 class="section-title">Analisis de Tickets</h2>
+                <div class="charts-grid">
+                    <div class="chart-card large" id="ticketsTrendChart">
+                        <h3 class="chart-title">Tendencia de Tickets</h3>
+                        <div class="chart-container">
+                            <!-- Grafica de linea: tickets por dia/semana/mes -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="ticketsByCategoryChart">
+                        <h3 class="chart-title">Tickets por Categoria</h3>
+                        <div class="chart-container">
+                            <!-- Grafica de pie/dona -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="ticketsByPriorityChart">
+                        <h3 class="chart-title">Distribucion por Prioridad</h3>
+                        <div class="chart-container">
+                            <!-- Grafica de barras horizontal -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="resolutionTimeChart">
+                        <h3 class="chart-title">Tiempo de Resolucion Promedio</h3>
+                        <div class="chart-container">
+                            <!-- Grafica de barras por categoria -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Seccion: Analisis de Maquinas -->
+            <section class="analytics-section">
+                <h2 class="section-title">Analisis de Maquinas</h2>
+                <div class="charts-grid">
+                    <div class="chart-card" id="machineFailuresChart">
+                        <h3 class="chart-title">Maquinas con Mas Fallas</h3>
+                        <div class="chart-container">
+                            <!-- 
+                                Top 10 maquinas problematicas
+                                Barras horizontales con cantidad de tickets
+                            -->
+                        </div>
+                        <div class="chart-highlight">
+                            <!--
+                                Highlight: La maquina mas problematica
+                                - Nombre
+                                - Cantidad de tickets
+                                - % del total
+                            -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="machinesByTypeChart">
+                        <h3 class="chart-title">Distribucion por Tipo</h3>
+                        <div class="chart-container">
+                            <!-- Grafica de dona -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="machineAgeChart">
+                        <h3 class="chart-title">Antiguedad de Equipos</h3>
+                        <div class="chart-container">
+                            <!-- Histograma de antiguedad -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="machineUtilizationChart">
+                        <h3 class="chart-title">Utilizacion de Equipos</h3>
+                        <div class="chart-container">
+                            <!-- % asignados vs disponibles vs mantenimiento -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Seccion: Analisis de Licencias -->
+            <section class="analytics-section">
+                <h2 class="section-title">Analisis de Licencias</h2>
+                <div class="charts-grid">
+                    <div class="chart-card" id="licenseDistributionChart">
+                        <h3 class="chart-title">Licencias Mas Utilizadas</h3>
+                        <div class="chart-container">
+                            <!--
+                                Top licencias por cantidad de asignaciones
+                                Con % de utilizacion
+                            -->
+                        </div>
+                        <div class="chart-highlight">
+                            <!--
+                                Highlight: Licencia mas popular
+                                - Nombre
+                                - % empleados que la tienen
+                            -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="licenseExpirationChart">
+                        <h3 class="chart-title">Vencimientos Proximos</h3>
+                        <div class="chart-container">
+                            <!-- Timeline de vencimientos -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="licenseCostChart">
+                        <h3 class="chart-title">Costo de Licencias</h3>
+                        <div class="chart-container">
+                            <!-- Desglose de costos por tipo/proveedor -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="licenseUtilizationChart">
+                        <h3 class="chart-title">Utilizacion de Licencias</h3>
+                        <div class="chart-container">
+                            <!-- Licencias asignadas vs disponibles -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Seccion: Analisis por Departamento -->
+            <section class="analytics-section">
+                <h2 class="section-title">Analisis por Departamento</h2>
+                <div class="charts-grid">
+                    <div class="chart-card large" id="departmentOverviewChart">
+                        <h3 class="chart-title">Overview por Departamento</h3>
+                        <div class="chart-container">
+                            <!--
+                                Grafica comparativa:
+                                - Empleados
+                                - Maquinas asignadas
+                                - Licencias asignadas
+                                - Tickets generados
+                            -->
+                        </div>
+                    </div>
+                    <div class="chart-card" id="departmentTicketsChart">
+                        <h3 class="chart-title">Tickets por Departamento</h3>
+                        <div class="chart-container">
+                            <!-- Que departamento genera mas tickets -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Insights y Recomendaciones -->
+            <section class="insights-section" id="insightsSection">
+                <h2 class="section-title">Insights y Recomendaciones</h2>
+                <div class="insights-grid">
+                    <!--
+                        Cards con insights generados automaticamente:
+                        - Maquinas que necesitan reemplazo (muchas fallas + antiguas)
+                        - Licencias sub-utilizadas (compradas pero no asignadas)
+                        - Departamentos con alta incidencia
+                        - Tendencias preocupantes
+                        - Prediccion de vencimientos
+                    -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Modal de reporte personalizado -->
+    <div class="modal-overlay" id="reportModalOverlay">
+        <div class="modal modal-lg" id="reportModal">
+            <!--
+                Generador de reporte:
+                - Seleccionar metricas a incluir
+                - Rango de fechas
+                - Formato (PDF, Excel, CSV)
+                - Preview
+            -->
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="../js/core/utils.js"></script>
+    <script src="../js/core/store.js"></script>
+    <script src="../js/core/auth.js"></script>
+    <script src="../js/components/sidebar.js"></script>
+    <script src="../js/components/modal.js"></script>
+    <script src="../js/components/notifications.js"></script>
+    <script src="../js/components/charts.js"></script>
+    <script src="../js/modules/analytics.js"></script>
+    
+    <!-- Chart.js desde CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>
+

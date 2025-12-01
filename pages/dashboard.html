@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIXIFY - Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Estilos -->
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+    <!-- Sidebar de navegacion -->
+    <aside class="sidebar" id="sidebar">
+        <!-- Se inyecta desde sidebar.js -->
+    </aside>
+
+    <!-- Contenido principal -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-left">
+                <button class="menu-toggle" id="menuToggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <h1 class="page-title">Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <button class="theme-toggle" id="themeToggle">
+                    <!-- Iconos de tema -->
+                </button>
+                <div class="user-menu" id="userMenu">
+                    <!-- Info del usuario logueado -->
+                </div>
+            </div>
+        </header>
+
+        <!-- Contenido del dashboard -->
+        <div class="page-content">
+            <!-- KPIs principales -->
+            <section class="kpi-grid" id="kpiGrid">
+                <!-- 
+                    KPI Cards:
+                    - Total de tickets abiertos
+                    - Maquinas activas
+                    - Empleados registrados
+                    - Licencias por vencer
+                -->
+            </section>
+
+            <!-- Graficas principales -->
+            <section class="charts-grid">
+                <div class="chart-card" id="ticketsTrendChart">
+                    <!-- Grafica: Tendencia de tickets por mes -->
+                </div>
+                <div class="chart-card" id="machineFailuresChart">
+                    <!-- Grafica: Maquinas con mas fallas -->
+                </div>
+            </section>
+
+            <!-- Resumen rapido -->
+            <section class="quick-stats">
+                <div class="stat-card" id="recentTickets">
+                    <!-- Lista: Ultimos tickets creados -->
+                </div>
+                <div class="stat-card" id="expiringLicenses">
+                    <!-- Lista: Licencias proximas a vencer -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Modal generico -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modal">
+            <!-- Contenido dinamico del modal -->
+        </div>
+    </div>
+
+    <!-- Notificaciones toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="../js/core/utils.js"></script>
+    <script src="../js/core/store.js"></script>
+    <script src="../js/core/auth.js"></script>
+    <script src="../js/components/sidebar.js"></script>
+    <script src="../js/components/modal.js"></script>
+    <script src="../js/components/notifications.js"></script>
+    <script src="../js/components/charts.js"></script>
+    <script src="../js/modules/dashboard.js"></script>
+    
+    <!-- Chart.js desde CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>
+
