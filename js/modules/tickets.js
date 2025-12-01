@@ -218,26 +218,31 @@ const TicketsModule = {
             machines = await Store.getMachines() || [];
         } catch (e) {}
 
+        const inputStyle = "width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);";
+
         const modalHtml = `
             <div class="modal-overlay active" id="ticketModal">
-                <div class="modal" style="max-width: 600px;">
-                    <div class="modal-header">
+                <div class="modal" style="max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+                    <div class="modal-header" style="flex-shrink: 0;">
                         <h2>${isEdit ? 'Editar Ticket' : 'Nuevo Ticket'}</h2>
                         <button class="modal-close" onclick="document.getElementById('ticketModal').remove()">&times;</button>
                     </div>
-                    <form id="ticketForm" class="modal-body">
+                    <form id="ticketForm" class="modal-body" style="overflow-y: auto; flex: 1; padding: 1.5rem;">
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label>Titulo *</label>
-                            <input type="text" name="title" required value="${ticket?.title || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Titulo *</label>
+                            <input type="text" name="title" required value="${ticket?.title || ''}" placeholder="Ej: Pantalla no enciende" style="${inputStyle}">
                         </div>
+                        
                         <div class="form-group" style="margin-bottom: 1rem;">
-                            <label>Descripcion *</label>
-                            <textarea name="description" required rows="4" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">${ticket?.description || ''}</textarea>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Descripcion *</label>
+                            <textarea name="description" required rows="3" placeholder="Describe el problema detalladamente..." style="${inputStyle} min-height: 80px; resize: vertical;">${ticket?.description || ''}</textarea>
                         </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                             <div class="form-group">
-                                <label>Categoria *</label>
-                                <select name="category" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Categoria *</label>
+                                <select name="category" required style="${inputStyle}">
+                                    <option value="">Seleccionar...</option>
                                     <option value="hardware" ${ticket?.category === 'hardware' ? 'selected' : ''}>Hardware</option>
                                     <option value="software" ${ticket?.category === 'software' ? 'selected' : ''}>Software</option>
                                     <option value="network" ${ticket?.category === 'network' ? 'selected' : ''}>Red</option>
@@ -245,8 +250,8 @@ const TicketsModule = {
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Prioridad *</label>
-                                <select name="priority" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Prioridad *</label>
+                                <select name="priority" required style="${inputStyle}">
                                     <option value="low" ${ticket?.priority === 'low' ? 'selected' : ''}>Baja</option>
                                     <option value="medium" ${ticket?.priority === 'medium' ? 'selected' : ''}>Media</option>
                                     <option value="high" ${ticket?.priority === 'high' ? 'selected' : ''}>Alta</option>
@@ -254,20 +259,43 @@ const TicketsModule = {
                                 </select>
                             </div>
                         </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Reportado por</label>
+                                <select name="reportedBy" style="${inputStyle}">
+                                    <option value="">Sin asignar</option>
+                                    ${employees.map(e => `<option value="${e.id}" ${ticket?.reportedBy === e.id ? 'selected' : ''}>${this.escapeHtml(e.name)}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Maquina relacionada</label>
+                                <select name="machineId" style="${inputStyle}">
+                                    <option value="">Ninguna</option>
+                                    ${machines.map(m => `<option value="${m.id}" ${ticket?.machineId === m.id ? 'selected' : ''}>${this.escapeHtml(m.name)} (${m.serialNumber || 'S/N'})</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        
                         ${isEdit ? `
-                            <div class="form-group" style="margin-top: 1rem;">
-                                <label>Estado</label>
-                                <select name="status" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Estado</label>
+                                <select name="status" style="${inputStyle}">
                                     <option value="open" ${ticket?.status === 'open' ? 'selected' : ''}>Abierto</option>
                                     <option value="in_progress" ${ticket?.status === 'in_progress' ? 'selected' : ''}>En Progreso</option>
                                     <option value="resolved" ${ticket?.status === 'resolved' ? 'selected' : ''}>Resuelto</option>
                                     <option value="closed" ${ticket?.status === 'closed' ? 'selected' : ''}>Cerrado</option>
                                 </select>
                             </div>
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Resolucion / Notas</label>
+                                <textarea name="resolution" rows="2" placeholder="Describe la solucion aplicada..." style="${inputStyle} min-height: 60px; resize: vertical;">${ticket?.resolution || ''}</textarea>
+                            </div>
                         ` : ''}
+                        
                         <input type="hidden" name="id" value="${ticket?.id || ''}">
                     </form>
-                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                    <div class="modal-footer" style="flex-shrink: 0; display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('ticketModal').remove()">Cancelar</button>
                         <button type="submit" form="ticketForm" class="btn btn-primary">${isEdit ? 'Actualizar' : 'Crear Ticket'}</button>
                     </div>
