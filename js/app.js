@@ -297,16 +297,23 @@ class LoginController {
                 const rememberMe = document.getElementById('remember').checked;
                 const storage = rememberMe ? localStorage : sessionStorage;
                 
-                // Usar datos del usuario del resultado o del Store
-                const userData = result.user || Store.getUserByEmail(elements.emailInput.value);
+                // Usar datos del usuario del resultado
+                let userData = result.user;
+                if (!userData) {
+                    try {
+                        userData = await Store.getUserByEmail(elements.emailInput.value);
+                    } catch (e) {
+                        console.warn('No se pudo obtener datos del usuario');
+                    }
+                }
                 
                 // Guardar sesion y datos del usuario
                 storage.setItem('fixify-session', 'active');
                 storage.setItem('fixify-user', JSON.stringify({
-                    id: userData.id,
-                    email: userData.email,
-                    name: userData.name,
-                    role: userData.role,
+                    id: userData?.id || 'unknown',
+                    email: userData?.email || elements.emailInput.value,
+                    name: userData?.name || 'Usuario',
+                    role: userData?.role || 'user',
                     loginAt: new Date().toISOString()
                 }));
 
