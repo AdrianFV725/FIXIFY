@@ -142,60 +142,62 @@ class AuthManager {
         // Simular delay de red
         await new Promise(resolve => setTimeout(resolve, CONFIG.loadingDelay));
 
-        // Verificar credenciales contra el Store
-        if (window.Store) {
-            try {
-                const user = await Store.getUserByEmail(email);
-                
-                console.log('Usuario encontrado:', user ? 'Si' : 'No');
-                
-                if (!user) {
-                    return { success: false, message: 'Usuario no encontrado' };
-                }
+        console.log('=== AUTENTICACION ===');
+        console.log('Email:', email);
 
-                console.log('Verificando contrasena...');
-                if (user.password !== password) {
-                    console.log('Contrasena no coincide');
-                    return { success: false, message: 'Contrasena incorrecta' };
-                }
-
-                if (user.status === 'inactive') {
-                    return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
-                }
-
-                // Actualizar ultimo login
-                try {
-                    await Store.updateUserLastLogin(user.email);
-                } catch (e) {}
-
-                console.log('Login exitoso!');
-                return { 
-                    success: true, 
-                    message: 'Inicio de sesion exitoso!',
-                    user: {
-                        id: user.id,
-                        email: user.email,
-                        name: user.name,
-                        role: user.role
-                    }
-                };
-            } catch (error) {
-                console.error('Error en autenticacion:', error);
-            }
-        }
-
-        // Fallback si Store no esta disponible
+        // PRIMERO: Verificar credenciales hardcodeadas (admin por defecto)
         if (email === CONFIG.validEmail && password === CONFIG.validPassword) {
+            console.log('Login con credenciales por defecto');
             return { 
                 success: true, 
                 message: 'Inicio de sesion exitoso!',
                 user: {
-                    id: 'admin',
+                    id: 'admin-default',
                     email: CONFIG.validEmail,
                     name: 'Administrador',
                     role: 'admin'
                 }
             };
+        }
+
+        // SEGUNDO: Verificar contra el Store (Firestore o localStorage)
+        if (window.Store) {
+            try {
+                console.log('Buscando usuario en Store...');
+                const user = await Store.getUserByEmail(email);
+                
+                console.log('Usuario encontrado:', user ? 'Si' : 'No');
+                
+                if (user) {
+                    console.log('Verificando contrasena...');
+                    if (user.password === password) {
+                        if (user.status === 'inactive') {
+                            return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
+                        }
+
+                        // Actualizar ultimo login
+                        try {
+                            await Store.updateUserLastLogin(user.email);
+                        } catch (e) {}
+
+                        console.log('Login exitoso con Store!');
+                        return { 
+                            success: true, 
+                            message: 'Inicio de sesion exitoso!',
+                            user: {
+                                id: user.id,
+                                email: user.email,
+                                name: user.name || 'Usuario',
+                                role: user.role || 'user'
+                            }
+                        };
+                    } else {
+                        console.log('Contrasena incorrecta');
+                    }
+                }
+            } catch (error) {
+                console.error('Error en autenticacion con Store:', error);
+            }
         }
 
         return { success: false, message: 'Credenciales incorrectas' };
