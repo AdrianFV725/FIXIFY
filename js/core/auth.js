@@ -177,66 +177,71 @@ const Auth = {
      */
     renderUserMenu(container) {
         const user = this.getCurrentUser();
-        if (!container || !user) return;
+        if (!container) return;
+        
+        // Si no hay usuario, no mostrar nada
+        if (!user) {
+            container.innerHTML = '';
+            return;
+        }
 
         container.innerHTML = `
-            <div class="user-avatar">${this.getUserInitials()}</div>
-            <div class="user-info">
-                <span class="user-name">${Utils.escapeHtml(user.name)}</span>
-                <span class="user-role">${this.getRoleName(user.role)}</span>
+            <div class="user-menu-trigger" id="userMenuTrigger">
+                <div class="user-avatar">${this.getUserInitials()}</div>
+                <div class="user-info">
+                    <span class="user-name">${Utils?.escapeHtml(user.name) || user.name}</span>
+                    <span class="user-role">${this.getRoleName(user.role)}</span>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
             </div>
-            <div class="user-dropdown">
-                <button class="dropdown-toggle">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                </button>
-                <div class="dropdown-menu">
-                    <a href="#" class="dropdown-item" data-action="profile">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="user-menu-dropdown">
+                <div class="user-menu-header">
+                    <div class="user-avatar">${this.getUserInitials()}</div>
+                    <div class="user-name">${Utils?.escapeHtml(user.name) || user.name}</div>
+                    <div class="user-email">${Utils?.escapeHtml(user.email) || user.email}</div>
+                </div>
+                <div class="user-menu-items">
+                    <button class="user-menu-item" data-action="profile">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                             <circle cx="12" cy="7" r="4"></circle>
                         </svg>
                         Mi Perfil
-                    </a>
-                    <a href="#" class="dropdown-item" data-action="settings">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
-                        Configuracion
-                    </a>
-                    <div class="dropdown-divider"></div>
-                    <a href="#" class="dropdown-item danger" data-action="logout">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    </button>
+                    <div class="user-menu-divider"></div>
+                    <button class="user-menu-item danger" data-action="logout">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                             <polyline points="16 17 21 12 16 7"></polyline>
                             <line x1="21" y1="12" x2="9" y2="12"></line>
                         </svg>
                         Cerrar Sesion
-                    </a>
+                    </button>
                 </div>
             </div>
         `;
 
-        // Event listeners
+        // Toggle menu
+        const trigger = container.querySelector('#userMenuTrigger');
+        trigger?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            container.classList.toggle('open');
+        });
+
+        // Cerrar sesion
         container.querySelector('[data-action="logout"]')?.addEventListener('click', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             this.logout();
         });
 
-        // Toggle dropdown
-        const toggle = container.querySelector('.dropdown-toggle');
-        const dropdown = container.querySelector('.user-dropdown');
-        
-        toggle?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle('open');
-        });
-
         // Cerrar al hacer click fuera
-        document.addEventListener('click', () => {
-            dropdown?.classList.remove('open');
+        document.addEventListener('click', (e) => {
+            if (!container.contains(e.target)) {
+                container.classList.remove('open');
+            }
         });
     },
 
