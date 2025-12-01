@@ -1,25 +1,23 @@
 // ========================================
-// AUTH - Gestion de autenticacion y sesion
-// Soporta Firebase Auth y fallback a localStorage
+// AUTH - Gestion de autenticacion con Firebase Auth
+// Sistema seguro con recuperacion de contrasena
 // ========================================
 
 const Auth = {
     // Configuracion
     SESSION_KEY: 'fixify-session',
     USER_KEY: 'fixify-user',
-    useFirebase: false, // Se activa cuando Firebase esta disponible
+    useFirebase: false,
 
     // ========================================
     // INICIALIZACION
     // ========================================
 
     init() {
-        // Verificar si Firebase esta disponible
         this.useFirebase = typeof firebase !== 'undefined' && getFirebaseAuth && getFirebaseAuth();
         
         if (this.useFirebase) {
             console.log('Auth: Usando Firebase Authentication');
-            // Escuchar cambios de autenticacion
             getFirebaseAuth().onAuthStateChanged((user) => {
                 if (user) {
                     this.syncUserData(user);
@@ -34,9 +32,6 @@ const Auth = {
     // METODOS DE SESION
     // ========================================
 
-    /**
-     * Verifica si hay una sesion activa
-     */
     isAuthenticated() {
         if (this.useFirebase) {
             const auth = getFirebaseAuth();
@@ -45,23 +40,15 @@ const Auth = {
         return !!(localStorage.getItem(this.SESSION_KEY) || sessionStorage.getItem(this.SESSION_KEY));
     },
 
-    /**
-     * Obtiene el usuario actual
-     */
     getCurrentUser() {
-        // Primero intentar desde el storage local (mas rapido)
         const userJson = localStorage.getItem(this.USER_KEY) || sessionStorage.getItem(this.USER_KEY);
         return userJson ? JSON.parse(userJson) : null;
     },
 
-    /**
-     * Sincroniza datos del usuario de Firebase con localStorage
-     */
     async syncUserData(firebaseUser) {
         if (!firebaseUser) return;
 
         try {
-            // Buscar datos adicionales en Firestore
             const userData = await FirestoreService.getUserByEmail(firebaseUser.email);
             
             const sessionUser = {
@@ -79,28 +66,23 @@ const Auth = {
         }
     },
 
-    /**
-     * Inicia sesion
-     */
+    // ========================================
+    // LOGIN CON FIREBASE AUTH
+    // ========================================
+
     async login(email, password, remember = false) {
-        // Si Firebase esta disponible, usar Firebase Auth
         if (this.useFirebase) {
             return await this.loginWithFirebase(email, password, remember);
         }
-        
-        // Fallback a localStorage
         return await this.loginWithLocalStorage(email, password, remember);
     },
 
-    /**
-     * Login con Firebase Authentication
-     */
     async loginWithFirebase(email, password, remember = false) {
         try {
-            // Buscar usuario en Store (Firestore o localStorage)
-            const userData = await Store.getUserByEmail(email);
+            const auth = getFirebaseAuth();
             
-            console.log('Usuario encontrado:', userData ? 'Si' : 'No');
+            // Primero verificar si el usuario existe en Firestore y esta activo
+            const userData = await FirestoreService.getUserByEmail(email);
             
             if (!userData) {
                 return { success: false, message: 'Usuario no encontrado' };
@@ -110,36 +92,65 @@ const Auth = {
                 return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
             }
 
-            // Verificar contrasena directamente contra los datos del usuario
-            console.log('Verificando contrasena...');
-            if (userData.password !== password) {
-                console.log('Contrasena no coincide');
-                return { success: false, message: 'Contrasena incorrecta' };
-            }
-
-            console.log('Contrasena correcta, creando sesion...');
-
-            // Crear sesion
-            const sessionUser = {
-                id: userData.id,
-                email: userData.email,
-                name: userData.name || 'Usuario',
-                role: userData.role || 'user',
-                loginAt: new Date().toISOString()
-            };
-
-            const storage = remember ? localStorage : sessionStorage;
-            storage.setItem(this.SESSION_KEY, 'active');
-            storage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
-
-            // Intentar actualizar ultimo login (no bloquea si falla)
+            // Intentar login con Firebase Auth
             try {
-                await Store.updateUserLastLogin(email);
-            } catch (e) {
-                console.warn('No se pudo actualizar ultimo login');
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const firebaseUser = userCredential.user;
+
+                // Crear sesion
+                const sessionUser = {
+                    id: firebaseUser.uid,
+                    email: firebaseUser.email,
+                    name: userData.name || firebaseUser.displayName || 'Usuario',
+                    role: userData.role || 'user',
+                    loginAt: new Date().toISOString()
+                };
+
+                const storage = remember ? localStorage : sessionStorage;
+                storage.setItem(this.SESSION_KEY, 'active');
+                storage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
+
+                // Actualizar ultimo login
+                try {
+                    await FirestoreService.updateUserLastLogin(email);
+                    await FirestoreService.logActivity('user_login', { email: email });
+                } catch (e) {
+                    console.warn('No se pudo actualizar ultimo login');
+                }
+
+                return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
+
+            } catch (authError) {
+                console.log('Error de Firebase Auth:', authError.code);
+                
+                // Si el usuario no existe en Firebase Auth, intentar crearlo
+                if (authError.code === 'auth/user-not-found') {
+                    // Verificar contrasena contra Firestore (migracion)
+                    if (userData.password === password) {
+                        // Crear usuario en Firebase Auth
+                        const migrationResult = await this.migrateUserToFirebaseAuth(email, password, userData);
+                        if (migrationResult.success) {
+                            return migrationResult;
+                        }
+                    }
+                    return { success: false, message: 'Credenciales incorrectas' };
+                }
+                
+                if (authError.code === 'auth/wrong-password') {
+                    return { success: false, message: 'Contrasena incorrecta' };
+                }
+                
+                if (authError.code === 'auth/invalid-email') {
+                    return { success: false, message: 'Correo electronico invalido' };
+                }
+
+                if (authError.code === 'auth/too-many-requests') {
+                    return { success: false, message: 'Demasiados intentos fallidos. Intenta mas tarde.' };
+                }
+
+                return { success: false, message: 'Error al iniciar sesion' };
             }
 
-            return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
         } catch (error) {
             console.error('Error de login:', error);
             return { success: false, message: error.message || 'Error al iniciar sesion' };
@@ -147,10 +158,51 @@ const Auth = {
     },
 
     /**
-     * Login con localStorage (fallback)
+     * Migra un usuario existente a Firebase Auth
+     */
+    async migrateUserToFirebaseAuth(email, password, userData) {
+        try {
+            const auth = getFirebaseAuth();
+            
+            // Crear usuario en Firebase Auth
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            const firebaseUser = userCredential.user;
+
+            // Actualizar displayName
+            await firebaseUser.updateProfile({
+                displayName: userData.name || 'Usuario'
+            });
+
+            // Actualizar documento en Firestore (remover password en texto plano)
+            await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
+                firebaseUid: firebaseUser.uid,
+                migratedAt: new Date().toISOString()
+            }, userData.id);
+
+            const sessionUser = {
+                id: firebaseUser.uid,
+                email: firebaseUser.email,
+                name: userData.name || 'Usuario',
+                role: userData.role || 'user',
+                loginAt: new Date().toISOString()
+            };
+
+            localStorage.setItem(this.SESSION_KEY, 'active');
+            localStorage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
+
+            console.log('Usuario migrado exitosamente a Firebase Auth');
+            return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
+
+        } catch (error) {
+            console.error('Error al migrar usuario:', error);
+            return { success: false, message: 'Error al migrar cuenta' };
+        }
+    },
+
+    /**
+     * Login con localStorage (fallback cuando no hay Firebase)
      */
     async loginWithLocalStorage(email, password, remember = false) {
-        // Intentar buscar en Firestore primero
         let user = null;
         
         if (window.FirestoreService) {
@@ -161,7 +213,6 @@ const Auth = {
             }
         }
 
-        // Fallback a Store local
         if (!user && window.Store) {
             user = Store.getUserByEmail(email);
         }
@@ -178,7 +229,6 @@ const Auth = {
             return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
         }
 
-        // Crear datos de sesion
         const sessionUser = {
             id: user.id,
             email: user.email,
@@ -187,12 +237,10 @@ const Auth = {
             loginAt: new Date().toISOString()
         };
 
-        // Guardar sesion
         const storage = remember ? localStorage : sessionStorage;
         storage.setItem(this.SESSION_KEY, 'active');
         storage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
 
-        // Actualizar ultimo login
         if (window.FirestoreService) {
             try {
                 await FirestoreService.updateUserLastLogin(user.email);
@@ -206,20 +254,146 @@ const Auth = {
         return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
     },
 
+    // ========================================
+    // RECUPERACION DE CONTRASENA
+    // ========================================
+
     /**
-     * Cierra sesion
+     * Envia un correo para restablecer la contrasena
      */
+    async resetPassword(email) {
+        try {
+            if (!this.useFirebase) {
+                return { 
+                    success: false, 
+                    message: 'La recuperacion de contrasena requiere conexion a Firebase' 
+                };
+            }
+
+            const auth = getFirebaseAuth();
+            
+            // Verificar que el usuario exista en el sistema
+            const userData = await FirestoreService.getUserByEmail(email);
+            if (!userData) {
+                return { success: false, message: 'No existe una cuenta con este correo' };
+            }
+
+            // Configurar idioma del email
+            auth.languageCode = 'es';
+
+            // Enviar correo de recuperacion
+            await auth.sendPasswordResetEmail(email, {
+                url: window.location.origin + '/index.html',
+                handleCodeInApp: false
+            });
+
+            // Registrar actividad
+            try {
+                await FirestoreService.logActivity('password_reset_requested', { email: email });
+            } catch (e) {}
+
+            return { 
+                success: true, 
+                message: 'Se ha enviado un correo para restablecer tu contrasena' 
+            };
+
+        } catch (error) {
+            console.error('Error al enviar correo de recuperacion:', error);
+            
+            let message = 'Error al enviar el correo';
+            
+            if (error.code === 'auth/user-not-found') {
+                // Si no existe en Firebase Auth pero si en Firestore, informar
+                message = 'Tu cuenta aun no ha sido migrada. Contacta al administrador.';
+            } else if (error.code === 'auth/invalid-email') {
+                message = 'Correo electronico invalido';
+            } else if (error.code === 'auth/too-many-requests') {
+                message = 'Demasiados intentos. Intenta mas tarde.';
+            }
+            
+            return { success: false, message };
+        }
+    },
+
+    // ========================================
+    // CREAR USUARIO CON FIREBASE AUTH
+    // ========================================
+
+    /**
+     * Crea un nuevo usuario con Firebase Auth
+     */
+    async createUser(userData) {
+        try {
+            if (!this.useFirebase) {
+                // Fallback: crear solo en Firestore
+                return await FirestoreService.saveUser(userData);
+            }
+
+            const auth = getFirebaseAuth();
+            
+            // Crear usuario en Firebase Auth
+            const userCredential = await auth.createUserWithEmailAndPassword(
+                userData.email, 
+                userData.password
+            );
+            const firebaseUser = userCredential.user;
+
+            // Actualizar displayName
+            await firebaseUser.updateProfile({
+                displayName: userData.name || 'Usuario'
+            });
+
+            // Guardar datos adicionales en Firestore (sin password)
+            const firestoreData = {
+                email: userData.email.toLowerCase(),
+                name: userData.name || 'Usuario',
+                role: userData.role || 'user',
+                status: userData.status || 'active',
+                firebaseUid: firebaseUser.uid,
+                createdAt: new Date().toISOString()
+            };
+
+            const savedUser = await FirestoreService.save(
+                FirestoreService.COLLECTIONS.USERS, 
+                firestoreData
+            );
+
+            // Cerrar sesion del nuevo usuario (el admin esta creando cuentas)
+            // No queremos que el admin pierda su sesion
+            // await auth.signOut(); // Comentado para evitar cerrar sesion del admin
+
+            return { success: true, user: savedUser };
+
+        } catch (error) {
+            console.error('Error al crear usuario:', error);
+            
+            let message = 'Error al crear usuario';
+            
+            if (error.code === 'auth/email-already-in-use') {
+                message = 'Ya existe una cuenta con este correo';
+            } else if (error.code === 'auth/weak-password') {
+                message = 'La contrasena debe tener al menos 6 caracteres';
+            } else if (error.code === 'auth/invalid-email') {
+                message = 'Correo electronico invalido';
+            }
+            
+            throw new Error(message);
+        }
+    },
+
+    // ========================================
+    // CERRAR SESION
+    // ========================================
+
     async logout() {
         const user = this.getCurrentUser();
 
-        // Log de actividad
         if (window.FirestoreService && user) {
             try {
                 await FirestoreService.logActivity('user_logout', { email: user.email });
             } catch (e) {}
         }
 
-        // Cerrar sesion en Firebase
         if (this.useFirebase) {
             try {
                 await getFirebaseAuth().signOut();
@@ -228,19 +402,18 @@ const Auth = {
             }
         }
 
-        // Limpiar storage
         localStorage.removeItem(this.SESSION_KEY);
         localStorage.removeItem(this.USER_KEY);
         sessionStorage.removeItem(this.SESSION_KEY);
         sessionStorage.removeItem(this.USER_KEY);
 
-        // Redirigir a login
         window.location.href = '../index.html';
     },
 
-    /**
-     * Verifica permisos del usuario
-     */
+    // ========================================
+    // PERMISOS Y PROTECCION
+    // ========================================
+
     hasPermission(permission) {
         const user = this.getCurrentUser();
         if (!user) return false;
@@ -257,9 +430,6 @@ const Auth = {
         return permissions.includes('*') || permissions.includes(permission);
     },
 
-    /**
-     * Protege una pagina
-     */
     requireAuth() {
         if (!this.isAuthenticated()) {
             sessionStorage.setItem('fixify-redirect', window.location.href);
@@ -269,9 +439,6 @@ const Auth = {
         return true;
     },
 
-    /**
-     * Redirige si ya esta autenticado
-     */
     redirectIfAuthenticated() {
         if (this.isAuthenticated()) {
             const redirect = sessionStorage.getItem('fixify-redirect') || './pages/dashboard.html';

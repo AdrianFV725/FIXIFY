@@ -807,4 +807,188 @@ body {
     animation: shake 0.5s ease;
 }
 
+/* ========================================
+   MODAL DE RECUPERACION DE CONTRASENA
+   ======================================== */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--transition-normal);
+}
+
+.modal-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-container {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    background: var(--card-bg);
+    border-radius: 24px;
+    padding: 2.5rem;
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.2),
+        0 0 0 1px var(--border-color);
+    transform: translateY(20px) scale(0.95);
+    transition: transform var(--transition-normal);
+}
+
+.modal-overlay.show .modal-container {
+    transform: translateY(0) scale(1);
+}
+
+.modal-close {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.modal-close:hover {
+    border-color: var(--error-color);
+    background: rgba(214, 69, 69, 0.1);
+    color: var(--error-color);
+}
+
+.modal-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.modal-icon {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.25rem;
+    color: white;
+    box-shadow: 0 8px 24px rgba(201, 168, 108, 0.3);
+}
+
+.modal-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.modal-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.modal-footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    transition: all var(--transition-fast);
+}
+
+.back-link:hover {
+    color: var(--accent-primary);
+    background: var(--accent-light);
+}
+
+/* Estado de exito del boton de recuperacion */
+.submit-btn.success {
+    background: var(--success-color);
+    pointer-events: none;
+}
+
+.submit-btn.success::before {
+    display: none;
+}
+
+.submit-btn .btn-check {
+    display: none;
+    margin-left: 0.5rem;
+}
+
+.submit-btn.success .btn-check {
+    display: inline-block;
+    animation: scaleIn 0.3s ease forwards;
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Responsive para el modal */
+@media (max-width: 480px) {
+    .modal-container {
+        padding: 2rem 1.5rem;
+        border-radius: 20px;
+    }
+    
+    .modal-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+    }
+    
+    .modal-icon svg {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .modal-title {
+        font-size: 1.25rem;
+    }
+}
+
 

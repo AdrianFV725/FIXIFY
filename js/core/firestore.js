@@ -164,8 +164,15 @@ const FirestoreService = {
         // Normalizar email
         userData.email = userData.email.toLowerCase();
         
-        // Si tiene ID, actualizar
+        // Si tiene ID, actualizar (no crear en Firebase Auth)
         if (userData.id) {
+            // No guardar password en texto plano si ya esta migrado
+            const existingUser = await this.getById(this.COLLECTIONS.USERS, userData.id);
+            if (existingUser?.firebaseUid) {
+                // Usuario migrado, no guardar password
+                const { password, ...safeData } = userData;
+                return await this.save(this.COLLECTIONS.USERS, safeData, userData.id);
+            }
             return await this.save(this.COLLECTIONS.USERS, userData, userData.id);
         }
         
@@ -175,6 +182,51 @@ const FirestoreService = {
             throw new Error('Ya existe un usuario con ese correo');
         }
 
+        // Intentar crear en Firebase Auth si esta disponible
+        const auth = getFirebaseAuth();
+        if (auth && userData.password) {
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(
+                    userData.email,
+                    userData.password
+                );
+                const firebaseUser = userCredential.user;
+
+                // Actualizar displayName
+                await firebaseUser.updateProfile({
+                    displayName: userData.name || 'Usuario'
+                });
+
+                // Guardar en Firestore sin password (Firebase Auth lo maneja)
+                const { password, ...safeUserData } = userData;
+                const firestoreData = {
+                    ...safeUserData,
+                    firebaseUid: firebaseUser.uid,
+                    createdAt: new Date().toISOString()
+                };
+
+                const result = await this.save(this.COLLECTIONS.USERS, firestoreData);
+                console.log('Usuario creado en Firebase Auth y Firestore');
+                return result;
+
+            } catch (authError) {
+                console.error('Error al crear en Firebase Auth:', authError);
+                
+                if (authError.code === 'auth/email-already-in-use') {
+                    throw new Error('Ya existe una cuenta con este correo en Firebase');
+                } else if (authError.code === 'auth/weak-password') {
+                    throw new Error('La contrasena debe tener al menos 6 caracteres');
+                } else if (authError.code === 'auth/invalid-email') {
+                    throw new Error('Correo electronico invalido');
+                }
+                
+                // Si falla Firebase Auth, crear solo en Firestore (modo legacy)
+                console.warn('Creando usuario solo en Firestore (modo legacy)');
+                return await this.save(this.COLLECTIONS.USERS, userData);
+            }
+        }
+
+        // Fallback: crear solo en Firestore
         return await this.save(this.COLLECTIONS.USERS, userData);
     },
 
@@ -314,18 +366,33 @@ const FirestoreService = {
 
     async ensureAdminExists() {
         const adminEmail = 'admin@brands.mx';
+        const adminPassword = '3lN3g0c10d3tuV1d4';
         const existingAdmin = await this.getUserByEmail(adminEmail);
 
         if (!existingAdmin) {
-            await this.save(this.COLLECTIONS.USERS, {
-                email: adminEmail,
-                password: '3lN3g0c10d3tuV1d4',
-                name: 'Administrador',
-                role: 'admin',
-                status: 'active',
-                createdAt: new Date().toISOString()
-            });
-            console.log('Usuario administrador creado');
+            // Crear admin usando el metodo saveUser que maneja Firebase Auth
+            try {
+                await this.saveUser({
+                    email: adminEmail,
+                    password: adminPassword,
+                    name: 'Administrador',
+                    role: 'admin',
+                    status: 'active'
+                });
+                console.log('Usuario administrador creado');
+            } catch (error) {
+                // Si ya existe en Firebase Auth pero no en Firestore
+                if (error.message.includes('Firebase')) {
+                    await this.save(this.COLLECTIONS.USERS, {
+                        email: adminEmail,
+                        name: 'Administrador',
+                        role: 'admin',
+                        status: 'active',
+                        createdAt: new Date().toISOString()
+                    });
+                    console.log('Usuario administrador sincronizado en Firestore');
+                }
+            }
         }
     }
 };

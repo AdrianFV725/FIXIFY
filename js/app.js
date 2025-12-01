@@ -5,7 +5,7 @@
 const CONFIG = {
     validEmail: 'admin@brands.mx',
     validPassword: '3lN3g0c10d3tuV1d4',
-    loadingDelay: 1500,
+    loadingDelay: 800,
     notificationDuration: 4000
 };
 
@@ -25,7 +25,16 @@ const elements = {
     submitBtn: document.getElementById('submitBtn'),
     notification: document.getElementById('notification'),
     notificationText: document.getElementById('notificationText'),
-    loginCard: document.querySelector('.login-card')
+    loginCard: document.querySelector('.login-card'),
+    forgotLink: document.querySelector('.forgot-link'),
+    // Modal de recuperacion
+    resetModal: document.getElementById('resetPasswordModal'),
+    resetForm: document.getElementById('resetPasswordForm'),
+    resetEmailInput: document.getElementById('resetEmail'),
+    resetEmailError: document.getElementById('resetEmailError'),
+    resetSubmitBtn: document.getElementById('resetSubmitBtn'),
+    closeModalBtn: document.getElementById('closeResetModal'),
+    backToLoginBtn: document.getElementById('backToLogin')
 };
 
 // ========================================
@@ -39,7 +48,6 @@ class ThemeManager {
     }
 
     init() {
-        // Cargar tema guardado o usar preferencia del sistema
         const savedTheme = localStorage.getItem(this.storageKey);
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         
@@ -49,7 +57,6 @@ class ThemeManager {
             this.setTheme('dark');
         }
 
-        // Escuchar cambios en la preferencia del sistema
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
             if (!localStorage.getItem(this.storageKey)) {
                 this.setTheme(e.matches ? 'dark' : 'light');
@@ -122,7 +129,6 @@ class NotificationManager {
         elements.notificationText.textContent = message;
         elements.notification.classList.add(type, 'show');
 
-        // Auto-hide
         setTimeout(() => {
             this.hide();
         }, CONFIG.notificationDuration);
@@ -134,18 +140,24 @@ class NotificationManager {
 }
 
 // ========================================
-// AUTENTICACION
+// AUTENTICACION CON FIREBASE AUTH
 // ========================================
 
 class AuthManager {
     static async authenticate(email, password) {
-        // Simular delay de red
         await new Promise(resolve => setTimeout(resolve, CONFIG.loadingDelay));
 
         console.log('=== AUTENTICACION ===');
         console.log('Email:', email);
 
-        // PRIMERO: Verificar credenciales hardcodeadas (admin por defecto)
+        // Usar el modulo Auth si esta disponible
+        if (window.Auth && window.Auth.useFirebase) {
+            console.log('Usando Firebase Auth...');
+            const result = await Auth.login(email, password, document.getElementById('remember')?.checked);
+            return result;
+        }
+
+        // Fallback: Verificar credenciales hardcodeadas (admin por defecto)
         if (email === CONFIG.validEmail && password === CONFIG.validPassword) {
             console.log('Login con credenciales por defecto');
             return { 
@@ -160,7 +172,7 @@ class AuthManager {
             };
         }
 
-        // SEGUNDO: Verificar contra el Store (Firestore o localStorage)
+        // Verificar contra el Store (Firestore o localStorage)
         if (window.Store) {
             try {
                 console.log('Buscando usuario en Store...');
@@ -175,7 +187,6 @@ class AuthManager {
                             return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
                         }
 
-                        // Actualizar ultimo login
                         try {
                             await Store.updateUserLastLogin(user.email);
                         } catch (e) {}
@@ -202,6 +213,190 @@ class AuthManager {
 
         return { success: false, message: 'Credenciales incorrectas' };
     }
+
+    /**
+     * Envia correo de recuperacion de contrasena
+     */
+    static async sendPasswordReset(email) {
+        await new Promise(resolve => setTimeout(resolve, CONFIG.loadingDelay));
+
+        if (window.Auth && window.Auth.useFirebase) {
+            return await Auth.resetPassword(email);
+        }
+
+        return { 
+            success: false, 
+            message: 'La recuperacion de contrasena no esta disponible en modo offline' 
+        };
+    }
+}
+
+// ========================================
+// CONTROLADOR DEL MODAL DE RECUPERACION
+// ========================================
+
+class ResetPasswordController {
+    constructor() {
+        this.isLoading = false;
+        this.bindEvents();
+    }
+
+    bindEvents() {
+        // Abrir modal
+        if (elements.forgotLink) {
+            elements.forgotLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.openModal();
+            });
+        }
+
+        // Cerrar modal
+        if (elements.closeModalBtn) {
+            elements.closeModalBtn.addEventListener('click', () => {
+                this.closeModal();
+            });
+        }
+
+        if (elements.backToLoginBtn) {
+            elements.backToLoginBtn.addEventListener('click', () => {
+                this.closeModal();
+            });
+        }
+
+        // Cerrar al hacer clic fuera del modal
+        if (elements.resetModal) {
+            elements.resetModal.addEventListener('click', (e) => {
+                if (e.target === elements.resetModal) {
+                    this.closeModal();
+                }
+            });
+        }
+
+        // Cerrar con Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && elements.resetModal?.classList.contains('show')) {
+                this.closeModal();
+            }
+        });
+
+        // Validacion en tiempo real
+        if (elements.resetEmailInput) {
+            elements.resetEmailInput.addEventListener('input', () => {
+                FormValidator.hideError(elements.resetEmailInput, elements.resetEmailError);
+            });
+        }
+
+        // Submit del formulario
+        if (elements.resetForm) {
+            elements.resetForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleSubmit();
+            });
+        }
+    }
+
+    openModal() {
+        if (elements.resetModal) {
+            elements.resetModal.classList.add('show');
+            elements.resetEmailInput?.focus();
+            // Pre-llenar con el email del login si existe
+            if (elements.emailInput?.value && elements.resetEmailInput) {
+                elements.resetEmailInput.value = elements.emailInput.value;
+            }
+        }
+    }
+
+    closeModal() {
+        if (elements.resetModal) {
+            elements.resetModal.classList.remove('show');
+            // Limpiar formulario
+            if (elements.resetForm) {
+                elements.resetForm.reset();
+            }
+            if (elements.resetEmailInput && elements.resetEmailError) {
+                FormValidator.hideError(elements.resetEmailInput, elements.resetEmailError);
+            }
+            // Restaurar estado del boton si estaba en success
+            this.resetButtonState();
+        }
+    }
+
+    validateEmailField() {
+        const result = FormValidator.validateEmail(elements.resetEmailInput?.value);
+        
+        if (!result.valid) {
+            FormValidator.showError(elements.resetEmailInput, elements.resetEmailError, result.message);
+        }
+        
+        return result.valid;
+    }
+
+    async handleSubmit() {
+        if (this.isLoading) return;
+
+        if (!this.validateEmailField()) {
+            return;
+        }
+
+        this.setLoading(true);
+
+        try {
+            const result = await AuthManager.sendPasswordReset(elements.resetEmailInput.value);
+
+            if (result.success) {
+                this.showSuccessState();
+                NotificationManager.show(result.message, 'success');
+            } else {
+                NotificationManager.show(result.message, 'error');
+            }
+        } catch (error) {
+            NotificationManager.show('Error al enviar el correo. Intenta de nuevo.', 'error');
+        } finally {
+            this.setLoading(false);
+        }
+    }
+
+    setLoading(loading) {
+        this.isLoading = loading;
+        if (elements.resetSubmitBtn) {
+            elements.resetSubmitBtn.classList.toggle('loading', loading);
+            elements.resetSubmitBtn.disabled = loading;
+        }
+        if (elements.resetEmailInput) {
+            elements.resetEmailInput.disabled = loading;
+        }
+    }
+
+    showSuccessState() {
+        if (elements.resetSubmitBtn) {
+            elements.resetSubmitBtn.classList.add('success');
+            elements.resetSubmitBtn.innerHTML = `
+                <span class="btn-text">Correo enviado</span>
+                <svg class="btn-check" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            `;
+        }
+        // Cerrar modal despues de 3 segundos
+        setTimeout(() => {
+            this.closeModal();
+        }, 3000);
+    }
+
+    resetButtonState() {
+        if (elements.resetSubmitBtn) {
+            elements.resetSubmitBtn.classList.remove('success', 'loading');
+            elements.resetSubmitBtn.disabled = false;
+            elements.resetSubmitBtn.innerHTML = `
+                <span class="btn-text">Enviar enlace de recuperacion</span>
+                <span class="btn-loader">
+                    <svg class="spinner" viewBox="0 0 50 50">
+                        <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                    </svg>
+                </span>
+            `;
+        }
+    }
 }
 
 // ========================================
@@ -211,47 +406,48 @@ class AuthManager {
 class LoginController {
     constructor() {
         this.themeManager = new ThemeManager();
+        this.resetPasswordController = new ResetPasswordController();
         this.isLoading = false;
         this.bindEvents();
     }
 
     bindEvents() {
         // Toggle de tema
-        elements.themeToggle.addEventListener('click', () => {
+        elements.themeToggle?.addEventListener('click', () => {
             this.themeManager.toggle();
         });
 
         // Toggle de password
-        elements.passwordToggle.addEventListener('click', () => {
+        elements.passwordToggle?.addEventListener('click', () => {
             this.togglePasswordVisibility();
         });
 
         // Validacion en tiempo real
-        elements.emailInput.addEventListener('blur', () => {
+        elements.emailInput?.addEventListener('blur', () => {
             this.validateEmailField();
         });
 
-        elements.passwordInput.addEventListener('blur', () => {
+        elements.passwordInput?.addEventListener('blur', () => {
             this.validatePasswordField();
         });
 
         // Limpiar errores al escribir
-        elements.emailInput.addEventListener('input', () => {
+        elements.emailInput?.addEventListener('input', () => {
             FormValidator.hideError(elements.emailInput, elements.emailError);
         });
 
-        elements.passwordInput.addEventListener('input', () => {
+        elements.passwordInput?.addEventListener('input', () => {
             FormValidator.hideError(elements.passwordInput, elements.passwordError);
         });
 
         // Submit del formulario
-        elements.loginForm.addEventListener('submit', (e) => {
+        elements.loginForm?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleSubmit();
         });
 
         // Permitir submit con Enter
-        elements.loginForm.addEventListener('keypress', (e) => {
+        elements.loginForm?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !this.isLoading) {
                 e.preventDefault();
                 this.handleSubmit();
@@ -294,7 +490,6 @@ class LoginController {
     async handleSubmit() {
         if (this.isLoading) return;
 
-        // Validar campos
         const emailValid = this.validateEmailField();
         const passwordValid = this.validatePasswordField();
 
@@ -303,7 +498,6 @@ class LoginController {
             return;
         }
 
-        // Iniciar loading
         this.setLoading(true);
 
         try {
@@ -315,11 +509,9 @@ class LoginController {
             if (result.success) {
                 NotificationManager.show(result.message, 'success');
                 
-                // Guardar estado de sesion si "recordarme" esta activo
                 const rememberMe = document.getElementById('remember').checked;
                 const storage = rememberMe ? localStorage : sessionStorage;
                 
-                // Usar datos del usuario del resultado
                 let userData = result.user;
                 if (!userData) {
                     try {
@@ -329,7 +521,6 @@ class LoginController {
                     }
                 }
                 
-                // Guardar sesion y datos del usuario
                 storage.setItem('fixify-session', 'active');
                 storage.setItem('fixify-user', JSON.stringify({
                     id: userData?.id || 'unknown',
@@ -339,7 +530,6 @@ class LoginController {
                     loginAt: new Date().toISOString()
                 }));
 
-                // Mostrar mensaje de redireccion y redirigir al dashboard
                 this.showSuccessState();
                 setTimeout(() => {
                     window.location.href = './pages/dashboard.html';
@@ -372,7 +562,6 @@ class LoginController {
     }
 
     showSuccessState() {
-        // Cambiar la UI para mostrar que el login fue exitoso
         elements.loginCard.innerHTML = `
             <div class="success-state" style="text-align: center; padding: 2rem 0;">
                 <div style="
@@ -416,7 +605,6 @@ class LoginController {
             </div>
         `;
 
-        // Agregar estilos de animacion
         const style = document.createElement('style');
         style.textContent = `
             @keyframes scaleIn {
@@ -457,7 +645,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // PREVENIR FLASH DE TEMA INCORRECTO
 // ========================================
 
-// Este script se ejecuta antes del DOMContentLoaded
 (function() {
     const savedTheme = localStorage.getItem('fixify-theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -468,4 +655,3 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.setAttribute('data-theme', 'dark');
     }
 })();
-
