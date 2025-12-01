@@ -144,38 +144,58 @@ class AuthManager {
 
         // Verificar credenciales contra el Store
         if (window.Store) {
-            const user = Store.getUserByEmail(email);
-            
-            if (!user) {
-                return { success: false, message: 'Usuario no encontrado' };
-            }
-
-            if (user.password !== password) {
-                return { success: false, message: 'Contrasena incorrecta' };
-            }
-
-            if (user.status === 'inactive') {
-                return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
-            }
-
-            // Actualizar ultimo login
-            Store.updateUserLastLogin(user.email);
-
-            return { 
-                success: true, 
-                message: 'Inicio de sesion exitoso!',
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                    role: user.role
+            try {
+                const user = await Store.getUserByEmail(email);
+                
+                console.log('Usuario encontrado:', user ? 'Si' : 'No');
+                
+                if (!user) {
+                    return { success: false, message: 'Usuario no encontrado' };
                 }
-            };
+
+                console.log('Verificando contrasena...');
+                if (user.password !== password) {
+                    console.log('Contrasena no coincide');
+                    return { success: false, message: 'Contrasena incorrecta' };
+                }
+
+                if (user.status === 'inactive') {
+                    return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
+                }
+
+                // Actualizar ultimo login
+                try {
+                    await Store.updateUserLastLogin(user.email);
+                } catch (e) {}
+
+                console.log('Login exitoso!');
+                return { 
+                    success: true, 
+                    message: 'Inicio de sesion exitoso!',
+                    user: {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                        role: user.role
+                    }
+                };
+            } catch (error) {
+                console.error('Error en autenticacion:', error);
+            }
         }
 
         // Fallback si Store no esta disponible
         if (email === CONFIG.validEmail && password === CONFIG.validPassword) {
-            return { success: true, message: 'Inicio de sesion exitoso!' };
+            return { 
+                success: true, 
+                message: 'Inicio de sesion exitoso!',
+                user: {
+                    id: 'admin',
+                    email: CONFIG.validEmail,
+                    name: 'Administrador',
+                    role: 'admin'
+                }
+            };
         }
 
         return { success: false, message: 'Credenciales incorrectas' };
