@@ -297,18 +297,32 @@ class ResetPasswordController {
 
     openModal() {
         if (elements.resetModal) {
+            // Mostrar el modal
+            elements.resetModal.style.display = 'flex';
+            // Forzar reflow para que la transicion funcione
+            elements.resetModal.offsetHeight;
+            // Agregar clase para animacion
             elements.resetModal.classList.add('show');
-            elements.resetEmailInput?.focus();
+            // Focus en el input
+            setTimeout(() => {
+                elements.resetEmailInput?.focus();
+            }, 100);
             // Pre-llenar con el email del login si existe
             if (elements.emailInput?.value && elements.resetEmailInput) {
                 elements.resetEmailInput.value = elements.emailInput.value;
             }
+            // Prevenir scroll del body
+            document.body.style.overflow = 'hidden';
         }
     }
 
     closeModal() {
         if (elements.resetModal) {
             elements.resetModal.classList.remove('show');
+            // Esperar a que termine la animacion antes de ocultar
+            setTimeout(() => {
+                elements.resetModal.style.display = 'none';
+            }, 300);
             // Limpiar formulario
             if (elements.resetForm) {
                 elements.resetForm.reset();
@@ -318,6 +332,8 @@ class ResetPasswordController {
             }
             // Restaurar estado del boton si estaba en success
             this.resetButtonState();
+            // Restaurar scroll del body
+            document.body.style.overflow = '';
         }
     }
 

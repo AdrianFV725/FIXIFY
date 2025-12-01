@@ -814,19 +814,21 @@ body {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    display: flex;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none;
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
-    z-index: 1000;
+    z-index: 9999;
     opacity: 0;
     visibility: hidden;
-    transition: all var(--transition-normal);
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .modal-overlay.show {
+    display: flex;
     opacity: 1;
     visibility: visible;
 }
@@ -834,15 +836,15 @@ body {
 .modal-container {
     position: relative;
     width: 100%;
-    max-width: 420px;
+    max-width: 440px;
     background: var(--card-bg);
     border-radius: 24px;
-    padding: 2.5rem;
+    padding: 2.5rem 2rem;
     box-shadow: 
-        0 20px 60px rgba(0, 0, 0, 0.2),
+        0 25px 80px rgba(0, 0, 0, 0.35),
         0 0 0 1px var(--border-color);
-    transform: translateY(20px) scale(0.95);
-    transition: transform var(--transition-normal);
+    transform: translateY(30px) scale(0.9);
+    transition: transform 0.3s ease;
 }
 
 .modal-overlay.show .modal-container {
@@ -851,10 +853,10 @@ body {
 
 .modal-close {
     position: absolute;
-    top: 1.25rem;
-    right: 1.25rem;
-    width: 36px;
-    height: 36px;
+    top: 1rem;
+    right: 1rem;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     border: 1px solid var(--border-color);
     background: var(--bg-tertiary);
@@ -863,45 +865,55 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all var(--transition-fast);
+    transition: all 0.2s ease;
+    z-index: 10;
 }
 
 .modal-close:hover {
     border-color: var(--error-color);
-    background: rgba(214, 69, 69, 0.1);
+    background: rgba(214, 69, 69, 0.15);
     color: var(--error-color);
+    transform: rotate(90deg);
 }
 
 .modal-header {
     text-align: center;
     margin-bottom: 2rem;
+    padding-top: 0.5rem;
 }
 
 .modal-icon {
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 72px;
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    border-radius: 16px;
+    border-radius: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 1.25rem;
+    margin: 0 auto 1.5rem;
     color: white;
-    box-shadow: 0 8px 24px rgba(201, 168, 108, 0.3);
+    box-shadow: 0 12px 32px rgba(201, 168, 108, 0.4);
+}
+
+.modal-icon svg {
+    width: 32px;
+    height: 32px;
 }
 
 .modal-title {
     font-family: 'Playfair Display', serif;
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .modal-subtitle {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: var(--text-secondary);
-    line-height: 1.5;
+    line-height: 1.6;
+    max-width: 320px;
+    margin: 0 auto;
 }
 
 .modal-form {
@@ -910,9 +922,13 @@ body {
     gap: 1.5rem;
 }
 
+.modal-form .form-group {
+    margin-bottom: 0;
+}
+
 .modal-footer {
     text-align: center;
-    margin-top: 1.5rem;
+    margin-top: 1.75rem;
     padding-top: 1.5rem;
     border-top: 1px solid var(--border-color);
 }
@@ -922,19 +938,28 @@ body {
     align-items: center;
     gap: 0.5rem;
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 500;
     background: none;
     border: none;
     cursor: pointer;
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    transition: all var(--transition-fast);
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    font-family: inherit;
 }
 
 .back-link:hover {
     color: var(--accent-primary);
     background: var(--accent-light);
+}
+
+.back-link svg {
+    transition: transform 0.2s ease;
+}
+
+.back-link:hover svg {
+    transform: translateX(-3px);
 }
 
 /* Estado de exito del boton de recuperacion */
@@ -970,24 +995,38 @@ body {
 
 /* Responsive para el modal */
 @media (max-width: 480px) {
+    .modal-overlay {
+        padding: 1rem;
+    }
+    
     .modal-container {
         padding: 2rem 1.5rem;
         border-radius: 20px;
+        max-width: 100%;
     }
     
     .modal-icon {
-        width: 56px;
-        height: 56px;
-        border-radius: 14px;
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
     }
     
     .modal-icon svg {
-        width: 24px;
-        height: 24px;
+        width: 28px;
+        height: 28px;
     }
     
     .modal-title {
-        font-size: 1.25rem;
+        font-size: 1.5rem;
+    }
+    
+    .modal-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .modal-close {
+        width: 36px;
+        height: 36px;
     }
 }
 
