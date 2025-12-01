@@ -11,6 +11,7 @@ const Store = {
     // KEYS DE ALMACENAMIENTO
     // ========================================
     KEYS: {
+        USERS: 'users',
         EMPLOYEES: 'employees',
         MACHINES: 'machines',
         LICENSES: 'licenses',
@@ -71,6 +72,74 @@ const Store = {
         Object.keys(localStorage)
             .filter(key => key.startsWith(this.prefix))
             .forEach(key => localStorage.removeItem(key));
+    },
+
+    // ========================================
+    // METODOS PARA USUARIOS DEL SISTEMA
+    // ========================================
+
+    getUsers() {
+        const users = this.get(this.KEYS.USERS) || [];
+        
+        // Asegurar que existe el admin por defecto
+        if (users.length === 0) {
+            const adminUser = {
+                id: this.generateId('USR'),
+                email: 'admin@brands.mx',
+                password: '3lN3g0c10d3tuV1d4',
+                name: 'Administrador',
+                role: 'admin',
+                status: 'active',
+                createdAt: new Date().toISOString()
+            };
+            users.push(adminUser);
+            this.set(this.KEYS.USERS, users);
+        }
+        
+        return users;
+    },
+
+    getUserById(id) {
+        const users = this.getUsers();
+        return users.find(u => u.id === id) || null;
+    },
+
+    getUserByEmail(email) {
+        const users = this.getUsers();
+        return users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
+    },
+
+    saveUser(user) {
+        const users = this.getUsers();
+        const index = users.findIndex(u => u.id === user.id);
+        
+        if (index >= 0) {
+            // Actualizar existente
+            users[index] = { ...users[index], ...user, updatedAt: new Date().toISOString() };
+        } else {
+            // Crear nuevo
+            user.id = this.generateId('USR');
+            user.createdAt = new Date().toISOString();
+            users.push(user);
+        }
+        
+        this.set(this.KEYS.USERS, users);
+        this.logActivity('user_saved', { email: user.email });
+        return user;
+    },
+
+    deleteUser(id) {
+        const users = this.getUsers().filter(u => u.id !== id);
+        this.set(this.KEYS.USERS, users);
+        this.logActivity('user_deleted', { userId: id });
+    },
+
+    updateUserLastLogin(email) {
+        const user = this.getUserByEmail(email);
+        if (user) {
+            user.lastLogin = new Date().toISOString();
+            this.saveUser(user);
+        }
     },
 
     // ========================================

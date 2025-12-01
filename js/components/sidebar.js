@@ -71,6 +71,18 @@ const Sidebar = {
                     href: 'analytics.html'
                 }
             ]
+        },
+        {
+            section: 'Configuracion',
+            adminOnly: true,
+            items: [
+                {
+                    id: 'users',
+                    label: 'Usuarios',
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 0-5 5v4a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5z"></path><path d="M19 15v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4"></path><path d="M12 12v4"></path><circle cx="12" cy="7" r="1"></circle></svg>`,
+                    href: 'users.html'
+                }
+            ]
         }
     ],
 
@@ -127,12 +139,17 @@ const Sidebar = {
      * Renderiza las secciones de navegacion
      */
     renderNavSections() {
-        return this.navItems.map(section => `
-            <div class="nav-section">
-                <span class="nav-section-title">${section.section}</span>
-                ${section.items.map(item => this.renderNavItem(item)).join('')}
-            </div>
-        `).join('');
+        const user = Auth?.getCurrentUser();
+        const isAdmin = user?.role === 'admin';
+
+        return this.navItems
+            .filter(section => !section.adminOnly || isAdmin)
+            .map(section => `
+                <div class="nav-section">
+                    <span class="nav-section-title">${section.section}</span>
+                    ${section.items.map(item => this.renderNavItem(item)).join('')}
+                </div>
+            `).join('');
     },
 
     /**

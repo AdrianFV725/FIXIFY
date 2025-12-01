@@ -142,7 +142,38 @@ class AuthManager {
         // Simular delay de red
         await new Promise(resolve => setTimeout(resolve, CONFIG.loadingDelay));
 
-        // Verificar credenciales
+        // Verificar credenciales contra el Store
+        if (window.Store) {
+            const user = Store.getUserByEmail(email);
+            
+            if (!user) {
+                return { success: false, message: 'Usuario no encontrado' };
+            }
+
+            if (user.password !== password) {
+                return { success: false, message: 'Contrasena incorrecta' };
+            }
+
+            if (user.status === 'inactive') {
+                return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
+            }
+
+            // Actualizar ultimo login
+            Store.updateUserLastLogin(user.email);
+
+            return { 
+                success: true, 
+                message: 'Inicio de sesion exitoso!',
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    role: user.role
+                }
+            };
+        }
+
+        // Fallback si Store no esta disponible
         if (email === CONFIG.validEmail && password === CONFIG.validPassword) {
             return { success: true, message: 'Inicio de sesion exitoso!' };
         }
@@ -266,12 +297,16 @@ class LoginController {
                 const rememberMe = document.getElementById('remember').checked;
                 const storage = rememberMe ? localStorage : sessionStorage;
                 
+                // Usar datos del usuario del resultado o del Store
+                const userData = result.user || Store.getUserByEmail(elements.emailInput.value);
+                
                 // Guardar sesion y datos del usuario
                 storage.setItem('fixify-session', 'active');
                 storage.setItem('fixify-user', JSON.stringify({
-                    email: elements.emailInput.value,
-                    name: 'Administrador',
-                    role: 'admin',
+                    id: userData.id,
+                    email: userData.email,
+                    name: userData.name,
+                    role: userData.role,
                     loginAt: new Date().toISOString()
                 }));
 

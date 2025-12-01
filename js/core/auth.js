@@ -6,16 +6,6 @@ const Auth = {
     // Configuracion
     SESSION_KEY: 'fixify-session',
     USER_KEY: 'fixify-user',
-    
-    // Usuarios validos (en produccion esto seria en backend)
-    validUsers: [
-        {
-            email: 'admin@brands.mx',
-            password: '3lN3g0c10d3tuV1d4',
-            name: 'Administrador',
-            role: 'admin'
-        }
-    ],
 
     // ========================================
     // METODOS DE SESION
@@ -46,18 +36,37 @@ const Auth = {
      * @returns {Object} - { success, message, user }
      */
     login(email, password, remember = false) {
-        // Buscar usuario valido
-        const user = this.validUsers.find(u => u.email === email && u.password === password);
+        // Buscar usuario en el Store
+        if (!window.Store) {
+            return { success: false, message: 'Error del sistema' };
+        }
+
+        const user = Store.getUserByEmail(email);
         
         if (!user) {
             return {
                 success: false,
-                message: 'Credenciales incorrectas'
+                message: 'Usuario no encontrado'
+            };
+        }
+
+        if (user.password !== password) {
+            return {
+                success: false,
+                message: 'Contrasena incorrecta'
+            };
+        }
+
+        if (user.status === 'inactive') {
+            return {
+                success: false,
+                message: 'Usuario inactivo. Contacta al administrador.'
             };
         }
 
         // Crear datos de sesion (sin password)
         const sessionUser = {
+            id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
@@ -69,10 +78,11 @@ const Auth = {
         storage.setItem(this.SESSION_KEY, 'active');
         storage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
 
+        // Actualizar ultimo login
+        Store.updateUserLastLogin(user.email);
+
         // Log de actividad
-        if (window.Store) {
-            Store.logActivity('user_login', { email: user.email });
-        }
+        Store.logActivity('user_login', { email: user.email });
 
         return {
             success: true,
