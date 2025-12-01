@@ -13,6 +13,7 @@ const LicensesModule = {
 
         await this.loadData();
         this.renderStats();
+        this.renderAlerts();
         this.renderFilters();
         this.renderTable();
         this.bindEvents();
@@ -79,6 +80,51 @@ const LicensesModule = {
                 </div>
             </div>
         `;
+    },
+
+    renderAlerts() {
+        const container = document.getElementById('expirationAlerts');
+        if (!container) return;
+
+        const now = new Date();
+        const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        
+        const expiring = this.licenses.filter(l => 
+            l.expirationDate && 
+            new Date(l.expirationDate) <= in30Days && 
+            new Date(l.expirationDate) > now
+        );
+        
+        const expired = this.licenses.filter(l => 
+            l.expirationDate && 
+            new Date(l.expirationDate) < now
+        );
+
+        // Ocultar si no hay alertas
+        if (expiring.length === 0 && expired.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'flex';
+        
+        if (expired.length > 0) {
+            container.className = 'alerts-banner';
+            container.innerHTML = `
+                <div class="alert-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                </div>
+                <span class="alert-text">Tienes ${expired.length} licencia(s) vencida(s) que requieren atencion.</span>
+            `;
+        } else if (expiring.length > 0) {
+            container.className = 'alerts-banner warning';
+            container.innerHTML = `
+                <div class="alert-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                </div>
+                <span class="alert-text">Tienes ${expiring.length} licencia(s) por vencer en los proximos 30 dias.</span>
+            `;
+        }
     },
 
     renderFilters() {
