@@ -275,10 +275,11 @@ class LoginController {
                     loginAt: new Date().toISOString()
                 }));
 
-                // Redirigir al dashboard despues de un breve delay
+                // Mostrar mensaje de redireccion y redirigir al dashboard
+                this.showSuccessState();
                 setTimeout(() => {
-                    window.location.href = 'pages/dashboard.html';
-                }, 1500);
+                    window.location.href = './pages/dashboard.html';
+                }, 2000);
             } else {
                 NotificationManager.show(result.message, 'error');
                 this.shakeCard();
@@ -334,12 +335,20 @@ class LoginController {
                 <p style="
                     color: var(--text-secondary);
                     font-size: 0.95rem;
-                ">Has iniciado sesion correctamente</p>
-                <p style="
-                    color: var(--text-tertiary);
-                    font-size: 0.85rem;
-                    margin-top: 1rem;
-                ">admin@brands.mx</p>
+                ">Redirigiendo al Dashboard...</p>
+                <div style="
+                    margin-top: 1.5rem;
+                ">
+                    <div class="spinner" style="
+                        width: 24px;
+                        height: 24px;
+                        border: 3px solid var(--border-color);
+                        border-top-color: var(--accent-primary);
+                        border-radius: 50%;
+                        animation: spin 0.8s linear infinite;
+                        margin: 0 auto;
+                    "></div>
+                </div>
             </div>
         `;
 
@@ -356,6 +365,9 @@ class LoginController {
                     opacity: 1;
                 }
             }
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
         `;
         document.head.appendChild(style);
     }
@@ -366,15 +378,15 @@ class LoginController {
 // ========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializar controlador
-    new LoginController();
-
-    // Verificar sesion existente
+    // Verificar sesion existente y redirigir al dashboard
     const hasSession = localStorage.getItem('fixify-session') || sessionStorage.getItem('fixify-session');
     if (hasSession) {
-        // En un caso real, verificarias la sesion en el servidor
-        console.log('Sesion existente detectada');
+        window.location.href = './pages/dashboard.html';
+        return;
     }
+    
+    // Inicializar controlador solo si no hay sesion
+    new LoginController();
 });
 
 // ========================================
