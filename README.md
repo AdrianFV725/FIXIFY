@@ -59,12 +59,6 @@ FIXIFY-1/
 - **Persistencia**: localStorage
 - **Hosting**: Compatible con GitHub Pages
 
-## Credenciales de Acceso
-
-```
-Email: admin@brands.mx
-Password: 3lN3g0c10d3tuV1d4
-```
 
 ## Modelos de Datos
 

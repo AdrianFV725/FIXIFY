@@ -264,17 +264,20 @@ class LoginController {
                 
                 // Guardar estado de sesion si "recordarme" esta activo
                 const rememberMe = document.getElementById('remember').checked;
-                if (rememberMe) {
-                    localStorage.setItem('fixify-session', 'active');
-                } else {
-                    sessionStorage.setItem('fixify-session', 'active');
-                }
+                const storage = rememberMe ? localStorage : sessionStorage;
+                
+                // Guardar sesion y datos del usuario
+                storage.setItem('fixify-session', 'active');
+                storage.setItem('fixify-user', JSON.stringify({
+                    email: elements.emailInput.value,
+                    name: 'Administrador',
+                    role: 'admin',
+                    loginAt: new Date().toISOString()
+                }));
 
-                // Redirigir despues de un breve delay
+                // Redirigir al dashboard despues de un breve delay
                 setTimeout(() => {
-                    // En un caso real, aqui redirigirias a la pagina principal
-                    // window.location.href = '/dashboard.html';
-                    this.showSuccessState();
+                    window.location.href = 'pages/dashboard.html';
                 }, 1500);
             } else {
                 NotificationManager.show(result.message, 'error');

@@ -99,7 +99,7 @@ const Auth = {
         sessionStorage.removeItem(this.USER_KEY);
 
         // Redirigir a login
-        window.location.href = '/index.html';
+        window.location.href = '../index.html';
     },
 
     /**
