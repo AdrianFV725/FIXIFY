@@ -39,11 +39,33 @@ const Store = {
                            getFirebaseDb();
         
         if (this.useFirestore) {
-            console.log('Store: Usando Firestore');
-            // Asegurar que existe el admin
-            await this.ensureAdminExists();
-        } else {
+            console.log('Store: Intentando usar Firestore');
+            // Probar conexion con Firestore
+            const firestoreWorks = await this.testFirestoreConnection();
+            if (!firestoreWorks) {
+                console.warn('Store: Firestore no disponible, usando localStorage');
+                this.useFirestore = false;
+            }
+        }
+        
+        if (!this.useFirestore) {
             console.log('Store: Usando localStorage (modo offline)');
+        }
+        
+        // Asegurar que existe el admin
+        await this.ensureAdminExists();
+    },
+
+    async testFirestoreConnection() {
+        try {
+            const db = getFirebaseDb();
+            // Intentar una lectura simple para verificar permisos
+            await db.collection('_test_connection').limit(1).get();
+            console.log('Store: Firestore conectado correctamente');
+            return true;
+        } catch (error) {
+            console.warn('Store: Error de conexion a Firestore:', error.message);
+            return false;
         }
     },
 
@@ -53,17 +75,58 @@ const Store = {
             let admin = await this.getUserByEmail(adminEmail);
             
             if (!admin) {
-                await this.saveUser({
+                // Crear admin localmente primero
+                const adminData = {
                     email: adminEmail,
                     password: '3lN3g0c10d3tuV1d4',
                     name: 'Administrador',
                     role: 'admin',
                     status: 'active'
-                });
+                };
+                
+                // Guardar en localStorage siempre como respaldo
+                const users = this.getLocal(this.KEYS.USERS) || [];
+                if (!users.find(u => u.email.toLowerCase() === adminEmail.toLowerCase())) {
+                    adminData.id = this.generateId('USR');
+                    adminData.createdAt = new Date().toISOString();
+                    users.push(adminData);
+                    this.setLocal(this.KEYS.USERS, users);
+                }
+                
+                // Intentar guardar en Firestore si esta disponible
+                if (this.useFirestore) {
+                    try {
+                        await FirestoreService.saveUser(adminData);
+                    } catch (e) {
+                        console.warn('No se pudo crear admin en Firestore');
+                    }
+                }
+                
                 console.log('Usuario administrador creado');
             }
         } catch (error) {
             console.error('Error al verificar admin:', error);
+            // Asegurar admin en localStorage como ultimo recurso
+            this.ensureLocalAdmin();
+        }
+    },
+
+    ensureLocalAdmin() {
+        const adminEmail = 'admin@brands.mx';
+        const users = this.getLocal(this.KEYS.USERS) || [];
+        
+        if (!users.find(u => u.email.toLowerCase() === adminEmail.toLowerCase())) {
+            users.push({
+                id: this.generateId('USR'),
+                email: adminEmail,
+                password: '3lN3g0c10d3tuV1d4',
+                name: 'Administrador',
+                role: 'admin',
+                status: 'active',
+                createdAt: new Date().toISOString()
+            });
+            this.setLocal(this.KEYS.USERS, users);
+            console.log('Admin creado en localStorage');
         }
     },
 
@@ -97,18 +160,25 @@ const Store = {
     // ========================================
 
     async getUsers() {
+        let firestoreUsers = [];
+        
+        // Intentar Firestore primero
         if (this.useFirestore && window.FirestoreService) {
             try {
-                const users = await FirestoreService.getAll(FirestoreService.COLLECTIONS.USERS);
-                return users;
+                firestoreUsers = await FirestoreService.getAll(FirestoreService.COLLECTIONS.USERS);
+                if (firestoreUsers && firestoreUsers.length > 0) {
+                    return firestoreUsers;
+                }
             } catch (e) {
                 console.warn('Firestore no disponible, usando localStorage');
             }
         }
         
-        // Fallback localStorage
-        const users = this.getLocal(this.KEYS.USERS) || [];
-        if (users.length === 0) {
+        // Usar localStorage
+        let users = this.getLocal(this.KEYS.USERS) || [];
+        
+        // Asegurar admin existe
+        if (!users.find(u => u.email.toLowerCase() === 'admin@brands.mx')) {
             const adminUser = {
                 id: this.generateId('USR'),
                 email: 'admin@brands.mx',
@@ -121,6 +191,7 @@ const Store = {
             users.push(adminUser);
             this.setLocal(this.KEYS.USERS, users);
         }
+        
         return users;
     },
 
@@ -135,12 +206,18 @@ const Store = {
     },
 
     async getUserByEmail(email) {
+        // Intentar Firestore primero
         if (this.useFirestore && window.FirestoreService) {
             try {
-                return await FirestoreService.getUserByEmail(email);
-            } catch (e) {}
+                const user = await FirestoreService.getUserByEmail(email);
+                if (user) return user;
+            } catch (e) {
+                console.warn('Firestore error, buscando en localStorage');
+            }
         }
-        const users = await this.getUsers();
+        
+        // Buscar en localStorage
+        const users = this.getLocal(this.KEYS.USERS) || [];
         return users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
     },
 
