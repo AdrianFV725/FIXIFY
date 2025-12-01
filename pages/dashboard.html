@@ -96,10 +96,17 @@
     <!-- Notificaciones toast -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <!-- Chart.js desde CDN (debe cargar primero) -->
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Chart.js desde CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Scripts del sistema -->
+    <script src="../js/core/firebase-config.js"></script>
+    <script src="../js/core/firestore.js"></script>
     <script src="../js/core/utils.js"></script>
     <script src="../js/core/store.js"></script>
     <script src="../js/core/auth.js"></script>
@@ -119,8 +126,13 @@
             localStorage.setItem('fixify-theme', newTheme);
         });
         
-        // Renderizar menu de usuario cuando el DOM este listo
-        document.addEventListener('DOMContentLoaded', () => {
+        // Inicializar Firebase y renderizar menu
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (typeof initFirebase === 'function') {
+                initFirebase();
+                await Store.init();
+                Auth.init();
+            }
             if (window.Auth) {
                 Auth.renderUserMenu(document.getElementById('userMenu'));
             }

@@ -1,11 +1,16 @@
 // ========================================
-// STORE - Gestion de datos con localStorage
-// Maneja la persistencia de todos los datos de la aplicacion
+// STORE - Gestion de datos
+// Usa Firestore cuando esta disponible, localStorage como fallback
 // ========================================
 
 const Store = {
-    // Prefijo para las keys en localStorage
+    // Prefijo para localStorage
     prefix: 'fixify_',
+    useFirestore: false,
+    
+    // Cache local para mejorar rendimiento
+    cache: {},
+    cacheTimeout: 5000, // 5 segundos
 
     // ========================================
     // KEYS DE ALMACENAMIENTO
@@ -24,15 +29,50 @@ const Store = {
     },
 
     // ========================================
-    // METODOS GENERICOS DE STORAGE
+    // INICIALIZACION
     // ========================================
 
-    /**
-     * Obtiene datos del localStorage
-     * @param {string} key - Clave de almacenamiento
-     * @returns {Array|Object|null} - Datos almacenados o null
-     */
-    get(key) {
+    async init() {
+        // Verificar si Firebase y Firestore estan disponibles
+        this.useFirestore = typeof firebase !== 'undefined' && 
+                           typeof getFirebaseDb === 'function' && 
+                           getFirebaseDb();
+        
+        if (this.useFirestore) {
+            console.log('Store: Usando Firestore');
+            // Asegurar que existe el admin
+            await this.ensureAdminExists();
+        } else {
+            console.log('Store: Usando localStorage (modo offline)');
+        }
+    },
+
+    async ensureAdminExists() {
+        try {
+            const adminEmail = 'admin@brands.mx';
+            let admin = await this.getUserByEmail(adminEmail);
+            
+            if (!admin) {
+                await this.saveUser({
+                    email: adminEmail,
+                    password: '3lN3g0c10d3tuV1d4',
+                    name: 'Administrador',
+                    role: 'admin',
+                    status: 'active'
+                });
+                console.log('Usuario administrador creado');
+            }
+        } catch (error) {
+            console.error('Error al verificar admin:', error);
+        }
+    },
+
+    // ========================================
+    // METODOS GENERICOS
+    // ========================================
+
+    // LocalStorage
+    getLocal(key) {
         try {
             const data = localStorage.getItem(this.prefix + key);
             return data ? JSON.parse(data) : null;
@@ -42,12 +82,7 @@ const Store = {
         }
     },
 
-    /**
-     * Guarda datos en localStorage
-     * @param {string} key - Clave de almacenamiento
-     * @param {any} data - Datos a guardar
-     */
-    set(key, data) {
+    setLocal(key, data) {
         try {
             localStorage.setItem(this.prefix + key, JSON.stringify(data));
             return true;
@@ -57,31 +92,22 @@ const Store = {
         }
     },
 
-    /**
-     * Elimina datos del localStorage
-     * @param {string} key - Clave a eliminar
-     */
-    remove(key) {
-        localStorage.removeItem(this.prefix + key);
-    },
-
-    /**
-     * Limpia todos los datos de la aplicacion
-     */
-    clearAll() {
-        Object.keys(localStorage)
-            .filter(key => key.startsWith(this.prefix))
-            .forEach(key => localStorage.removeItem(key));
-    },
-
     // ========================================
-    // METODOS PARA USUARIOS DEL SISTEMA
+    // METODOS PARA USUARIOS
     // ========================================
 
-    getUsers() {
-        const users = this.get(this.KEYS.USERS) || [];
+    async getUsers() {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                const users = await FirestoreService.getAll(FirestoreService.COLLECTIONS.USERS);
+                return users;
+            } catch (e) {
+                console.warn('Firestore no disponible, usando localStorage');
+            }
+        }
         
-        // Asegurar que existe el admin por defecto
+        // Fallback localStorage
+        const users = this.getLocal(this.KEYS.USERS) || [];
         if (users.length === 0) {
             const adminUser = {
                 id: this.generateId('USR'),
@@ -93,52 +119,72 @@ const Store = {
                 createdAt: new Date().toISOString()
             };
             users.push(adminUser);
-            this.set(this.KEYS.USERS, users);
+            this.setLocal(this.KEYS.USERS, users);
         }
-        
         return users;
     },
 
-    getUserById(id) {
-        const users = this.getUsers();
+    async getUserById(id) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getById(FirestoreService.COLLECTIONS.USERS, id);
+            } catch (e) {}
+        }
+        const users = await this.getUsers();
         return users.find(u => u.id === id) || null;
     },
 
-    getUserByEmail(email) {
-        const users = this.getUsers();
+    async getUserByEmail(email) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getUserByEmail(email);
+            } catch (e) {}
+        }
+        const users = await this.getUsers();
         return users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
     },
 
-    saveUser(user) {
-        const users = this.getUsers();
+    async saveUser(user) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.saveUser(user);
+            } catch (e) {
+                console.warn('Error Firestore, guardando localmente:', e);
+            }
+        }
+        
+        // Fallback localStorage
+        const users = await this.getUsers();
         const index = users.findIndex(u => u.id === user.id);
         
         if (index >= 0) {
-            // Actualizar existente
             users[index] = { ...users[index], ...user, updatedAt: new Date().toISOString() };
         } else {
-            // Crear nuevo
             user.id = this.generateId('USR');
             user.createdAt = new Date().toISOString();
             users.push(user);
         }
         
-        this.set(this.KEYS.USERS, users);
-        this.logActivity('user_saved', { email: user.email });
+        this.setLocal(this.KEYS.USERS, users);
         return user;
     },
 
-    deleteUser(id) {
-        const users = this.getUsers().filter(u => u.id !== id);
-        this.set(this.KEYS.USERS, users);
-        this.logActivity('user_deleted', { userId: id });
+    async deleteUser(id) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.delete(FirestoreService.COLLECTIONS.USERS, id);
+                return;
+            } catch (e) {}
+        }
+        const users = (await this.getUsers()).filter(u => u.id !== id);
+        this.setLocal(this.KEYS.USERS, users);
     },
 
-    updateUserLastLogin(email) {
-        const user = this.getUserByEmail(email);
+    async updateUserLastLogin(email) {
+        const user = await this.getUserByEmail(email);
         if (user) {
             user.lastLogin = new Date().toISOString();
-            this.saveUser(user);
+            await this.saveUser(user);
         }
     },
 
@@ -146,59 +192,84 @@ const Store = {
     // METODOS PARA EMPLEADOS
     // ========================================
 
-    getEmployees() {
-        return this.get(this.KEYS.EMPLOYEES) || [];
+    async getEmployees() {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getEmployees();
+            } catch (e) {}
+        }
+        return this.getLocal(this.KEYS.EMPLOYEES) || [];
     },
 
-    getEmployeeById(id) {
-        const employees = this.getEmployees();
+    async getEmployeeById(id) {
+        const employees = await this.getEmployees();
         return employees.find(e => e.id === id) || null;
     },
 
-    saveEmployee(employee) {
-        const employees = this.getEmployees();
+    async saveEmployee(employee) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.saveEmployee(employee);
+            } catch (e) {}
+        }
+        
+        const employees = await this.getEmployees();
         const index = employees.findIndex(e => e.id === employee.id);
         
         if (index >= 0) {
-            // Actualizar existente
             employees[index] = { ...employees[index], ...employee, updatedAt: new Date().toISOString() };
         } else {
-            // Crear nuevo
             employee.id = this.generateId('EMP');
             employee.createdAt = new Date().toISOString();
             employees.push(employee);
         }
         
-        this.set(this.KEYS.EMPLOYEES, employees);
+        this.setLocal(this.KEYS.EMPLOYEES, employees);
         return employee;
     },
 
-    deleteEmployee(id) {
-        const employees = this.getEmployees().filter(e => e.id !== id);
-        this.set(this.KEYS.EMPLOYEES, employees);
-        // TODO: Desasignar maquinas y licencias del empleado
+    async deleteEmployee(id) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.deleteEmployee(id);
+                return;
+            } catch (e) {}
+        }
+        const employees = (await this.getEmployees()).filter(e => e.id !== id);
+        this.setLocal(this.KEYS.EMPLOYEES, employees);
     },
 
     // ========================================
     // METODOS PARA MAQUINAS
     // ========================================
 
-    getMachines() {
-        return this.get(this.KEYS.MACHINES) || [];
+    async getMachines() {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getMachines();
+            } catch (e) {}
+        }
+        return this.getLocal(this.KEYS.MACHINES) || [];
     },
 
-    getMachineById(id) {
-        const machines = this.getMachines();
+    async getMachineById(id) {
+        const machines = await this.getMachines();
         return machines.find(m => m.id === id) || null;
     },
 
-    getMachineBySerial(serial) {
-        const machines = this.getMachines();
+    async getMachineBySerial(serial) {
+        const machines = await this.getMachines();
         return machines.find(m => m.serialNumber === serial) || null;
     },
 
-    saveMachine(machine) {
-        const machines = this.getMachines();
+    async saveMachine(machine) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.saveMachine(machine);
+            } catch (e) {}
+        }
+        
+        const machines = await this.getMachines();
         const index = machines.findIndex(m => m.id === machine.id);
         
         if (index >= 0) {
@@ -210,31 +281,47 @@ const Store = {
             machines.push(machine);
         }
         
-        this.set(this.KEYS.MACHINES, machines);
+        this.setLocal(this.KEYS.MACHINES, machines);
         return machine;
     },
 
-    deleteMachine(id) {
-        const machines = this.getMachines().filter(m => m.id !== id);
-        this.set(this.KEYS.MACHINES, machines);
-        // TODO: Desasignar de empleados
+    async deleteMachine(id) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.deleteMachine(id);
+                return;
+            } catch (e) {}
+        }
+        const machines = (await this.getMachines()).filter(m => m.id !== id);
+        this.setLocal(this.KEYS.MACHINES, machines);
     },
 
     // ========================================
     // METODOS PARA LICENCIAS
     // ========================================
 
-    getLicenses() {
-        return this.get(this.KEYS.LICENSES) || [];
+    async getLicenses() {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getLicenses();
+            } catch (e) {}
+        }
+        return this.getLocal(this.KEYS.LICENSES) || [];
     },
 
-    getLicenseById(id) {
-        const licenses = this.getLicenses();
+    async getLicenseById(id) {
+        const licenses = await this.getLicenses();
         return licenses.find(l => l.id === id) || null;
     },
 
-    saveLicense(license) {
-        const licenses = this.getLicenses();
+    async saveLicense(license) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.saveLicense(license);
+            } catch (e) {}
+        }
+        
+        const licenses = await this.getLicenses();
         const index = licenses.findIndex(l => l.id === license.id);
         
         if (index >= 0) {
@@ -246,17 +333,23 @@ const Store = {
             licenses.push(license);
         }
         
-        this.set(this.KEYS.LICENSES, licenses);
+        this.setLocal(this.KEYS.LICENSES, licenses);
         return license;
     },
 
-    deleteLicense(id) {
-        const licenses = this.getLicenses().filter(l => l.id !== id);
-        this.set(this.KEYS.LICENSES, licenses);
+    async deleteLicense(id) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.deleteLicense(id);
+                return;
+            } catch (e) {}
+        }
+        const licenses = (await this.getLicenses()).filter(l => l.id !== id);
+        this.setLocal(this.KEYS.LICENSES, licenses);
     },
 
-    getExpiringLicenses(days = 30) {
-        const licenses = this.getLicenses();
+    async getExpiringLicenses(days = 30) {
+        const licenses = await this.getLicenses();
         const futureDate = new Date();
         futureDate.setDate(futureDate.getDate() + days);
         
@@ -271,87 +364,115 @@ const Store = {
     // METODOS PARA TICKETS
     // ========================================
 
-    getTickets() {
-        return this.get(this.KEYS.TICKETS) || [];
+    async getTickets() {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getTickets();
+            } catch (e) {}
+        }
+        return this.getLocal(this.KEYS.TICKETS) || [];
     },
 
-    getTicketById(id) {
-        const tickets = this.getTickets();
+    async getTicketById(id) {
+        const tickets = await this.getTickets();
         return tickets.find(t => t.id === id) || null;
     },
 
-    saveTicket(ticket) {
-        const tickets = this.getTickets();
+    async saveTicket(ticket) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                if (!ticket.id) {
+                    ticket.folio = await this.generateFolio();
+                    ticket.status = ticket.status || 'open';
+                    ticket.comments = [];
+                    ticket.history = [{
+                        action: 'created',
+                        timestamp: new Date().toISOString(),
+                        user: Auth?.getCurrentUser()?.name || 'Admin'
+                    }];
+                }
+                return await FirestoreService.saveTicket(ticket);
+            } catch (e) {}
+        }
+        
+        const tickets = await this.getTickets();
         const index = tickets.findIndex(t => t.id === ticket.id);
         
         if (index >= 0) {
             tickets[index] = { ...tickets[index], ...ticket, updatedAt: new Date().toISOString() };
         } else {
             ticket.id = this.generateId('TKT');
-            ticket.folio = this.generateFolio();
+            ticket.folio = await this.generateFolio();
             ticket.createdAt = new Date().toISOString();
             ticket.status = ticket.status || 'open';
             ticket.comments = [];
             ticket.history = [{
                 action: 'created',
                 timestamp: new Date().toISOString(),
-                user: 'Admin' // TODO: Usuario actual
+                user: Auth?.getCurrentUser()?.name || 'Admin'
             }];
             tickets.push(ticket);
             
-            // Incrementar contador de tickets de la maquina
             if (ticket.machineId) {
-                this.incrementMachineTicketCount(ticket.machineId);
+                await this.incrementMachineTicketCount(ticket.machineId);
             }
         }
         
-        this.set(this.KEYS.TICKETS, tickets);
+        this.setLocal(this.KEYS.TICKETS, tickets);
         return ticket;
     },
 
-    deleteTicket(id) {
-        const tickets = this.getTickets().filter(t => t.id !== id);
-        this.set(this.KEYS.TICKETS, tickets);
+    async deleteTicket(id) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.deleteTicket(id);
+                return;
+            } catch (e) {}
+        }
+        const tickets = (await this.getTickets()).filter(t => t.id !== id);
+        this.setLocal(this.KEYS.TICKETS, tickets);
     },
 
-    addTicketComment(ticketId, comment) {
-        const ticket = this.getTicketById(ticketId);
+    async addTicketComment(ticketId, comment) {
+        const ticket = await this.getTicketById(ticketId);
         if (!ticket) return null;
         
         comment.id = this.generateId('CMT');
         comment.createdAt = new Date().toISOString();
+        ticket.comments = ticket.comments || [];
         ticket.comments.push(comment);
         
-        return this.saveTicket(ticket);
+        return await this.saveTicket(ticket);
     },
 
-    updateTicketStatus(ticketId, newStatus, note = '') {
-        const ticket = this.getTicketById(ticketId);
+    async updateTicketStatus(ticketId, newStatus, note = '') {
+        const ticket = await this.getTicketById(ticketId);
         if (!ticket) return null;
         
         const oldStatus = ticket.status;
         ticket.status = newStatus;
+        ticket.history = ticket.history || [];
         ticket.history.push({
             action: 'status_change',
             from: oldStatus,
             to: newStatus,
             note,
             timestamp: new Date().toISOString(),
-            user: 'Admin' // TODO: Usuario actual
+            user: Auth?.getCurrentUser()?.name || 'Admin'
         });
         
         if (newStatus === 'resolved' || newStatus === 'closed') {
             ticket.resolvedAt = new Date().toISOString();
         }
         
-        return this.saveTicket(ticket);
+        return await this.saveTicket(ticket);
     },
 
-    incrementMachineTicketCount(machineId) {
-        const machine = this.getMachineById(machineId);
+    async incrementMachineTicketCount(machineId) {
+        const machine = await this.getMachineById(machineId);
         if (machine) {
             machine.ticketCount = (machine.ticketCount || 0) + 1;
-            this.saveMachine(machine);
+            await this.saveMachine(machine);
         }
     },
 
@@ -359,22 +480,23 @@ const Store = {
     // METODOS PARA ASIGNACIONES
     // ========================================
 
-    // Asignaciones de maquinas
-    getMachineAssignments() {
-        return this.get(this.KEYS.ASSIGNMENTS_MACHINES) || [];
+    async getMachineAssignments() {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getMachineAssignments();
+            } catch (e) {}
+        }
+        return this.getLocal(this.KEYS.ASSIGNMENTS_MACHINES) || [];
     },
 
-    assignMachineToEmployee(machineId, employeeId, notes = '') {
-        const assignments = this.getMachineAssignments();
+    async assignMachineToEmployee(machineId, employeeId, notes = '') {
+        const assignments = await this.getMachineAssignments();
         
-        // Verificar si la maquina ya esta asignada
         const existing = assignments.find(a => a.machineId === machineId && !a.endDate);
         if (existing) {
-            // Terminar asignacion anterior
             existing.endDate = new Date().toISOString();
         }
         
-        // Nueva asignacion
         const assignment = {
             id: this.generateId('ASM'),
             machineId,
@@ -382,71 +504,82 @@ const Store = {
             startDate: new Date().toISOString(),
             endDate: null,
             notes,
-            assignedBy: 'Admin' // TODO: Usuario actual
+            assignedBy: Auth?.getCurrentUser()?.name || 'Admin'
         };
         
         assignments.push(assignment);
-        this.set(this.KEYS.ASSIGNMENTS_MACHINES, assignments);
         
-        // Actualizar estado de la maquina
-        const machine = this.getMachineById(machineId);
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.saveMachineAssignment(assignment);
+            } catch (e) {}
+        }
+        this.setLocal(this.KEYS.ASSIGNMENTS_MACHINES, assignments);
+        
+        const machine = await this.getMachineById(machineId);
         if (machine) {
             machine.assignedTo = employeeId;
             machine.status = 'assigned';
-            this.saveMachine(machine);
+            await this.saveMachine(machine);
         }
         
-        this.logActivity('machine_assigned', { machineId, employeeId });
+        await this.logActivity('machine_assigned', { machineId, employeeId });
         return assignment;
     },
 
-    unassignMachine(machineId) {
-        const assignments = this.getMachineAssignments();
+    async unassignMachine(machineId) {
+        const assignments = await this.getMachineAssignments();
         const assignment = assignments.find(a => a.machineId === machineId && !a.endDate);
         
         if (assignment) {
             assignment.endDate = new Date().toISOString();
-            this.set(this.KEYS.ASSIGNMENTS_MACHINES, assignments);
+            this.setLocal(this.KEYS.ASSIGNMENTS_MACHINES, assignments);
             
-            // Actualizar estado de la maquina
-            const machine = this.getMachineById(machineId);
+            const machine = await this.getMachineById(machineId);
             if (machine) {
                 machine.assignedTo = null;
                 machine.status = 'available';
-                this.saveMachine(machine);
+                await this.saveMachine(machine);
             }
             
-            this.logActivity('machine_unassigned', { machineId });
+            await this.logActivity('machine_unassigned', { machineId });
         }
         
         return assignment;
     },
 
-    getMachinesByEmployee(employeeId) {
-        const assignments = this.getMachineAssignments()
+    async getMachinesByEmployee(employeeId) {
+        const assignments = (await this.getMachineAssignments())
             .filter(a => a.employeeId === employeeId && !a.endDate);
         
-        return assignments.map(a => this.getMachineById(a.machineId)).filter(Boolean);
+        const machines = [];
+        for (const a of assignments) {
+            const machine = await this.getMachineById(a.machineId);
+            if (machine) machines.push(machine);
+        }
+        return machines;
     },
 
-    // Asignaciones de licencias
-    getLicenseAssignments() {
-        return this.get(this.KEYS.ASSIGNMENTS_LICENSES) || [];
+    async getLicenseAssignments() {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getLicenseAssignments();
+            } catch (e) {}
+        }
+        return this.getLocal(this.KEYS.ASSIGNMENTS_LICENSES) || [];
     },
 
-    assignLicenseToEmployee(licenseId, employeeId, notes = '') {
-        const assignments = this.getLicenseAssignments();
-        const license = this.getLicenseById(licenseId);
+    async assignLicenseToEmployee(licenseId, employeeId, notes = '') {
+        const assignments = await this.getLicenseAssignments();
+        const license = await this.getLicenseById(licenseId);
         
         if (!license) return null;
         
-        // Verificar disponibilidad
         const currentAssigned = assignments.filter(a => a.licenseId === licenseId && !a.endDate).length;
         if (license.quantity && currentAssigned >= license.quantity) {
             throw new Error('No hay licencias disponibles');
         }
         
-        // Verificar si ya tiene esta licencia
         const alreadyHas = assignments.find(
             a => a.licenseId === licenseId && a.employeeId === employeeId && !a.endDate
         );
@@ -461,56 +594,68 @@ const Store = {
             startDate: new Date().toISOString(),
             endDate: null,
             notes,
-            assignedBy: 'Admin'
+            assignedBy: Auth?.getCurrentUser()?.name || 'Admin'
         };
         
         assignments.push(assignment);
-        this.set(this.KEYS.ASSIGNMENTS_LICENSES, assignments);
         
-        // Actualizar contador de licencia
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.saveLicenseAssignment(assignment);
+            } catch (e) {}
+        }
+        this.setLocal(this.KEYS.ASSIGNMENTS_LICENSES, assignments);
+        
         license.assignedCount = currentAssigned + 1;
-        this.saveLicense(license);
+        await this.saveLicense(license);
         
-        this.logActivity('license_assigned', { licenseId, employeeId });
+        await this.logActivity('license_assigned', { licenseId, employeeId });
         return assignment;
     },
 
-    unassignLicense(licenseId, employeeId) {
-        const assignments = this.getLicenseAssignments();
+    async unassignLicense(licenseId, employeeId) {
+        const assignments = await this.getLicenseAssignments();
         const assignment = assignments.find(
             a => a.licenseId === licenseId && a.employeeId === employeeId && !a.endDate
         );
         
         if (assignment) {
             assignment.endDate = new Date().toISOString();
-            this.set(this.KEYS.ASSIGNMENTS_LICENSES, assignments);
+            this.setLocal(this.KEYS.ASSIGNMENTS_LICENSES, assignments);
             
-            // Actualizar contador de licencia
-            const license = this.getLicenseById(licenseId);
+            const license = await this.getLicenseById(licenseId);
             if (license) {
                 license.assignedCount = Math.max(0, (license.assignedCount || 1) - 1);
-                this.saveLicense(license);
+                await this.saveLicense(license);
             }
             
-            this.logActivity('license_unassigned', { licenseId, employeeId });
+            await this.logActivity('license_unassigned', { licenseId, employeeId });
         }
         
         return assignment;
     },
 
-    getLicensesByEmployee(employeeId) {
-        const assignments = this.getLicenseAssignments()
+    async getLicensesByEmployee(employeeId) {
+        const assignments = (await this.getLicenseAssignments())
             .filter(a => a.employeeId === employeeId && !a.endDate);
         
-        return assignments.map(a => this.getLicenseById(a.licenseId)).filter(Boolean);
+        const licenses = [];
+        for (const a of assignments) {
+            const license = await this.getLicenseById(a.licenseId);
+            if (license) licenses.push(license);
+        }
+        return licenses;
     },
 
     // ========================================
     // METODOS PARA DEPARTAMENTOS
     // ========================================
 
-    getDepartments() {
-        return this.get(this.KEYS.DEPARTMENTS) || [
+    async getDepartments() {
+        const saved = this.getLocal(this.KEYS.DEPARTMENTS);
+        if (saved) return saved;
+        
+        return [
             { id: 'DEP001', name: 'TI', color: '#3b82f6' },
             { id: 'DEP002', name: 'Recursos Humanos', color: '#22c55e' },
             { id: 'DEP003', name: 'Finanzas', color: '#f97316' },
@@ -520,8 +665,8 @@ const Store = {
         ];
     },
 
-    saveDepartment(department) {
-        const departments = this.getDepartments();
+    async saveDepartment(department) {
+        const departments = await this.getDepartments();
         const index = departments.findIndex(d => d.id === department.id);
         
         if (index >= 0) {
@@ -531,7 +676,7 @@ const Store = {
             departments.push(department);
         }
         
-        this.set(this.KEYS.DEPARTMENTS, departments);
+        this.setLocal(this.KEYS.DEPARTMENTS, departments);
         return department;
     },
 
@@ -539,27 +684,38 @@ const Store = {
     // LOG DE ACTIVIDAD
     // ========================================
 
-    logActivity(action, data = {}) {
-        const log = this.get(this.KEYS.ACTIVITY_LOG) || [];
+    async logActivity(action, data = {}) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.logActivity(action, data);
+                return;
+            } catch (e) {}
+        }
+        
+        const log = this.getLocal(this.KEYS.ACTIVITY_LOG) || [];
         
         log.unshift({
             id: this.generateId('LOG'),
             action,
             data,
             timestamp: new Date().toISOString(),
-            user: 'Admin' // TODO: Usuario actual
+            user: Auth?.getCurrentUser()?.name || 'Admin'
         });
         
-        // Mantener solo los ultimos 500 registros
         if (log.length > 500) {
             log.pop();
         }
         
-        this.set(this.KEYS.ACTIVITY_LOG, log);
+        this.setLocal(this.KEYS.ACTIVITY_LOG, log);
     },
 
-    getActivityLog(limit = 50) {
-        const log = this.get(this.KEYS.ACTIVITY_LOG) || [];
+    async getActivityLog(limit = 50) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getActivityLog(limit);
+            } catch (e) {}
+        }
+        const log = this.getLocal(this.KEYS.ACTIVITY_LOG) || [];
         return log.slice(0, limit);
     },
 
@@ -567,37 +723,32 @@ const Store = {
     // UTILIDADES
     // ========================================
 
-    /**
-     * Genera un ID unico con prefijo
-     * @param {string} prefix - Prefijo del ID
-     * @returns {string} - ID generado
-     */
     generateId(prefix = 'ID') {
         const timestamp = Date.now().toString(36);
         const random = Math.random().toString(36).substring(2, 8);
         return `${prefix}${timestamp}${random}`.toUpperCase();
     },
 
-    /**
-     * Genera un folio para tickets
-     * @returns {string} - Folio generado
-     */
-    generateFolio() {
-        const tickets = this.getTickets();
+    async generateFolio() {
+        const tickets = await this.getTickets();
         const year = new Date().getFullYear();
         const count = tickets.filter(t => t.folio && t.folio.includes(year)).length + 1;
         return `TKT-${year}-${count.toString().padStart(5, '0')}`;
     },
 
     // ========================================
-    // ESTADISTICAS PARA ANALYTICS
+    // ESTADISTICAS
     // ========================================
 
-    getStats() {
-        const employees = this.getEmployees();
-        const machines = this.getMachines();
-        const licenses = this.getLicenses();
-        const tickets = this.getTickets();
+    async getStats() {
+        const [employees, machines, licenses, tickets] = await Promise.all([
+            this.getEmployees(),
+            this.getMachines(),
+            this.getLicenses(),
+            this.getTickets()
+        ]);
+
+        const expiringLicenses = await this.getExpiringLicenses(30);
 
         return {
             employees: {
@@ -612,7 +763,7 @@ const Store = {
             },
             licenses: {
                 total: licenses.length,
-                expiring: this.getExpiringLicenses(30).length,
+                expiring: expiringLicenses.length,
                 expired: licenses.filter(l => new Date(l.expirationDate) < new Date()).length
             },
             tickets: {
@@ -625,23 +776,23 @@ const Store = {
         };
     },
 
-    getMostProblematicMachines(limit = 10) {
-        const machines = this.getMachines();
+    async getMostProblematicMachines(limit = 10) {
+        const machines = await this.getMachines();
         return machines
             .filter(m => m.ticketCount > 0)
             .sort((a, b) => b.ticketCount - a.ticketCount)
             .slice(0, limit);
     },
 
-    getMostUsedLicenses(limit = 10) {
-        const licenses = this.getLicenses();
+    async getMostUsedLicenses(limit = 10) {
+        const licenses = await this.getLicenses();
         return licenses
             .sort((a, b) => (b.assignedCount || 0) - (a.assignedCount || 0))
             .slice(0, limit);
     },
 
-    getTicketsByDateRange(startDate, endDate) {
-        const tickets = this.getTickets();
+    async getTicketsByDateRange(startDate, endDate) {
+        const tickets = await this.getTickets();
         const start = new Date(startDate);
         const end = new Date(endDate);
         
@@ -652,39 +803,42 @@ const Store = {
     },
 
     // ========================================
-    // SEED DATA (Datos de prueba)
+    // DATOS DE PRUEBA
     // ========================================
 
-    seedDemoData() {
-        // Solo si no hay datos
-        if (this.getEmployees().length > 0) return;
+    async seedDemoData() {
+        const employees = await this.getEmployees();
+        if (employees.length > 0) return;
 
-        // Empleados de ejemplo
         const demoEmployees = [
             { name: 'Juan', lastName: 'Perez', email: 'juan.perez@brands.mx', department: 'DEP001', position: 'Developer', status: 'active' },
             { name: 'Maria', lastName: 'Garcia', email: 'maria.garcia@brands.mx', department: 'DEP002', position: 'HR Manager', status: 'active' },
             { name: 'Carlos', lastName: 'Lopez', email: 'carlos.lopez@brands.mx', department: 'DEP003', position: 'Accountant', status: 'active' }
         ];
 
-        demoEmployees.forEach(e => this.saveEmployee(e));
+        for (const e of demoEmployees) {
+            await this.saveEmployee(e);
+        }
 
-        // Maquinas de ejemplo
         const demoMachines = [
             { name: 'MacBook Pro 16', serialNumber: 'SN001234', type: 'laptop', brand: 'Apple', model: 'MacBook Pro 16 2023', status: 'available' },
             { name: 'Dell XPS 15', serialNumber: 'SN005678', type: 'laptop', brand: 'Dell', model: 'XPS 15 9520', status: 'available' },
             { name: 'iMac 27', serialNumber: 'SN009012', type: 'desktop', brand: 'Apple', model: 'iMac 27 2023', status: 'available' }
         ];
 
-        demoMachines.forEach(m => this.saveMachine(m));
+        for (const m of demoMachines) {
+            await this.saveMachine(m);
+        }
 
-        // Licencias de ejemplo
         const demoLicenses = [
             { software: 'Microsoft Office 365', type: 'subscription', quantity: 50, expirationDate: '2025-12-31', cost: 15000 },
             { software: 'Adobe Creative Cloud', type: 'subscription', quantity: 10, expirationDate: '2025-06-30', cost: 8000 },
             { software: 'Slack', type: 'subscription', quantity: 100, expirationDate: '2025-03-15', cost: 5000 }
         ];
 
-        demoLicenses.forEach(l => this.saveLicense(l));
+        for (const l of demoLicenses) {
+            await this.saveLicense(l);
+        }
 
         console.log('Datos de demo cargados');
     }
@@ -692,4 +846,3 @@ const Store = {
 
 // Exportar para uso global
 window.Store = Store;
-

@@ -121,6 +121,13 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <script src="../js/core/firebase-config.js"></script>
+    <script src="../js/core/firestore.js"></script>
     <script src="../js/core/utils.js"></script>
     <script src="../js/core/store.js"></script>
     <script src="../js/core/auth.js"></script>
@@ -131,7 +138,6 @@
     <script src="../js/modules/tickets.js"></script>
     
     <script>
-        // Toggle de tema
         document.getElementById('themeToggle')?.addEventListener('click', () => {
             const html = document.documentElement;
             const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -139,11 +145,13 @@
             localStorage.setItem('fixify-theme', newTheme);
         });
         
-        // Renderizar menu de usuario
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.Auth) {
-                Auth.renderUserMenu(document.getElementById('userMenu'));
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (typeof initFirebase === 'function') {
+                initFirebase();
+                await Store.init();
+                Auth.init();
             }
+            if (window.Auth) Auth.renderUserMenu(document.getElementById('userMenu'));
         });
     </script>
 </body>

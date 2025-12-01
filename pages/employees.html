@@ -135,6 +135,13 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <script src="../js/core/firebase-config.js"></script>
+    <script src="../js/core/firestore.js"></script>
     <script src="../js/core/utils.js"></script>
     <script src="../js/core/store.js"></script>
     <script src="../js/core/auth.js"></script>
@@ -150,7 +157,12 @@
             html.setAttribute('data-theme', newTheme);
             localStorage.setItem('fixify-theme', newTheme);
         });
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (typeof initFirebase === 'function') {
+                initFirebase();
+                await Store.init();
+                Auth.init();
+            }
             if (window.Auth) Auth.renderUserMenu(document.getElementById('userMenu'));
         });
     </script>
