@@ -94,7 +94,7 @@ const Sidebar = {
      * Inicializa el sidebar
      * @param {string} containerId - ID del contenedor
      */
-    init(containerId = 'sidebar') {
+    async init(containerId = 'sidebar') {
         this.container = document.getElementById(containerId);
         if (!this.container) {
             console.error('Sidebar container not found');
@@ -103,7 +103,7 @@ const Sidebar = {
 
         this.render();
         this.bindEvents();
-        this.updateBadges();
+        await this.updateBadges();
         this.setActiveItem();
     },
 
@@ -270,58 +270,63 @@ const Sidebar = {
     /**
      * Actualiza los badges con datos actuales
      */
-    updateBadges() {
+    async updateBadges() {
         if (!window.Store) return;
 
-        // Badge de tickets abiertos
-        const stats = Store.getStats();
-        const openTickets = stats.tickets.open;
-        
-        const ticketBadge = this.container.querySelector('[data-nav="tickets"] .nav-item-badge');
-        if (ticketBadge) {
-            if (openTickets > 0) {
-                ticketBadge.textContent = openTickets;
-                ticketBadge.style.display = 'block';
-            } else {
-                ticketBadge.style.display = 'none';
+        try {
+            // Badge de tickets abiertos
+            const stats = await Store.getStats();
+            const openTickets = stats?.tickets?.open || 0;
+            
+            const ticketBadge = this.container.querySelector('[data-nav="tickets"] .nav-item-badge');
+            if (ticketBadge) {
+                if (openTickets > 0) {
+                    ticketBadge.textContent = openTickets;
+                    ticketBadge.style.display = 'block';
+                } else {
+                    ticketBadge.style.display = 'none';
+                }
+            } else if (openTickets > 0) {
+                const ticketItem = this.container.querySelector('[data-nav="tickets"]');
+                if (ticketItem) {
+                    ticketItem.insertAdjacentHTML('beforeend', 
+                        `<span class="nav-item-badge">${openTickets}</span>`
+                    );
+                }
             }
-        } else if (openTickets > 0) {
-            const ticketItem = this.container.querySelector('[data-nav="tickets"]');
-            if (ticketItem) {
-                ticketItem.insertAdjacentHTML('beforeend', 
-                    `<span class="nav-item-badge">${openTickets}</span>`
-                );
-            }
-        }
 
-        // Badge de licencias por vencer
-        const expiringLicenses = Store.getExpiringLicenses(30).length;
-        const licenseBadge = this.container.querySelector('[data-nav="licenses"] .nav-item-badge');
-        
-        if (licenseBadge) {
-            if (expiringLicenses > 0) {
-                licenseBadge.textContent = expiringLicenses;
-                licenseBadge.style.display = 'block';
-            } else {
-                licenseBadge.style.display = 'none';
+            // Badge de licencias por vencer
+            const expiringLicenses = await Store.getExpiringLicenses(30);
+            const expiringCount = expiringLicenses?.length || 0;
+            const licenseBadge = this.container.querySelector('[data-nav="licenses"] .nav-item-badge');
+            
+            if (licenseBadge) {
+                if (expiringCount > 0) {
+                    licenseBadge.textContent = expiringCount;
+                    licenseBadge.style.display = 'block';
+                } else {
+                    licenseBadge.style.display = 'none';
+                }
+            } else if (expiringCount > 0) {
+                const licenseItem = this.container.querySelector('[data-nav="licenses"]');
+                if (licenseItem) {
+                    licenseItem.insertAdjacentHTML('beforeend', 
+                        `<span class="nav-item-badge" style="background: #f97316;">${expiringCount}</span>`
+                    );
+                }
             }
-        } else if (expiringLicenses > 0) {
-            const licenseItem = this.container.querySelector('[data-nav="licenses"]');
-            if (licenseItem) {
-                licenseItem.insertAdjacentHTML('beforeend', 
-                    `<span class="nav-item-badge" style="background: #f97316;">${expiringLicenses}</span>`
-                );
-            }
+        } catch (error) {
+            console.warn('Error actualizando badges:', error);
         }
     },
 
     /**
      * Refresca el sidebar
      */
-    refresh() {
+    async refresh() {
         this.render();
         this.bindEvents();
-        this.updateBadges();
+        await this.updateBadges();
         this.setActiveItem();
     }
 };
