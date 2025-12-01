@@ -8,20 +8,27 @@ const DashboardModule = {
     // INICIALIZACION
     // ========================================
 
-    init() {
+    async init() {
         // Verificar autenticacion
-        if (!Auth.requireAuth()) return;
+        if (!Auth.isAuthenticated()) {
+            window.location.href = '../index.html';
+            return;
+        }
 
         // Cargar datos de demo si es primera vez
-        Store.seedDemoData();
+        try {
+            await Store.seedDemoData();
+        } catch (e) {
+            console.warn('No se pudieron cargar datos demo');
+        }
 
         // Renderizar componentes
-        this.renderKPIs();
-        this.renderCharts();
-        this.renderRecentTickets();
-        this.renderExpiringLicenses();
+        await this.renderKPIs();
+        await this.renderCharts();
+        await this.renderRecentTickets();
+        await this.renderExpiringLicenses();
 
-        // Configurar actualizacion periodica
+        // Configurar actualizacion periodica (cada 5 minutos, no cada segundo)
         this.startAutoRefresh();
     },
 
@@ -29,40 +36,50 @@ const DashboardModule = {
     // KPIs
     // ========================================
 
-    renderKPIs() {
+    async renderKPIs() {
         const container = document.getElementById('kpiGrid');
         if (!container) return;
 
-        const stats = Store.getStats();
+        let stats;
+        try {
+            stats = await Store.getStats();
+        } catch (e) {
+            console.error('Error al obtener stats:', e);
+            stats = {
+                tickets: { open: 0 },
+                machines: { assigned: 0, available: 0 },
+                employees: { total: 0, active: 0 },
+                licenses: { expiring: 0 }
+            };
+        }
 
         const kpis = [
             {
                 label: 'Tickets Abiertos',
-                value: stats.tickets.open,
+                value: stats.tickets?.open || 0,
                 icon: 'tickets',
-                trend: this.calculateTrend('tickets'),
                 color: '#3b82f6'
             },
             {
                 label: 'Maquinas Activas',
-                value: stats.machines.assigned,
+                value: stats.machines?.assigned || 0,
                 icon: 'machines',
-                subtext: `${stats.machines.available} disponibles`,
+                subtext: `${stats.machines?.available || 0} disponibles`,
                 color: '#22c55e'
             },
             {
                 label: 'Empleados',
-                value: stats.employees.total,
+                value: stats.employees?.total || 0,
                 icon: 'employees',
-                subtext: `${stats.employees.active} activos`,
+                subtext: `${stats.employees?.active || 0} activos`,
                 color: '#a855f7'
             },
             {
                 label: 'Licencias por Vencer',
-                value: stats.licenses.expiring,
-                icon: stats.licenses.expiring > 0 ? 'warning' : 'licenses',
+                value: stats.licenses?.expiring || 0,
+                icon: (stats.licenses?.expiring || 0) > 0 ? 'warning' : 'licenses',
                 subtext: 'Proximos 30 dias',
-                color: stats.licenses.expiring > 0 ? '#ef4444' : '#f97316'
+                color: (stats.licenses?.expiring || 0) > 0 ? '#ef4444' : '#f97316'
             }
         ];
 
@@ -72,12 +89,6 @@ const DashboardModule = {
                     <div class="kpi-icon ${kpi.icon}">
                         ${this.getKPIIcon(kpi.icon)}
                     </div>
-                    ${kpi.trend ? `
-                        <span class="kpi-trend ${kpi.trend.direction}">
-                            ${kpi.trend.direction === 'up' ? '&uarr;' : '&darr;'}
-                            ${kpi.trend.value}%
-                        </span>
-                    ` : ''}
                 </div>
                 <div class="kpi-value">${kpi.value}</div>
                 <div class="kpi-label">${kpi.label}</div>
@@ -97,26 +108,19 @@ const DashboardModule = {
         return icons[type] || icons.tickets;
     },
 
-    calculateTrend(type) {
-        // TODO: Implementar calculo de tendencia comparando con periodo anterior
-        // Por ahora retornamos null
-        return null;
-    },
-
     // ========================================
     // GRAFICAS
     // ========================================
 
-    renderCharts() {
-        this.renderTicketsTrendChart();
-        this.renderMachineFailuresChart();
+    async renderCharts() {
+        await this.renderTicketsTrendChart();
+        await this.renderMachineFailuresChart();
     },
 
-    renderTicketsTrendChart() {
+    async renderTicketsTrendChart() {
         const container = document.getElementById('ticketsTrendChart');
         if (!container) return;
 
-        // Preparar contenedor para canvas
         container.innerHTML = `
             <h3 class="chart-title">Tendencia de Tickets (Ultimos 6 meses)</h3>
             <div class="chart-container">
@@ -124,12 +128,13 @@ const DashboardModule = {
             </div>
         `;
 
-        // Obtener datos de tickets agrupados por mes
-        const tickets = Store.getTickets();
-        const monthLabels = Charts.getMonthLabels(6);
-        
-        // Agrupar tickets por mes (simulado por ahora)
-        const ticketsByMonth = [12, 8, 15, 10, 18, 14]; // TODO: Calcular real
+        if (typeof Charts === 'undefined' || !Charts.line) {
+            console.warn('Charts no disponible');
+            return;
+        }
+
+        const monthLabels = Charts.getMonthLabels ? Charts.getMonthLabels(6) : ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
+        const ticketsByMonth = [12, 8, 15, 10, 18, 14];
 
         Charts.line('ticketsTrendCanvas', {
             labels: monthLabels,
@@ -142,7 +147,7 @@ const DashboardModule = {
         });
     },
 
-    renderMachineFailuresChart() {
+    async renderMachineFailuresChart() {
         const container = document.getElementById('machineFailuresChart');
         if (!container) return;
 
@@ -153,43 +158,56 @@ const DashboardModule = {
             </div>
         `;
 
-        const problematicMachines = Store.getMostProblematicMachines(5);
+        let problematicMachines = [];
+        try {
+            problematicMachines = await Store.getMostProblematicMachines(5);
+        } catch (e) {
+            console.warn('No se pudieron obtener maquinas problematicas');
+        }
         
-        if (problematicMachines.length === 0) {
+        if (!problematicMachines || problematicMachines.length === 0) {
             container.querySelector('.chart-container').innerHTML = `
-                <div class="empty-state" style="padding: 2rem;">
-                    <p class="text-muted">No hay datos de fallas registradas</p>
+                <div class="empty-state" style="padding: 2rem; text-align: center;">
+                    <p style="color: var(--text-tertiary);">No hay datos de fallas registradas</p>
                 </div>
             `;
             return;
         }
 
-        Charts.horizontalBar('machineFailuresCanvas', {
-            labels: problematicMachines.map(m => m.name || m.serialNumber),
-            datasets: [{
-                label: 'Tickets',
-                data: problematicMachines.map(m => m.ticketCount),
-                backgroundColor: '#ef4444'
-            }]
-        });
+        if (typeof Charts !== 'undefined' && Charts.horizontalBar) {
+            Charts.horizontalBar('machineFailuresCanvas', {
+                labels: problematicMachines.map(m => m.name || m.serialNumber),
+                datasets: [{
+                    label: 'Tickets',
+                    data: problematicMachines.map(m => m.ticketCount),
+                    backgroundColor: '#ef4444'
+                }]
+            });
+        }
     },
 
     // ========================================
     // LISTAS RAPIDAS
     // ========================================
 
-    renderRecentTickets() {
+    async renderRecentTickets() {
         const container = document.getElementById('recentTickets');
         if (!container) return;
 
-        const tickets = Store.getTickets()
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 5);
+        let tickets = [];
+        try {
+            const allTickets = await Store.getTickets();
+            tickets = (allTickets || [])
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .slice(0, 5);
+        } catch (e) {
+            console.warn('No se pudieron obtener tickets');
+        }
 
         container.innerHTML = `
             <h3 class="stat-title" style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem;">Ultimos Tickets</h3>
             ${tickets.length === 0 ? `
-                <p class="text-muted">No hay tickets registrados</p>
+                <p style="color: var(--text-tertiary);">No hay tickets registrados</p>
             ` : `
                 <div class="stat-list">
                     ${tickets.map(ticket => `
@@ -198,32 +216,37 @@ const DashboardModule = {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path></svg>
                             </div>
                             <div class="stat-item-content" style="flex: 1;">
-                                <div style="font-weight: 500; font-size: 0.875rem;">${Utils.escapeHtml(ticket.title || 'Sin titulo')}</div>
-                                <div style="font-size: 0.75rem; color: var(--text-tertiary);">${ticket.folio} - ${Utils.timeAgo(ticket.createdAt)}</div>
+                                <div style="font-weight: 500; font-size: 0.875rem;">${this.escapeHtml(ticket.title || 'Sin titulo')}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-tertiary);">${ticket.folio || ''} - ${this.timeAgo(ticket.createdAt)}</div>
                             </div>
                             <span class="badge badge-${ticket.status === 'open' ? 'open' : ticket.status === 'in_progress' ? 'in-progress' : 'resolved'}">${this.getStatusLabel(ticket.status)}</span>
                         </div>
                     `).join('')}
                 </div>
-                <a href="/pages/tickets.html" class="btn btn-ghost btn-sm" style="width: 100%; margin-top: 1rem;">Ver todos los tickets</a>
+                <a href="tickets.html" class="btn btn-ghost btn-sm" style="width: 100%; margin-top: 1rem;">Ver todos los tickets</a>
             `}
         `;
     },
 
-    renderExpiringLicenses() {
+    async renderExpiringLicenses() {
         const container = document.getElementById('expiringLicenses');
         if (!container) return;
 
-        const licenses = Store.getExpiringLicenses(30);
+        let licenses = [];
+        try {
+            licenses = await Store.getExpiringLicenses(30) || [];
+        } catch (e) {
+            console.warn('No se pudieron obtener licencias');
+        }
 
         container.innerHTML = `
             <h3 class="stat-title" style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem;">Licencias por Vencer</h3>
             ${licenses.length === 0 ? `
-                <p class="text-muted">No hay licencias proximas a vencer</p>
+                <p style="color: var(--text-tertiary);">No hay licencias proximas a vencer</p>
             ` : `
                 <div class="stat-list">
                     ${licenses.map(license => {
-                        const daysLeft = Utils.daysUntil(license.expirationDate);
+                        const daysLeft = this.daysUntil(license.expirationDate);
                         const urgency = daysLeft <= 7 ? 'danger' : daysLeft <= 15 ? 'warning' : 'info';
                         
                         return `
@@ -232,15 +255,15 @@ const DashboardModule = {
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                 </div>
                                 <div class="stat-item-content" style="flex: 1;">
-                                    <div style="font-weight: 500; font-size: 0.875rem;">${Utils.escapeHtml(license.software)}</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-tertiary);">Vence: ${Utils.formatDate(license.expirationDate)}</div>
+                                    <div style="font-weight: 500; font-size: 0.875rem;">${this.escapeHtml(license.software)}</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-tertiary);">Vence: ${this.formatDate(license.expirationDate)}</div>
                                 </div>
                                 <span class="badge badge-${urgency === 'danger' ? 'high' : urgency === 'warning' ? 'medium' : 'low'}">${daysLeft} dias</span>
                             </div>
                         `;
                     }).join('')}
                 </div>
-                <a href="/pages/licenses.html" class="btn btn-ghost btn-sm" style="width: 100%; margin-top: 1rem;">Ver todas las licencias</a>
+                <a href="licenses.html" class="btn btn-ghost btn-sm" style="width: 100%; margin-top: 1rem;">Ver todas las licencias</a>
             `}
         `;
     },
@@ -255,26 +278,61 @@ const DashboardModule = {
         return labels[status] || status;
     },
 
+    // Helper functions
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    },
+
+    timeAgo(date) {
+        if (!date) return '';
+        const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+        if (seconds < 60) return 'Hace un momento';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `Hace ${minutes} min`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `Hace ${hours}h`;
+        const days = Math.floor(hours / 24);
+        return `Hace ${days}d`;
+    },
+
+    daysUntil(date) {
+        if (!date) return 0;
+        const diff = new Date(date) - new Date();
+        return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    },
+
+    formatDate(date) {
+        if (!date) return '';
+        return new Date(date).toLocaleDateString('es-MX');
+    },
+
     // ========================================
     // AUTO-REFRESH
     // ========================================
 
     startAutoRefresh() {
-        // Actualizar cada 5 minutos
-        setInterval(() => {
-            this.renderKPIs();
-            this.renderRecentTickets();
-            this.renderExpiringLicenses();
-            Sidebar.updateBadges();
-        }, 5 * 60 * 1000);
+        // Actualizar cada 5 minutos (no cada segundo)
+        setInterval(async () => {
+            await this.renderKPIs();
+            await this.renderRecentTickets();
+            await this.renderExpiringLicenses();
+            if (typeof Sidebar !== 'undefined' && Sidebar.updateBadges) {
+                Sidebar.updateBadges();
+            }
+        }, 5 * 60 * 1000); // 5 minutos
     }
 };
 
 // Inicializar cuando el DOM este listo
-document.addEventListener('DOMContentLoaded', () => {
-    DashboardModule.init();
+document.addEventListener('DOMContentLoaded', async () => {
+    // Esperar a que Store este inicializado
+    setTimeout(async () => {
+        await DashboardModule.init();
+    }, 100);
 });
 
 // Exportar para uso global
 window.DashboardModule = DashboardModule;
-
