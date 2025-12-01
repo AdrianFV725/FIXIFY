@@ -97,16 +97,10 @@ const Auth = {
      */
     async loginWithFirebase(email, password, remember = false) {
         try {
-            const auth = getFirebaseAuth();
+            // Buscar usuario en Store (Firestore o localStorage)
+            const userData = await Store.getUserByEmail(email);
             
-            // Configurar persistencia
-            const persistence = remember 
-                ? firebase.auth.Auth.Persistence.LOCAL 
-                : firebase.auth.Auth.Persistence.SESSION;
-            await auth.setPersistence(persistence);
-
-            // Buscar usuario en Firestore para verificar estado
-            const userData = await FirestoreService.getUserByEmail(email);
+            console.log('Usuario encontrado:', userData ? 'Si' : 'No');
             
             if (!userData) {
                 return { success: false, message: 'Usuario no encontrado' };
@@ -116,85 +110,36 @@ const Auth = {
                 return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
             }
 
-            // Intentar login con Firebase Auth
-            try {
-                const result = await auth.signInWithEmailAndPassword(email, password);
-                
-                // Actualizar ultimo login
-                await FirestoreService.updateUserLastLogin(email);
-                await FirestoreService.logActivity('user_login', { email });
-
-                // Guardar sesion localmente
-                const sessionUser = {
-                    id: result.user.uid,
-                    email: result.user.email,
-                    name: userData.name || 'Usuario',
-                    role: userData.role || 'user',
-                    loginAt: new Date().toISOString()
-                };
-
-                const storage = remember ? localStorage : sessionStorage;
-                storage.setItem(this.SESSION_KEY, 'active');
-                storage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
-
-                return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
-            } catch (authError) {
-                // Si el usuario no existe en Firebase Auth pero si en Firestore,
-                // verificar contrasena manualmente y crear usuario en Auth
-                if (authError.code === 'auth/user-not-found' && userData.password === password) {
-                    try {
-                        // Crear usuario en Firebase Auth
-                        const newUser = await auth.createUserWithEmailAndPassword(email, password);
-                        
-                        // Actualizar Firestore con el UID
-                        await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
-                            firebaseUid: newUser.user.uid
-                        }, userData.id);
-
-                        // Actualizar ultimo login
-                        await FirestoreService.updateUserLastLogin(email);
-                        await FirestoreService.logActivity('user_login', { email });
-
-                        const sessionUser = {
-                            id: newUser.user.uid,
-                            email: newUser.user.email,
-                            name: userData.name || 'Usuario',
-                            role: userData.role || 'user',
-                            loginAt: new Date().toISOString()
-                        };
-
-                        const storage = remember ? localStorage : sessionStorage;
-                        storage.setItem(this.SESSION_KEY, 'active');
-                        storage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
-
-                        return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
-                    } catch (createError) {
-                        console.error('Error al crear usuario en Firebase Auth:', createError);
-                    }
-                }
-
-                // Verificar contrasena contra Firestore como fallback
-                if (userData.password === password) {
-                    await FirestoreService.updateUserLastLogin(email);
-                    await FirestoreService.logActivity('user_login', { email });
-
-                    const sessionUser = {
-                        id: userData.id,
-                        email: userData.email,
-                        name: userData.name || 'Usuario',
-                        role: userData.role || 'user',
-                        loginAt: new Date().toISOString()
-                    };
-
-                    const storage = remember ? localStorage : sessionStorage;
-                    storage.setItem(this.SESSION_KEY, 'active');
-                    storage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
-
-                    return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
-                }
-
+            // Verificar contrasena directamente contra los datos del usuario
+            console.log('Verificando contrasena...');
+            if (userData.password !== password) {
+                console.log('Contrasena no coincide');
                 return { success: false, message: 'Contrasena incorrecta' };
             }
+
+            console.log('Contrasena correcta, creando sesion...');
+
+            // Crear sesion
+            const sessionUser = {
+                id: userData.id,
+                email: userData.email,
+                name: userData.name || 'Usuario',
+                role: userData.role || 'user',
+                loginAt: new Date().toISOString()
+            };
+
+            const storage = remember ? localStorage : sessionStorage;
+            storage.setItem(this.SESSION_KEY, 'active');
+            storage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
+
+            // Intentar actualizar ultimo login (no bloquea si falla)
+            try {
+                await Store.updateUserLastLogin(email);
+            } catch (e) {
+                console.warn('No se pudo actualizar ultimo login');
+            }
+
+            return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
         } catch (error) {
             console.error('Error de login:', error);
             return { success: false, message: error.message || 'Error al iniciar sesion' };
