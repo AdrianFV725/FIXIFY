@@ -41,7 +41,7 @@ const MachinesModule = {
 
     applyFilters() {
         const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
-        const typeFilter = document.getElementById('typeFilter')?.value || '';
+        const osFilter = document.getElementById('osFilter')?.value || '';
         const statusFilter = document.getElementById('statusFilter')?.value || '';
 
         this.filteredMachines = this.machines.filter(m => {
@@ -49,16 +49,19 @@ const MachinesModule = {
             const matchesSearch = !searchTerm || 
                 (m.name || '').toLowerCase().includes(searchTerm) ||
                 (m.serialNumber || '').toLowerCase().includes(searchTerm) ||
-                (m.brand || '').toLowerCase().includes(searchTerm) ||
-                (m.model || '').toLowerCase().includes(searchTerm);
+                (m.model || '').toLowerCase().includes(searchTerm) ||
+                (m.ram || '').toLowerCase().includes(searchTerm) ||
+                (m.disk || '').toLowerCase().includes(searchTerm) ||
+                (m.osVersion || '').toLowerCase().includes(searchTerm) ||
+                (m.year ? String(m.year) : '').includes(searchTerm);
 
-            // Filtro de tipo
-            const matchesType = !typeFilter || m.type === typeFilter;
+            // Filtro de sistema operativo
+            const matchesOS = !osFilter || m.operatingSystem === osFilter;
 
             // Filtro de estado
             const matchesStatus = !statusFilter || m.status === statusFilter;
 
-            return matchesSearch && matchesType && matchesStatus;
+            return matchesSearch && matchesOS && matchesStatus;
         });
 
         this.renderTable();
@@ -122,16 +125,16 @@ const MachinesModule = {
 
         container.innerHTML = `
             <div class="filter-group">
-                <input type="text" class="filter-input" id="searchInput" placeholder="Buscar por nombre, serie, marca...">
+                <input type="text" class="filter-input" id="searchInput" placeholder="Buscar por nombre, serie, modelo, RAM, disco...">
             </div>
             <div class="filter-group">
-                <label class="filter-label">Tipo:</label>
-                <select class="filter-select" id="typeFilter">
+                <label class="filter-label">SO:</label>
+                <select class="filter-select" id="osFilter">
                     <option value="">Todos</option>
-                    <option value="laptop">Laptop</option>
-                    <option value="desktop">Desktop</option>
-                    <option value="server">Servidor</option>
-                    <option value="printer">Impresora</option>
+                    <option value="macos">macOS</option>
+                    <option value="windows">Windows</option>
+                    <option value="linux">Linux</option>
+                    <option value="chromeos">ChromeOS</option>
                     <option value="other">Otro</option>
                 </select>
             </div>
@@ -169,6 +172,34 @@ const MachinesModule = {
         return labels[type] || type || '-';
     },
 
+    getOSLabel(os) {
+        const labels = { 
+            macos: 'macOS', 
+            windows: 'Windows', 
+            linux: 'Linux', 
+            chromeos: 'ChromeOS', 
+            other: 'Otro' 
+        };
+        return labels[os] || os || '-';
+    },
+
+    getDiskTypeLabel(diskType) {
+        const labels = { ssd: 'SSD', hdd: 'HDD', nvme: 'NVMe', hybrid: 'Hibrido' };
+        return labels[diskType] || diskType || '-';
+    },
+
+    getRamTypeLabel(ramType) {
+        const labels = { 
+            ddr3: 'DDR3', 
+            ddr4: 'DDR4', 
+            ddr5: 'DDR5', 
+            lpddr4: 'LPDDR4', 
+            lpddr5: 'LPDDR5', 
+            unified: 'Unificada' 
+        };
+        return labels[ramType] || ramType || '-';
+    },
+
     getTypeIcon(type) {
         const icons = {
             laptop: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="2" y1="20" x2="22" y2="20"></line></svg>',
@@ -193,29 +224,34 @@ const MachinesModule = {
                 <tr>
                     <th>No. Serie</th>
                     <th>Nombre</th>
-                    <th>Tipo</th>
-                    <th>Marca</th>
                     <th>Modelo</th>
+                    <th>Año</th>
+                    <th>RAM</th>
+                    <th>Disco</th>
+                    <th>SO</th>
                     <th>Estado</th>
-                    <th>Tickets</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 ${this.filteredMachines.length === 0 ? `
-                    <tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">
+                    <tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">
                         ${this.machines.length === 0 ? 'No hay maquinas registradas' : 'No se encontraron resultados'}
                     </td></tr>
                 ` : this.filteredMachines.map(m => `
                     <tr data-id="${m.id}">
                         <td style="font-family: monospace;">${m.serialNumber || '-'}</td>
                         <td>${this.escapeHtml(m.name || '')}</td>
-                        <td>${this.getTypeLabel(m.type)}</td>
-                        <td>${m.brand || '-'}</td>
                         <td>${m.model || '-'}</td>
+                        <td>${m.year || '-'}</td>
+                        <td>${m.ram || '-'}</td>
+                        <td>${m.disk || '-'}</td>
+                        <td>${this.getOSLabel(m.operatingSystem)}</td>
                         <td>${this.getStatusBadge(m.status)}</td>
-                        <td>${m.ticketCount || 0}</td>
                         <td class="cell-actions">
+                            <button class="btn-icon btn-ghost sm" onclick="MachinesModule.viewMachine('${m.id}')" title="Ver detalles">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </button>
                             <button class="btn-icon btn-ghost sm" onclick="MachinesModule.editMachine('${m.id}')" title="Editar">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </button>
@@ -253,30 +289,38 @@ const MachinesModule = {
         container.innerHTML = this.filteredMachines.map(m => `
             <div class="card machine-card" data-id="${m.id}">
                 <div class="card-header">
-                    <div class="card-icon" style="background: ${this.getTypeColor(m.type)}20; color: ${this.getTypeColor(m.type)};">
-                        ${this.getTypeIcon(m.type)}
+                    <div class="card-icon" style="background: ${this.getOSColor(m.operatingSystem)}20; color: ${this.getOSColor(m.operatingSystem)};">
+                        ${this.getOSIcon(m.operatingSystem)}
                     </div>
                     ${this.getStatusBadge(m.status)}
                 </div>
                 <div class="card-body">
                     <h3 class="card-title">${this.escapeHtml(m.name || 'Sin nombre')}</h3>
-                    <p class="card-subtitle">${m.brand || ''} ${m.model || ''}</p>
+                    <p class="card-subtitle">${m.model || ''} ${m.year ? '(' + m.year + ')' : ''}</p>
                     <div class="card-details">
                         <div class="card-detail">
                             <span class="detail-label">Serie:</span>
                             <span class="detail-value" style="font-family: monospace;">${m.serialNumber || '-'}</span>
                         </div>
                         <div class="card-detail">
-                            <span class="detail-label">Tipo:</span>
-                            <span class="detail-value">${this.getTypeLabel(m.type)}</span>
+                            <span class="detail-label">RAM:</span>
+                            <span class="detail-value">${m.ram || '-'}</span>
                         </div>
                         <div class="card-detail">
-                            <span class="detail-label">Tickets:</span>
-                            <span class="detail-value">${m.ticketCount || 0}</span>
+                            <span class="detail-label">Disco:</span>
+                            <span class="detail-value">${m.disk || '-'}</span>
+                        </div>
+                        <div class="card-detail">
+                            <span class="detail-label">SO:</span>
+                            <span class="detail-value">${this.getOSLabel(m.operatingSystem)} ${m.osVersion || ''}</span>
                         </div>
                     </div>
                 </div>
                 <div class="card-footer">
+                    <button class="btn btn-ghost btn-sm" onclick="MachinesModule.viewMachine('${m.id}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        Ver
+                    </button>
                     <button class="btn btn-ghost btn-sm" onclick="MachinesModule.editMachine('${m.id}')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         Editar
@@ -299,6 +343,28 @@ const MachinesModule = {
             other: '#6b7280'
         };
         return colors[type] || colors.other;
+    },
+
+    getOSColor(os) {
+        const colors = {
+            macos: '#000000',
+            windows: '#0078d4',
+            linux: '#f97316',
+            chromeos: '#4285f4',
+            other: '#6b7280'
+        };
+        return colors[os] || colors.other;
+    },
+
+    getOSIcon(os) {
+        const icons = {
+            macos: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 4-3 4-6 0-4.5-2.5-6-4.5-6-.5 0-1.5.5-2.5.5s-2-.5-2.5-.5c-2 0-4.5 1.5-4.5 6 0 3 1 6 4 6 1.25 0 2.5-1.06 4-1.06z"/><path d="M12 7c1.5 0 3-1.5 3-3.5 0-.5 0-1-.5-1.5-1.5 0-3 1.5-3 3.5 0 .5 0 1 .5 1.5z"/></svg>',
+            windows: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"></rect><rect x="13" y="3" width="8" height="8"></rect><rect x="3" y="13" width="8" height="8"></rect><rect x="13" y="13" width="8" height="8"></rect></svg>',
+            linux: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"></circle><path d="M3 21v-2a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v2"></path></svg>',
+            chromeos: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>',
+            other: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>'
+        };
+        return icons[os] || icons.other;
     },
 
     // ========================================
@@ -354,6 +420,100 @@ const MachinesModule = {
         }
     },
 
+    viewMachine(id) {
+        const machine = this.getMachineById(id);
+        if (!machine) {
+            this.showToast('Error: Maquina no encontrada', 'error');
+            return;
+        }
+
+        const formatCost = (cost) => {
+            if (!cost) return '-';
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(cost);
+        };
+
+        const modalHtml = `
+            <div class="modal-overlay active" id="viewMachineModal">
+                <div class="modal modal-lg" style="max-width: 700px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Detalles de Maquina</h2>
+                        <button class="modal-close" onclick="document.getElementById('viewMachineModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
+                            <div style="width: 60px; height: 60px; border-radius: 12px; background: ${this.getOSColor(machine.operatingSystem)}15; color: ${this.getOSColor(machine.operatingSystem)}; display: flex; align-items: center; justify-content: center;">
+                                ${this.getOSIcon(machine.operatingSystem)}
+                            </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.25rem;">${this.escapeHtml(machine.name || 'Sin nombre')}</h3>
+                                <p style="margin: 0.25rem 0 0; color: var(--text-secondary);">${machine.model || ''} ${machine.year ? '(' + machine.year + ')' : ''}</p>
+                            </div>
+                            <div style="margin-left: auto;">
+                                ${this.getStatusBadge(machine.status)}
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Numero de Serie</span>
+                                <span style="font-family: monospace; font-weight: 500;">${machine.serialNumber || '-'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Costo</span>
+                                <span style="font-weight: 500;">${formatCost(machine.cost)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Tipo de Disco</span>
+                                <span style="font-weight: 500;">${this.getDiskTypeLabel(machine.diskType)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Capacidad de Disco</span>
+                                <span style="font-weight: 500;">${machine.disk || '-'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Tipo de RAM</span>
+                                <span style="font-weight: 500;">${this.getRamTypeLabel(machine.ramType)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Capacidad de RAM</span>
+                                <span style="font-weight: 500;">${machine.ram || '-'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Sistema Operativo</span>
+                                <span style="font-weight: 500;">${this.getOSLabel(machine.operatingSystem)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Version del SO</span>
+                                <span style="font-weight: 500;">${machine.osVersion || '-'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Monitor</span>
+                                <span style="font-weight: 500;">${machine.monitor || '-'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block;">Version OpenCore</span>
+                                <span style="font-weight: 500;">${machine.openCoreVersion || '-'}</span>
+                            </div>
+                        </div>
+                        
+                        ${machine.comments ? `
+                            <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                                <span style="color: var(--text-tertiary); font-size: 0.8rem; display: block; margin-bottom: 0.5rem;">Comentarios</span>
+                                <p style="margin: 0; white-space: pre-wrap;">${this.escapeHtml(machine.comments)}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('viewMachineModal').remove()">Cerrar</button>
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('viewMachineModal').remove(); MachinesModule.editMachine('${machine.id}');">Editar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
     escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -381,13 +541,13 @@ const MachinesModule = {
 
         // Filtros en tiempo real
         document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
-        document.getElementById('typeFilter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('osFilter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('statusFilter')?.addEventListener('change', () => this.applyFilters());
 
         // Limpiar filtros
         document.getElementById('clearFilters')?.addEventListener('click', () => {
             document.getElementById('searchInput').value = '';
-            document.getElementById('typeFilter').value = '';
+            document.getElementById('osFilter').value = '';
             document.getElementById('statusFilter').value = '';
             this.applyFilters();
         });
@@ -401,34 +561,29 @@ const MachinesModule = {
 
         const modalHtml = `
             <div class="modal-overlay active" id="machineModal">
-                <div class="modal modal-lg">
+                <div class="modal modal-lg" style="max-width: 800px;">
                     <div class="modal-header">
                         <h2 class="modal-title">${isEdit ? 'Editar Maquina' : 'Nueva Maquina'}</h2>
                         <button class="modal-close" onclick="document.getElementById('machineModal').remove()">&times;</button>
                     </div>
-                    <form id="machineForm" class="modal-body">
+                    <form id="machineForm" class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                         <div class="form">
+                            <!-- Fila 1: Serie y Nombre -->
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label">Numero de Serie <span class="required">*</span></label>
                                     <input type="text" name="serialNumber" required value="${machine?.serialNumber || ''}" class="form-input" placeholder="Ej: SN-001234">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Nombre <span class="required">*</span></label>
+                                    <label class="form-label">Nombre de Maquina <span class="required">*</span></label>
                                     <input type="text" name="name" required value="${this.escapeHtml(machine?.name || '')}" class="form-input" placeholder="Ej: MacBook Pro IT-01">
                                 </div>
                             </div>
-                            <div class="form-row">
+                            <!-- Fila 2: Año, Estado, Costo -->
+                            <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
                                 <div class="form-group">
-                                    <label class="form-label">Tipo <span class="required">*</span></label>
-                                    <select name="type" required class="form-select">
-                                        <option value="">Seleccionar tipo</option>
-                                        <option value="laptop" ${machine?.type === 'laptop' ? 'selected' : ''}>Laptop</option>
-                                        <option value="desktop" ${machine?.type === 'desktop' ? 'selected' : ''}>Desktop</option>
-                                        <option value="server" ${machine?.type === 'server' ? 'selected' : ''}>Servidor</option>
-                                        <option value="printer" ${machine?.type === 'printer' ? 'selected' : ''}>Impresora</option>
-                                        <option value="other" ${machine?.type === 'other' ? 'selected' : ''}>Otro</option>
-                                    </select>
+                                    <label class="form-label">Año</label>
+                                    <input type="number" name="year" value="${machine?.year || ''}" class="form-input" placeholder="Ej: 2023" min="1990" max="2099">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Estado <span class="required">*</span></label>
@@ -439,20 +594,87 @@ const MachinesModule = {
                                         <option value="retired" ${machine?.status === 'retired' ? 'selected' : ''}>Dada de Baja</option>
                                     </select>
                                 </div>
+                                <div class="form-group">
+                                    <label class="form-label">Costo</label>
+                                    <input type="number" name="cost" value="${machine?.cost || ''}" class="form-input" placeholder="Ej: 15000" step="0.01" min="0">
+                                </div>
                             </div>
+                            <!-- Fila 3: Modelo -->
+                            <div class="form-row">
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label class="form-label">Modelo</label>
+                                    <input type="text" name="model" value="${this.escapeHtml(machine?.model || '')}" class="form-input" placeholder="Ej: MacBook Pro 16 M2 Max">
+                                </div>
+                            </div>
+                            <!-- Fila 4: Tipo de Disco y Disco -->
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label">Marca</label>
-                                    <input type="text" name="brand" value="${this.escapeHtml(machine?.brand || '')}" class="form-input" placeholder="Ej: Apple, Dell, HP">
+                                    <label class="form-label">Tipo de Disco</label>
+                                    <select name="diskType" class="form-select">
+                                        <option value="">Seleccionar</option>
+                                        <option value="ssd" ${machine?.diskType === 'ssd' ? 'selected' : ''}>SSD</option>
+                                        <option value="hdd" ${machine?.diskType === 'hdd' ? 'selected' : ''}>HDD</option>
+                                        <option value="nvme" ${machine?.diskType === 'nvme' ? 'selected' : ''}>NVMe</option>
+                                        <option value="hybrid" ${machine?.diskType === 'hybrid' ? 'selected' : ''}>Hibrido</option>
+                                    </select>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Modelo</label>
-                                    <input type="text" name="model" value="${this.escapeHtml(machine?.model || '')}" class="form-input" placeholder="Ej: MacBook Pro 16 2023">
+                                    <label class="form-label">Capacidad de Disco</label>
+                                    <input type="text" name="disk" value="${this.escapeHtml(machine?.disk || '')}" class="form-input" placeholder="Ej: 512GB, 1TB">
                                 </div>
                             </div>
+                            <!-- Fila 5: Tipo de RAM y RAM -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Tipo de RAM</label>
+                                    <select name="ramType" class="form-select">
+                                        <option value="">Seleccionar</option>
+                                        <option value="ddr3" ${machine?.ramType === 'ddr3' ? 'selected' : ''}>DDR3</option>
+                                        <option value="ddr4" ${machine?.ramType === 'ddr4' ? 'selected' : ''}>DDR4</option>
+                                        <option value="ddr5" ${machine?.ramType === 'ddr5' ? 'selected' : ''}>DDR5</option>
+                                        <option value="lpddr4" ${machine?.ramType === 'lpddr4' ? 'selected' : ''}>LPDDR4</option>
+                                        <option value="lpddr5" ${machine?.ramType === 'lpddr5' ? 'selected' : ''}>LPDDR5</option>
+                                        <option value="unified" ${machine?.ramType === 'unified' ? 'selected' : ''}>Memoria Unificada</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Capacidad de RAM</label>
+                                    <input type="text" name="ram" value="${this.escapeHtml(machine?.ram || '')}" class="form-input" placeholder="Ej: 8GB, 16GB, 32GB">
+                                </div>
+                            </div>
+                            <!-- Fila 6: Sistema Operativo y Versión -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Sistema Operativo</label>
+                                    <select name="operatingSystem" class="form-select">
+                                        <option value="">Seleccionar</option>
+                                        <option value="macos" ${machine?.operatingSystem === 'macos' ? 'selected' : ''}>macOS</option>
+                                        <option value="windows" ${machine?.operatingSystem === 'windows' ? 'selected' : ''}>Windows</option>
+                                        <option value="linux" ${machine?.operatingSystem === 'linux' ? 'selected' : ''}>Linux</option>
+                                        <option value="chromeos" ${machine?.operatingSystem === 'chromeos' ? 'selected' : ''}>ChromeOS</option>
+                                        <option value="other" ${machine?.operatingSystem === 'other' ? 'selected' : ''}>Otro</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Version del SO</label>
+                                    <input type="text" name="osVersion" value="${this.escapeHtml(machine?.osVersion || '')}" class="form-input" placeholder="Ej: Sonoma 14.2, Windows 11 Pro">
+                                </div>
+                            </div>
+                            <!-- Fila 7: Monitor y OpenCore -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Monitor</label>
+                                    <input type="text" name="monitor" value="${this.escapeHtml(machine?.monitor || '')}" class="form-input" placeholder="Ej: 27 4K, Retina 16">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Version de OpenCore</label>
+                                    <input type="text" name="openCoreVersion" value="${this.escapeHtml(machine?.openCoreVersion || '')}" class="form-input" placeholder="Ej: 0.9.7 (si aplica)">
+                                </div>
+                            </div>
+                            <!-- Fila 8: Comentarios -->
                             <div class="form-group full-width">
-                                <label class="form-label">Notas</label>
-                                <textarea name="notes" class="form-textarea" placeholder="Notas adicionales sobre la maquina...">${this.escapeHtml(machine?.notes || '')}</textarea>
+                                <label class="form-label">Comentarios</label>
+                                <textarea name="comments" class="form-textarea" rows="3" placeholder="Comentarios adicionales sobre la maquina...">${this.escapeHtml(machine?.comments || '')}</textarea>
                             </div>
                         </div>
                         <input type="hidden" name="id" value="${machine?.id || ''}">
@@ -529,15 +751,40 @@ const MachinesModule = {
             return;
         }
 
-        const headers = ['No. Serie', 'Nombre', 'Tipo', 'Marca', 'Modelo', 'Estado', 'Tickets', 'Fecha Creacion'];
+        const headers = [
+            'No. Serie', 
+            'Nombre', 
+            'Año', 
+            'Estado', 
+            'Costo', 
+            'Modelo', 
+            'Tipo Disco', 
+            'Disco', 
+            'Tipo RAM', 
+            'RAM', 
+            'Sistema Operativo', 
+            'Version SO', 
+            'Monitor', 
+            'Version OpenCore', 
+            'Comentarios',
+            'Fecha Creacion'
+        ];
         const rows = this.filteredMachines.map(m => [
             m.serialNumber || '',
             m.name || '',
-            this.getTypeLabel(m.type),
-            m.brand || '',
-            m.model || '',
+            m.year || '',
             this.getStatusLabel(m.status),
-            m.ticketCount || 0,
+            m.cost || '',
+            m.model || '',
+            this.getDiskTypeLabel(m.diskType),
+            m.disk || '',
+            this.getRamTypeLabel(m.ramType),
+            m.ram || '',
+            this.getOSLabel(m.operatingSystem),
+            m.osVersion || '',
+            m.monitor || '',
+            m.openCoreVersion || '',
+            (m.comments || '').replace(/"/g, '""'),
             m.createdAt ? new Date(m.createdAt).toLocaleDateString() : ''
         ]);
 
