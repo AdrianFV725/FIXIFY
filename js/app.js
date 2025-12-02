@@ -322,8 +322,6 @@ class LoginController {
             );
 
             if (result.success) {
-                NotificationManager.show(result.message, 'success');
-                
                 // Guardar estado de sesion si "recordarme" esta activo
                 const rememberMe = document.getElementById('remember').checked;
                 const storage = rememberMe ? localStorage : sessionStorage;
@@ -408,8 +406,6 @@ class LoginController {
             const result = await Auth.loginWithGoogle();
 
             if (result.success) {
-                NotificationManager.show(result.message, 'success');
-                
                 this.showSuccessState();
                 setTimeout(() => {
                     window.location.href = './pages/dashboard.html';
