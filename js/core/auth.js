@@ -272,7 +272,7 @@ const Auth = {
 
             const auth = getFirebaseAuth();
             
-            // Verificar que el usuario exista en el sistema
+            // Verificar que el usuario exista en Firestore
             const userData = await FirestoreService.getUserByEmail(email);
             if (!userData) {
                 return { success: false, message: 'No existe una cuenta con este correo' };
@@ -281,31 +281,87 @@ const Auth = {
             // Configurar idioma del email
             auth.languageCode = 'es';
 
-            // Enviar correo de recuperacion
-            await auth.sendPasswordResetEmail(email, {
-                url: window.location.origin + '/index.html',
-                handleCodeInApp: false
-            });
-
-            // Registrar actividad
+            // Intentar enviar correo de recuperacion
             try {
-                await FirestoreService.logActivity('password_reset_requested', { email: email });
-            } catch (e) {}
+                await auth.sendPasswordResetEmail(email);
+                
+                // Registrar actividad
+                try {
+                    await FirestoreService.logActivity('password_reset_requested', { email: email });
+                } catch (e) {}
 
-            return { 
-                success: true, 
-                message: 'Se ha enviado un correo para restablecer tu contrasena' 
-            };
+                return { 
+                    success: true, 
+                    message: 'Se ha enviado un correo para restablecer tu contrasena' 
+                };
+
+            } catch (authError) {
+                console.log('Error de Firebase Auth:', authError.code);
+                
+                // Si el usuario no existe en Firebase Auth, crearlo primero
+                if (authError.code === 'auth/user-not-found') {
+                    // Si tiene contrasena en Firestore, crear usuario en Firebase Auth
+                    if (userData.password) {
+                        try {
+                            console.log('Migrando usuario a Firebase Auth...');
+                            await auth.createUserWithEmailAndPassword(email, userData.password);
+                            
+                            // Ahora enviar el correo de recuperacion
+                            await auth.sendPasswordResetEmail(email);
+                            
+                            // Actualizar Firestore para marcar como migrado
+                            await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
+                                firebaseUid: auth.currentUser?.uid,
+                                migratedAt: new Date().toISOString()
+                            }, userData.id);
+                            
+                            // Cerrar sesion del usuario recien creado
+                            await auth.signOut();
+                            
+                            return { 
+                                success: true, 
+                                message: 'Se ha enviado un correo para restablecer tu contrasena' 
+                            };
+                        } catch (createError) {
+                            console.error('Error al migrar usuario:', createError);
+                            if (createError.code === 'auth/email-already-in-use') {
+                                // El email ya existe, intentar enviar de nuevo
+                                await auth.sendPasswordResetEmail(email);
+                                return { 
+                                    success: true, 
+                                    message: 'Se ha enviado un correo para restablecer tu contrasena' 
+                                };
+                            }
+                            return { 
+                                success: false, 
+                                message: 'Error al procesar la solicitud. Intenta de nuevo.' 
+                            };
+                        }
+                    } else {
+                        return { 
+                            success: false, 
+                            message: 'Tu cuenta necesita ser configurada. Contacta al administrador.' 
+                        };
+                    }
+                }
+                
+                // Manejar error de dominio no autorizado
+                if (authError.code === 'auth/unauthorized-continue-uri') {
+                    return { 
+                        success: false, 
+                        message: 'Error de configuracion. El dominio no esta autorizado en Firebase.' 
+                    };
+                }
+                
+                throw authError;
+            }
 
         } catch (error) {
             console.error('Error al enviar correo de recuperacion:', error);
             
             let message = 'Error al enviar el correo';
             
-            if (error.code === 'auth/user-not-found') {
-                // Si no existe en Firebase Auth pero si en Firestore, informar
-                message = 'Tu cuenta aun no ha sido migrada. Contacta al administrador.';
-            } else if (error.code === 'auth/invalid-email') {
+            if (error.code === 'auth/invalid-email') {
                 message = 'Correo electronico invalido';
             } else if (error.code === 'auth/too-many-requests') {
                 message = 'Demasiados intentos. Intenta mas tarde.';
