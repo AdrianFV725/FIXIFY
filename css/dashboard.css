@@ -487,7 +487,6 @@ body.dashboard-body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .main-content.expanded {
@@ -496,6 +495,11 @@ body.dashboard-body {
 
 .main-content.sidebar-collapsed {
     margin-left: 72px;
+}
+
+/* Transicion solo cuando se colapsa/expande intencionalmente */
+.main-content.animating {
+    transition: margin-left 0.25s ease;
 }
 
 /* ========================================
