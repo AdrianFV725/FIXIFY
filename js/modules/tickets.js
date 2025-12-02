@@ -1112,7 +1112,7 @@ const TicketsModule = {
                             <form id="categoryForm" class="form">
                                 <div class="form-group" style="margin-bottom: 0.75rem;">
                                     <label class="form-label" style="font-size: 0.85rem;">Tema <span class="required">*</span></label>
-                                    <input type="text" name="tema" class="form-input" required placeholder="Ej: Soporte Tecnico" list="temasDatalist" style="font-size: 0.9rem;">
+                                    <input type="text" name="tema" id="categoryTemaInput" class="form-input" required placeholder="Ej: Soporte Tecnico" list="temasDatalist" style="font-size: 0.9rem;">
                                     <datalist id="temasDatalist">
                                         ${[...new Set(categories.map(c => c.tema))].filter(Boolean).map(t => `<option value="${this.escapeHtml(t)}">`).join('')}
                                     </datalist>
@@ -1129,7 +1129,10 @@ const TicketsModule = {
                                 </div>
                                 <div class="form-group" style="margin-bottom: 0.75rem;">
                                     <label class="form-label" style="font-size: 0.85rem;">Clave <span class="required">*</span></label>
-                                    <input type="text" name="clave" class="form-input" required placeholder="Ej: S1, SLACK-01" style="font-size: 0.9rem;">
+                                    <div style="position: relative;">
+                                        <input type="text" name="clave" id="categoryClaveInput" class="form-input" required placeholder="Se genera automaticamente" style="font-size: 0.9rem;">
+                                        <span id="claveAutoIndicator" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: var(--text-tertiary); display: none;">Auto</span>
+                                    </div>
                                 </div>
                                 <div class="form-group" style="margin-bottom: 0.75rem;">
                                     <label class="form-label" style="font-size: 0.85rem;">Elemento <span class="required">*</span></label>
@@ -1156,12 +1159,114 @@ const TicketsModule = {
         const categoryIdInput = document.getElementById('categoryId');
         const saveCategoryBtn = document.getElementById('saveCategoryBtn');
         const cancelCategoryEdit = document.getElementById('cancelCategoryEdit');
+        const temaInput = document.getElementById('categoryTemaInput');
+        const claveInput = document.getElementById('categoryClaveInput');
+        const claveAutoIndicator = document.getElementById('claveAutoIndicator');
+
+        // Funcion para generar la siguiente clave consecutiva
+        const generateNextClave = (tema) => {
+            if (!tema) return '';
+            
+            // Obtener todas las categorias del tema seleccionado
+            const temasCategories = categories.filter(c => c.tema === tema);
+            
+            if (temasCategories.length === 0) {
+                // No hay categorias con este tema, no podemos auto-generar
+                return '';
+            }
+            
+            // Analizar las claves existentes para encontrar el patron
+            // Buscar el formato mas comun: PREFIJO-NUMERO o PREFIJO.NUMERO o PREFIJO_NUMERO o PREFIJONUMERO
+            const claves = temasCategories.map(c => c.clave).filter(Boolean);
+            
+            if (claves.length === 0) return '';
+            
+            // Intentar detectar el patron de la primera clave
+            const firstClave = claves[0];
+            
+            // Regex para detectar diferentes formatos: AP-1, AP.1, AP_1, AP1
+            const patterns = [
+                /^([A-Za-z]+)-(\d+)$/,      // PREFIJO-NUMERO (ej: AP-1)
+                /^([A-Za-z]+)\.(\d+)$/,     // PREFIJO.NUMERO (ej: AP.1)
+                /^([A-Za-z]+)_(\d+)$/,      // PREFIJO_NUMERO (ej: AP_1)
+                /^([A-Za-z]+)(\d+)$/        // PREFIJONUMERO (ej: AP1)
+            ];
+            
+            let detectedPrefix = '';
+            let detectedSeparator = '-';
+            let maxNumber = 0;
+            
+            for (const pattern of patterns) {
+                const match = firstClave.match(pattern);
+                if (match) {
+                    detectedPrefix = match[1];
+                    // Detectar el separador usado
+                    if (pattern.source.includes('-')) detectedSeparator = '-';
+                    else if (pattern.source.includes('\\.')) detectedSeparator = '.';
+                    else if (pattern.source.includes('_')) detectedSeparator = '_';
+                    else detectedSeparator = '';
+                    break;
+                }
+            }
+            
+            if (!detectedPrefix) {
+                // No se pudo detectar el patron, usar la clave completa como prefijo
+                detectedPrefix = firstClave.replace(/\d+$/, '').replace(/[-._]$/, '');
+                if (!detectedPrefix) return '';
+            }
+            
+            // Encontrar el numero mas alto existente para este prefijo
+            for (const clave of claves) {
+                for (const pattern of patterns) {
+                    const match = clave.match(pattern);
+                    if (match && match[1].toUpperCase() === detectedPrefix.toUpperCase()) {
+                        const num = parseInt(match[2], 10);
+                        if (num > maxNumber) maxNumber = num;
+                    }
+                }
+            }
+            
+            // Generar la siguiente clave
+            const nextNumber = maxNumber + 1;
+            return `${detectedPrefix}${detectedSeparator}${nextNumber}`;
+        };
+
+        // Listener para auto-generar clave cuando cambia el tema
+        let isAutoGeneratedClave = false;
+        
+        temaInput.addEventListener('input', () => {
+            const tema = temaInput.value.trim();
+            
+            // Solo auto-generar si no estamos editando y el campo de clave esta vacio o fue auto-generado
+            if (!categoryIdInput.value && (claveInput.value === '' || isAutoGeneratedClave)) {
+                const nextClave = generateNextClave(tema);
+                if (nextClave) {
+                    claveInput.value = nextClave;
+                    claveAutoIndicator.style.display = 'block';
+                    isAutoGeneratedClave = true;
+                } else {
+                    claveInput.value = '';
+                    claveAutoIndicator.style.display = 'none';
+                    isAutoGeneratedClave = false;
+                }
+            }
+        });
+
+        // Si el usuario modifica manualmente la clave, desactivar auto-generacion
+        claveInput.addEventListener('input', () => {
+            if (document.activeElement === claveInput) {
+                isAutoGeneratedClave = false;
+                claveAutoIndicator.style.display = 'none';
+            }
+        });
 
         const resetForm = () => {
             categoryForm.reset();
             categoryIdInput.value = '';
             saveCategoryBtn.textContent = 'Agregar';
             cancelCategoryEdit.style.display = 'none';
+            claveAutoIndicator.style.display = 'none';
+            isAutoGeneratedClave = false;
         };
 
         cancelCategoryEdit.addEventListener('click', resetForm);
@@ -1222,6 +1327,9 @@ const TicketsModule = {
                 categoryForm.querySelector('[name="elemento"]').value = cat.elemento || '';
                 saveCategoryBtn.textContent = 'Actualizar';
                 cancelCategoryEdit.style.display = 'block';
+                // Desactivar auto-generacion cuando se edita
+                isAutoGeneratedClave = false;
+                claveAutoIndicator.style.display = 'none';
             }
         };
     },
