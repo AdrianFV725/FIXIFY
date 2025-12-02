@@ -562,7 +562,11 @@ const TicketsModule = {
     },
 
     async deleteTicket(id) {
-        if (confirm('¿Estas seguro de eliminar este ticket? Esta accion no se puede deshacer.')) {
+        const ticket = this.getTicketById(id);
+        const name = ticket?.folio ? `${ticket.folio} - ${ticket.title || 'Sin titulo'}` : 'este ticket';
+        
+        const confirmed = await Modal.confirmDelete(name, 'ticket');
+        if (confirmed) {
             try {
                 await Store.deleteTicket(id);
                 await this.loadData();

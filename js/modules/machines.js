@@ -500,7 +500,11 @@ const MachinesModule = {
     },
 
     async deleteMachine(id) {
-        if (confirm('¿Estas seguro de eliminar esta maquina? Esta accion no se puede deshacer.')) {
+        const machine = this.getMachineById(id);
+        const name = machine?.name || 'esta maquina';
+        
+        const confirmed = await Modal.confirmDelete(name, 'maquina');
+        if (confirmed) {
             try {
                 await Store.deleteMachine(id);
                 await this.loadData();

@@ -97,8 +97,10 @@ const Modal = {
     renderButtons(buttons) {
         return buttons.map(btn => {
             const className = `btn ${btn.variant || 'btn-secondary'}`;
+            const icon = btn.icon || '';
             return `
                 <button class="${className}" data-action="${btn.action || 'close'}">
+                    ${icon}
                     ${btn.label}
                 </button>
             `;
@@ -188,12 +190,18 @@ const Modal = {
                 message = 'Esta seguro de realizar esta accion?',
                 confirmText = 'Confirmar',
                 cancelText = 'Cancelar',
-                variant = 'btn-primary'
+                variant = 'btn-primary',
+                icon = ''
             } = options;
 
             const overlay = this.open({
                 title,
-                content: `<p>${message}</p>`,
+                content: `
+                    <div style="text-align: center; padding: 0.5rem 0;">
+                        ${icon ? `<div style="margin-bottom: 1rem;">${icon}</div>` : ''}
+                        <p style="color: var(--text-secondary); font-size: 0.95rem;">${message}</p>
+                    </div>
+                `,
                 size: 'sm',
                 buttons: [
                     { label: cancelText, action: 'cancel', variant: 'btn-secondary' },
@@ -214,17 +222,112 @@ const Modal = {
     },
 
     /**
-     * Modal de confirmacion de eliminacion
+     * Modal de confirmacion de eliminacion - VERSION MEJORADA
      * @param {string} itemName - Nombre del item a eliminar
+     * @param {string} itemType - Tipo de item (empleado, maquina, etc)
      * @returns {Promise<boolean>}
      */
-    confirmDelete(itemName) {
-        return this.confirm({
-            title: 'Eliminar registro',
-            message: `Esta seguro de eliminar <strong>${Utils?.escapeHtml(itemName) || itemName}</strong>? Esta accion no se puede deshacer.`,
-            confirmText: 'Eliminar',
-            cancelText: 'Cancelar',
-            variant: 'btn-danger'
+    confirmDelete(itemName, itemType = 'registro') {
+        return new Promise((resolve) => {
+            // Crear overlay
+            let overlay = document.getElementById('modalOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                overlay.id = 'modalOverlay';
+                document.body.appendChild(overlay);
+            }
+
+            const escapedName = Utils?.escapeHtml(itemName) || itemName;
+
+            overlay.innerHTML = `
+                <div class="modal" style="max-width: 420px;">
+                    <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+                        <h2 class="modal-title">Eliminar ${itemType}</h2>
+                        <button class="modal-close" data-action="cancel">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="modal-body" style="text-align: center; padding: 1.5rem;">
+                        <div class="delete-modal-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                        </div>
+                        <p class="delete-modal-message">
+                            Estas a punto de eliminar
+                        </p>
+                        <p class="delete-modal-item">
+                            "${escapedName}"
+                        </p>
+                        <p class="delete-modal-warning">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            Esta accion no se puede deshacer
+                        </p>
+                    </div>
+                    <div class="modal-footer" style="border-top: none; padding-top: 0; justify-content: center; gap: 1rem;">
+                        <button class="btn btn-secondary" data-action="cancel" style="min-width: 120px;">
+                            Cancelar
+                        </button>
+                        <button class="btn btn-danger" data-action="confirm" style="min-width: 120px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Eliminar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Guardar estado
+            this.activeModal = {
+                overlay,
+                onClose: () => resolve(false)
+            };
+
+            // Mostrar modal
+            requestAnimationFrame(() => {
+                overlay.classList.add('active');
+            });
+
+            document.body.style.overflow = 'hidden';
+
+            // Eventos
+            const handleAction = (action) => {
+                if (action === 'confirm') {
+                    resolve(true);
+                } else {
+                    resolve(false);
+                }
+                this.close();
+            };
+
+            overlay.querySelectorAll('[data-action]').forEach(btn => {
+                btn.addEventListener('click', () => handleAction(btn.dataset.action));
+            });
+
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) handleAction('cancel');
+            });
+
+            const handleEscape = (e) => {
+                if (e.key === 'Escape') {
+                    handleAction('cancel');
+                    document.removeEventListener('keydown', handleEscape);
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
         });
     },
 
@@ -430,4 +533,3 @@ const Modal = {
 
 // Exportar para uso global
 window.Modal = Modal;
-

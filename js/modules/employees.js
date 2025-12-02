@@ -305,7 +305,11 @@ const EmployeesModule = {
     },
 
     async deleteEmployee(id) {
-        if (confirm('¿Estas seguro de eliminar este empleado?')) {
+        const employee = this.getById(id);
+        const name = employee ? `${employee.name} ${employee.lastName || ''}` : 'este empleado';
+        
+        const confirmed = await Modal.confirmDelete(name, 'empleado');
+        if (confirmed) {
             await Store.deleteEmployee(id);
             await this.loadData();
             this.renderStats();

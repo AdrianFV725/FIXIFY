@@ -15,8 +15,13 @@ const UsersModule = {
         // Solo admins pueden ver usuarios
         const currentUser = Auth.getCurrentUser();
         if (currentUser?.role !== 'admin') {
-            alert('No tienes permisos para acceder a esta seccion');
-            window.location.href = 'dashboard.html';
+            Modal.alert({
+                title: 'Acceso denegado',
+                message: 'No tienes permisos para acceder a esta seccion',
+                type: 'warning'
+            }).then(() => {
+                window.location.href = 'dashboard.html';
+            });
             return;
         }
 
@@ -329,7 +334,11 @@ const UsersModule = {
             if (!isEdit) {
                 const existingUser = await Store.getUserByEmail(data.email);
                 if (existingUser) {
-                    alert('Ya existe un usuario con ese correo');
+                    Modal.alert({
+                        title: 'Correo duplicado',
+                        message: 'Ya existe un usuario con ese correo electronico',
+                        type: 'warning'
+                    });
                     return;
                 }
             }
@@ -394,12 +403,20 @@ const UsersModule = {
             const data = Object.fromEntries(formData);
             
             if (data.newPassword !== data.confirmPassword) {
-                alert('Las contrasenas no coinciden');
+                Modal.alert({
+                    title: 'Error de validacion',
+                    message: 'Las contrasenas no coinciden',
+                    type: 'error'
+                });
                 return;
             }
 
             if (data.newPassword.length < 6) {
-                alert('La contrasena debe tener al menos 6 caracteres');
+                Modal.alert({
+                    title: 'Contrasena muy corta',
+                    message: 'La contrasena debe tener al menos 6 caracteres',
+                    type: 'warning'
+                });
                 return;
             }
 
@@ -419,11 +436,16 @@ const UsersModule = {
         const user = this.getById(id);
         
         if (user?.email === currentUser?.email) {
-            alert('No puedes eliminar tu propio usuario');
+            await Modal.alert({
+                title: 'Accion no permitida',
+                message: 'No puedes eliminar tu propio usuario',
+                type: 'warning'
+            });
             return;
         }
 
-        if (confirm(`¿Estas seguro de eliminar al usuario ${user?.name}?`)) {
+        const confirmed = await Modal.confirmDelete(user?.name || 'este usuario', 'usuario');
+        if (confirmed) {
             await Store.deleteUser(id);
             await this.loadData();
             this.renderStats();

@@ -341,7 +341,11 @@ const LicensesModule = {
     },
 
     async deleteLicense(id) {
-        if (confirm('¿Estas seguro de eliminar esta licencia?')) {
+        const license = this.getById(id);
+        const name = license?.software || 'esta licencia';
+        
+        const confirmed = await Modal.confirmDelete(name, 'licencia');
+        if (confirmed) {
             await Store.deleteLicense(id);
             await this.loadData();
             this.renderStats();
