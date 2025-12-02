@@ -27,7 +27,8 @@ const Store = {
         DEPARTMENTS: 'departments',
         SETTINGS: 'settings',
         ACTIVITY_LOG: 'activity_log',
-        MACHINE_OPTIONS: 'machine_options'
+        MACHINE_OPTIONS: 'machine_options',
+        EMPLOYEE_OPTIONS: 'employee_options'
     },
 
     // ========================================
@@ -938,6 +939,77 @@ const Store = {
         
         this.setLocal(this.KEYS.DEPARTMENTS, departments);
         return department;
+    },
+
+    async deleteDepartment(id) {
+        const departments = await this.getDepartments();
+        const filtered = departments.filter(d => d.id !== id);
+        this.setLocal(this.KEYS.DEPARTMENTS, filtered);
+        return filtered;
+    },
+
+    // ========================================
+    // METODOS PARA OPCIONES DE EMPLEADOS
+    // ========================================
+
+    getDefaultEmployeeOptions() {
+        return {
+            status: [
+                { value: 'active', label: 'Activo' },
+                { value: 'inactive', label: 'Inactivo' }
+            ]
+        };
+    },
+
+    async getEmployeeOptions() {
+        const saved = this.getLocal(this.KEYS.EMPLOYEE_OPTIONS);
+        if (saved) return saved;
+        
+        // Devolver opciones por defecto si no hay guardadas
+        const defaults = this.getDefaultEmployeeOptions();
+        this.setLocal(this.KEYS.EMPLOYEE_OPTIONS, defaults);
+        return defaults;
+    },
+
+    async saveEmployeeOptions(options) {
+        this.setLocal(this.KEYS.EMPLOYEE_OPTIONS, options);
+        return options;
+    },
+
+    async addEmployeeOption(category, option) {
+        const options = await this.getEmployeeOptions();
+        if (!options[category]) {
+            options[category] = [];
+        }
+        
+        // Verificar si ya existe
+        const exists = options[category].find(o => o.value === option.value);
+        if (!exists) {
+            options[category].push(option);
+            await this.saveEmployeeOptions(options);
+        }
+        return options;
+    },
+
+    async removeEmployeeOption(category, value) {
+        const options = await this.getEmployeeOptions();
+        if (options[category]) {
+            options[category] = options[category].filter(o => o.value !== value);
+            await this.saveEmployeeOptions(options);
+        }
+        return options;
+    },
+
+    async updateEmployeeOption(category, oldValue, newOption) {
+        const options = await this.getEmployeeOptions();
+        if (options[category]) {
+            const index = options[category].findIndex(o => o.value === oldValue);
+            if (index >= 0) {
+                options[category][index] = newOption;
+                await this.saveEmployeeOptions(options);
+            }
+        }
+        return options;
     },
 
     // ========================================
