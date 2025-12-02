@@ -11,6 +11,7 @@ const FirestoreService = {
         MACHINES: 'machines',
         LICENSES: 'licenses',
         TICKETS: 'tickets',
+        CATEGORIES: 'categories',
         ASSIGNMENTS_MACHINES: 'assignments_machines',
         ASSIGNMENTS_LICENSES: 'assignments_licenses',
         DEPARTMENTS: 'departments',
@@ -325,6 +326,26 @@ const FirestoreService = {
 
     async deleteTicket(id) {
         return await this.delete(this.COLLECTIONS.TICKETS, id);
+    },
+
+    // ========================================
+    // METODOS ESPECIFICOS PARA CATEGORIAS
+    // ========================================
+
+    async getCategories() {
+        return await this.getAll(this.COLLECTIONS.CATEGORIES);
+    },
+
+    async getCategoryById(id) {
+        return await this.getById(this.COLLECTIONS.CATEGORIES, id);
+    },
+
+    async saveCategory(data) {
+        return await this.save(this.COLLECTIONS.CATEGORIES, data, data.id || null);
+    },
+
+    async deleteCategory(id) {
+        return await this.delete(this.COLLECTIONS.CATEGORIES, id);
     },
 
     // ========================================

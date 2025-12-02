@@ -25,7 +25,7 @@ const TicketsModule = {
         await this.loadData();
         this.filteredTickets = [...this.tickets];
         this.renderStats();
-        this.renderFilters();
+        await this.renderFilters();
         this.renderTable();
         this.renderCards();
         this.bindEvents();
@@ -130,13 +130,28 @@ const TicketsModule = {
     // FILTROS
     // ========================================
 
-    renderFilters() {
+    async renderFilters() {
         const container = document.getElementById('filtersBar');
         if (!container) return;
 
+        // Cargar temas unicos de las categorias
+        let categories = [];
+        try {
+            categories = await Store.getCategories() || [];
+        } catch (e) {}
+        const temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
+
         container.innerHTML = `
             <div class="filter-group">
-                <input type="text" class="filter-input" id="searchInput" placeholder="Buscar por folio, titulo...">
+                <input type="text" class="filter-input" id="searchInput" placeholder="Buscar por folio, descripcion...">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Tipo:</label>
+                <select class="filter-select" id="tipoFilter">
+                    <option value="">Todos</option>
+                    <option value="incidencia">Incidencia</option>
+                    <option value="requerimiento">Requerimiento</option>
+                </select>
             </div>
             <div class="filter-group">
                 <label class="filter-label">Estado:</label>
@@ -149,9 +164,16 @@ const TicketsModule = {
                 </select>
             </div>
             <div class="filter-group">
-                <label class="filter-label">Categoria:</label>
-                <select class="filter-select" id="categoryFilter">
-                    <option value="">Todas</option>
+                <label class="filter-label">Tema:</label>
+                <select class="filter-select" id="temaFilter">
+                    <option value="">Todos</option>
+                    ${temas.map(t => `<option value="${this.escapeHtml(t)}">${this.escapeHtml(t)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Servicio:</label>
+                <select class="filter-select" id="servicioFilter">
+                    <option value="">Todos</option>
                     <option value="hardware">Hardware</option>
                     <option value="software">Software</option>
                     <option value="network">Red</option>
@@ -174,21 +196,27 @@ const TicketsModule = {
 
     applyFilters() {
         const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+        const tipoFilter = document.getElementById('tipoFilter')?.value || '';
         const statusFilter = document.getElementById('statusFilter')?.value || '';
-        const categoryFilter = document.getElementById('categoryFilter')?.value || '';
+        const temaFilter = document.getElementById('temaFilter')?.value || '';
+        const servicioFilter = document.getElementById('servicioFilter')?.value || '';
         const priorityFilter = document.getElementById('priorityFilter')?.value || '';
 
         this.filteredTickets = this.tickets.filter(t => {
             const matchesSearch = !searchTerm || 
                 (t.folio || '').toLowerCase().includes(searchTerm) ||
-                (t.title || '').toLowerCase().includes(searchTerm) ||
-                (t.description || '').toLowerCase().includes(searchTerm);
+                (t.description || '').toLowerCase().includes(searchTerm) ||
+                (t.categoriaElemento || '').toLowerCase().includes(searchTerm) ||
+                (t.categoriaClave || '').toLowerCase().includes(searchTerm) ||
+                (t.contactoNombre || '').toLowerCase().includes(searchTerm);
 
+            const matchesTipo = !tipoFilter || t.tipo === tipoFilter;
             const matchesStatus = !statusFilter || t.status === statusFilter;
-            const matchesCategory = !categoryFilter || t.category === categoryFilter;
+            const matchesTema = !temaFilter || t.tema === temaFilter;
+            const matchesServicio = !servicioFilter || t.servicio === servicioFilter || t.category === servicioFilter;
             const matchesPriority = !priorityFilter || t.priority === priorityFilter;
 
-            return matchesSearch && matchesStatus && matchesCategory && matchesPriority;
+            return matchesSearch && matchesTipo && matchesStatus && matchesTema && matchesServicio && matchesPriority;
         });
 
         this.renderTable();
@@ -297,12 +325,20 @@ const TicketsModule = {
 
         const canResolve = (status) => status === 'open' || status === 'in_progress';
 
+        const getTipoBadge = (tipo) => {
+            if (tipo === 'requerimiento') {
+                return '<span class="badge" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; font-size: 0.7rem;">REQ</span>';
+            }
+            return '<span class="badge" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; font-size: 0.7rem;">INC</span>';
+        };
+
         table.innerHTML = `
             <thead>
                 <tr>
                     <th>Folio</th>
-                    <th>Titulo</th>
-                    <th>Categoria</th>
+                    <th>Tipo</th>
+                    <th>Elemento</th>
+                    <th>Contacto</th>
                     <th>Prioridad</th>
                     <th>Estado</th>
                     <th>Fecha</th>
@@ -311,19 +347,26 @@ const TicketsModule = {
             </thead>
             <tbody>
                 ${this.filteredTickets.length === 0 ? `
-                    <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">
+                    <tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">
                         ${this.tickets.length === 0 ? 'No hay tickets registrados' : 'No se encontraron resultados'}
                     </td></tr>
                 ` : this.filteredTickets.map(t => `
                     <tr data-id="${t.id}">
                         <td style="font-family: monospace; font-size: 0.8rem;">${t.folio || '-'}</td>
+                        <td>${getTipoBadge(t.tipo)}</td>
                         <td>
-                            <div style="max-width: 250px;">
-                                <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(t.title || '')}</div>
-                                <div style="font-size: 0.75rem; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(t.description || '').substring(0, 50)}${(t.description || '').length > 50 ? '...' : ''}</div>
+                            <div style="max-width: 220px;">
+                                <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    ${t.categoriaClave ? `<span style="font-family: monospace; font-size: 0.75rem; background: var(--bg-tertiary); padding: 0.1rem 0.3rem; border-radius: 3px; margin-right: 0.25rem;">${this.escapeHtml(t.categoriaClave)}</span>` : ''}
+                                    ${this.escapeHtml(t.categoriaElemento || t.title || '')}
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(t.description || '').substring(0, 40)}${(t.description || '').length > 40 ? '...' : ''}</div>
                             </div>
                         </td>
-                        <td>${this.getCategoryLabel(t.category)}</td>
+                        <td>
+                            <div style="font-size: 0.85rem;">${this.escapeHtml(t.contactoNombre || '-')}</div>
+                            ${t.machineSerial ? `<div style="font-size: 0.7rem; color: var(--text-tertiary); font-family: monospace;">${this.escapeHtml(t.machineSerial)}</div>` : ''}
+                        </td>
                         <td>${this.getPriorityBadge(t.priority)}</td>
                         <td>${this.getStatusBadge(t.status)}</td>
                         <td style="font-size: 0.8rem;">${this.formatTimeAgo(t.createdAt)}</td>
@@ -370,25 +413,55 @@ const TicketsModule = {
 
         const canResolve = (status) => status === 'open' || status === 'in_progress';
 
+        const getTipoLabel = (tipo) => {
+            return tipo === 'requerimiento' ? 'Requerimiento' : 'Incidencia';
+        };
+
+        const getTipoColor = (tipo) => {
+            return tipo === 'requerimiento' ? '#8b5cf6' : '#ef4444';
+        };
+
         container.innerHTML = this.filteredTickets.map(t => `
             <div class="card ticket-card" data-id="${t.id}" style="border-left: 4px solid ${this.getPriorityColor(t.priority)};">
                 <div class="card-header">
-                    <div class="card-icon" style="background: ${this.getCategoryColor(t.category)}20; color: ${this.getCategoryColor(t.category)};">
-                        ${this.getCategoryIcon(t.category)}
+                    <div class="card-icon" style="background: ${this.getCategoryColor(t.servicio || t.category)}20; color: ${this.getCategoryColor(t.servicio || t.category)};">
+                        ${this.getCategoryIcon(t.servicio || t.category)}
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;">
+                        <span class="badge" style="background: ${getTipoColor(t.tipo)}15; color: ${getTipoColor(t.tipo)}; font-size: 0.7rem;">${getTipoLabel(t.tipo)}</span>
                         ${this.getStatusBadge(t.status)}
                         ${this.getPriorityBadge(t.priority)}
                     </div>
                 </div>
                 <div class="card-body">
-                    <div style="font-family: monospace; font-size: 0.7rem; color: var(--text-tertiary); margin-bottom: 0.25rem;">${t.folio || '-'}</div>
-                    <h3 class="card-title">${this.escapeHtml(t.title || 'Sin titulo')}</h3>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <span style="font-family: monospace; font-size: 0.7rem; color: var(--text-tertiary);">${t.folio || '-'}</span>
+                        ${t.categoriaClave ? `<span style="font-family: monospace; font-size: 0.7rem; background: var(--bg-tertiary); padding: 0.15rem 0.4rem; border-radius: 4px;">${this.escapeHtml(t.categoriaClave)}</span>` : ''}
+                    </div>
+                    <h3 class="card-title">${this.escapeHtml(t.categoriaElemento || t.title || 'Sin titulo')}</h3>
                     <p class="card-subtitle" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${this.escapeHtml(t.description || 'Sin descripcion')}</p>
                     <div class="card-details" style="margin-top: 1rem;">
                         <div class="card-detail">
-                            <span class="detail-label">Categoria:</span>
-                            <span class="detail-value">${this.getCategoryLabel(t.category)}</span>
+                            <span class="detail-label">Tema:</span>
+                            <span class="detail-value">${this.escapeHtml(t.tema || '-')}</span>
+                        </div>
+                        <div class="card-detail">
+                            <span class="detail-label">Servicio:</span>
+                            <span class="detail-value">${this.getCategoryLabel(t.servicio || t.category)}</span>
+                        </div>
+                        <div class="card-detail">
+                            <span class="detail-label">Contacto:</span>
+                            <span class="detail-value">${this.escapeHtml(t.contactoNombre || '-')}</span>
+                        </div>
+                        ${t.machineSerial ? `
+                        <div class="card-detail">
+                            <span class="detail-label">Maquina:</span>
+                            <span class="detail-value" style="font-family: monospace; font-size: 0.8rem;">${this.escapeHtml(t.machineSerial)}</span>
+                        </div>
+                        ` : ''}
+                        <div class="card-detail">
+                            <span class="detail-label">Asignado a:</span>
+                            <span class="detail-value">${this.escapeHtml(t.asignadoNombre || 'Sin asignar')}</span>
                         </div>
                         <div class="card-detail">
                             <span class="detail-label">Creado:</span>
@@ -478,17 +551,26 @@ const TicketsModule = {
 
         // Filtros en tiempo real
         document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
+        document.getElementById('tipoFilter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('statusFilter')?.addEventListener('change', () => this.applyFilters());
-        document.getElementById('categoryFilter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('temaFilter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('servicioFilter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('priorityFilter')?.addEventListener('change', () => this.applyFilters());
 
         // Limpiar filtros
         document.getElementById('clearFilters')?.addEventListener('click', () => {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('categoryFilter').value = '';
-            document.getElementById('priorityFilter').value = '';
+            if (document.getElementById('searchInput')) document.getElementById('searchInput').value = '';
+            if (document.getElementById('tipoFilter')) document.getElementById('tipoFilter').value = '';
+            if (document.getElementById('statusFilter')) document.getElementById('statusFilter').value = '';
+            if (document.getElementById('temaFilter')) document.getElementById('temaFilter').value = '';
+            if (document.getElementById('servicioFilter')) document.getElementById('servicioFilter').value = '';
+            if (document.getElementById('priorityFilter')) document.getElementById('priorityFilter').value = '';
             this.applyFilters();
+        });
+
+        // Boton de categorias
+        document.getElementById('manageCategoriesBtn')?.addEventListener('click', () => {
+            this.openCategoriesModal();
         });
 
         // Nuevo ticket
@@ -620,41 +702,117 @@ const TicketsModule = {
 
     async openTicketForm(ticket = null) {
         const isEdit = !!ticket;
-        let employees = [], machines = [];
+        let employees = [], users = [], categories = [], machines = [], machineAssignments = [];
         
         try {
-            employees = await Store.getEmployees() || [];
-            machines = await Store.getMachines() || [];
-        } catch (e) {}
+            [employees, users, categories, machines, machineAssignments] = await Promise.all([
+                Store.getEmployees() || [],
+                Store.getUsers() || [],
+                Store.getCategories() || [],
+                Store.getMachines() || [],
+                Store.getMachineAssignments() || []
+            ]);
+        } catch (e) {
+            console.error('Error cargando datos para formulario:', e);
+        }
+
+        // Obtener temas unicos de las categorias
+        const temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
+        
+        // Servicios disponibles
+        const servicios = [
+            { value: 'software', label: 'Software' },
+            { value: 'hardware', label: 'Hardware' },
+            { value: 'network', label: 'Red' },
+            { value: 'other', label: 'Otro' }
+        ];
 
         const modalHtml = `
             <div class="modal-overlay active" id="ticketModal">
-                <div class="modal modal-lg">
+                <div class="modal modal-lg" style="max-width: 700px;">
                     <div class="modal-header">
                         <h2 class="modal-title">${isEdit ? 'Editar Ticket' : 'Nuevo Ticket'}</h2>
                         <button class="modal-close" onclick="document.getElementById('ticketModal').remove()">&times;</button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                         <form id="ticketForm" class="form">
+                            <!-- Tipo de Ticket -->
                             <div class="form-group">
-                                <label class="form-label">Titulo <span class="required">*</span></label>
-                                <input type="text" name="title" class="form-input" required value="${this.escapeHtml(ticket?.title || '')}" placeholder="Ej: Pantalla no enciende">
+                                <label class="form-label">Tipo de Ticket <span class="required">*</span></label>
+                                <div class="ticket-type-toggle" style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                                    <label class="type-option ${ticket?.tipo === 'incidencia' || !ticket ? 'active' : ''}" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1rem; border: 2px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.2s ease;">
+                                        <input type="radio" name="tipo" value="incidencia" ${ticket?.tipo === 'incidencia' || !ticket ? 'checked' : ''} style="display: none;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                        <span>Incidencia</span>
+                                    </label>
+                                    <label class="type-option ${ticket?.tipo === 'requerimiento' ? 'active' : ''}" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1rem; border: 2px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.2s ease;">
+                                        <input type="radio" name="tipo" value="requerimiento" ${ticket?.tipo === 'requerimiento' ? 'checked' : ''} style="display: none;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                        <span>Requerimiento</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Categoria: Tema > Servicio > Elemento -->
+                            <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 12px; margin-bottom: 1rem;">
+                                <div style="font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Clasificacion del Ticket</div>
+                                <div class="form-row" style="margin-bottom: 0.75rem;">
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label class="form-label">Tema <span class="required">*</span></label>
+                                        <select name="tema" id="ticketTema" class="form-select" required>
+                                            <option value="">Seleccionar tema...</option>
+                                            ${temas.map(t => `<option value="${this.escapeHtml(t)}" ${ticket?.tema === t ? 'selected' : ''}>${this.escapeHtml(t)}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label class="form-label">Servicio <span class="required">*</span></label>
+                                        <select name="servicio" id="ticketServicio" class="form-select" required>
+                                            <option value="">Seleccionar servicio...</option>
+                                            ${servicios.map(s => `<option value="${s.value}" ${ticket?.servicio === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label class="form-label">Elemento <span class="required">*</span></label>
+                                    <select name="categoriaId" id="ticketElemento" class="form-select" required>
+                                        <option value="">Seleccionar elemento...</option>
+                                        ${categories.filter(c => c.tema === ticket?.tema && c.servicio === ticket?.servicio).map(c => 
+                                            `<option value="${c.id}" ${ticket?.categoriaId === c.id ? 'selected' : ''}>[${this.escapeHtml(c.clave)}] ${this.escapeHtml(c.elemento)}</option>`
+                                        ).join('')}
+                                    </select>
+                                </div>
                             </div>
                             
+                            <!-- Descripcion -->
                             <div class="form-group">
                                 <label class="form-label">Descripcion <span class="required">*</span></label>
-                                <textarea name="description" class="form-textarea" required rows="3" placeholder="Describe el problema detalladamente...">${this.escapeHtml(ticket?.description || '')}</textarea>
+                                <textarea name="description" class="form-textarea" required rows="3" placeholder="Describe el problema o requerimiento detalladamente...">${this.escapeHtml(ticket?.description || '')}</textarea>
                             </div>
                             
+                            <!-- Contacto y Maquina -->
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label">Categoria <span class="required">*</span></label>
-                                    <select name="category" class="form-select" required>
-                                        <option value="">Seleccionar...</option>
-                                        <option value="hardware" ${ticket?.category === 'hardware' ? 'selected' : ''}>Hardware</option>
-                                        <option value="software" ${ticket?.category === 'software' ? 'selected' : ''}>Software</option>
-                                        <option value="network" ${ticket?.category === 'network' ? 'selected' : ''}>Red</option>
-                                        <option value="other" ${ticket?.category === 'other' ? 'selected' : ''}>Otro</option>
+                                    <label class="form-label">Contacto (Empleado) <span class="required">*</span></label>
+                                    <select name="contactoId" id="ticketContacto" class="form-select" required>
+                                        <option value="">Seleccionar empleado...</option>
+                                        ${employees.map(e => `<option value="${e.id}" ${ticket?.contactoId === e.id ? 'selected' : ''}>${this.escapeHtml(e.name || '')} ${this.escapeHtml(e.lastName || '')}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Maquina Asignada</label>
+                                    <input type="text" id="ticketMachineDisplay" class="form-input" readonly placeholder="Se llenara automaticamente" value="${ticket?.machineSerial || ''}" style="background: var(--bg-tertiary);">
+                                    <input type="hidden" name="machineId" id="ticketMachineId" value="${ticket?.machineId || ''}">
+                                    <input type="hidden" name="machineSerial" id="ticketMachineSerial" value="${ticket?.machineSerial || ''}">
+                                </div>
+                            </div>
+                            
+                            <!-- Asignado a y Prioridad -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Asignado a (Tecnico)</label>
+                                    <select name="asignadoId" class="form-select">
+                                        <option value="">Sin asignar</option>
+                                        ${users.filter(u => u.status === 'active').map(u => `<option value="${u.id}" ${ticket?.asignadoId === u.id ? 'selected' : ''}>${this.escapeHtml(u.name || u.email)}</option>`).join('')}
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -664,23 +822,6 @@ const TicketsModule = {
                                         <option value="medium" ${ticket?.priority === 'medium' || !ticket ? 'selected' : ''}>Media</option>
                                         <option value="high" ${ticket?.priority === 'high' ? 'selected' : ''}>Alta</option>
                                         <option value="critical" ${ticket?.priority === 'critical' ? 'selected' : ''}>Critica</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Reportado por</label>
-                                    <select name="reportedBy" class="form-select">
-                                        <option value="">Sin asignar</option>
-                                        ${employees.map(e => `<option value="${e.id}" ${ticket?.reportedBy === e.id ? 'selected' : ''}>${this.escapeHtml(e.name || '')} ${this.escapeHtml(e.lastName || '')}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Maquina relacionada</label>
-                                    <select name="machineId" class="form-select">
-                                        <option value="">Ninguna</option>
-                                        ${machines.map(m => `<option value="${m.id}" ${ticket?.machineId === m.id ? 'selected' : ''}>${this.escapeHtml(m.name || '')} (${m.serialNumber || 'S/N'})</option>`).join('')}
                                     </select>
                                 </div>
                             </div>
@@ -698,12 +839,16 @@ const TicketsModule = {
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Resolucion / Notas</label>
+                                    <label class="form-label">Comentario de Cierre / Resolucion</label>
                                     <textarea name="resolution" class="form-textarea" rows="2" placeholder="Describe la solucion aplicada...">${this.escapeHtml(ticket?.resolution || '')}</textarea>
                                 </div>
                             ` : ''}
                             
                             <input type="hidden" name="id" value="${ticket?.id || ''}">
+                            <input type="hidden" name="contactoNombre" id="ticketContactoNombre" value="${ticket?.contactoNombre || ''}">
+                            <input type="hidden" name="asignadoNombre" id="ticketAsignadoNombre" value="${ticket?.asignadoNombre || ''}">
+                            <input type="hidden" name="categoriaClave" id="ticketCategoriaClave" value="${ticket?.categoriaClave || ''}">
+                            <input type="hidden" name="categoriaElemento" id="ticketCategoriaElemento" value="${ticket?.categoriaElemento || ''}">
                         </form>
                     </div>
                     <div class="modal-footer">
@@ -712,14 +857,126 @@ const TicketsModule = {
                     </div>
                 </div>
             </div>
+            <style>
+                .type-option.active {
+                    border-color: var(--accent-primary) !important;
+                    background: var(--accent-light) !important;
+                    color: var(--accent-primary) !important;
+                }
+                .type-option:hover {
+                    border-color: var(--accent-primary);
+                }
+            </style>
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
+        // Referencias a elementos
+        const temaSelect = document.getElementById('ticketTema');
+        const servicioSelect = document.getElementById('ticketServicio');
+        const elementoSelect = document.getElementById('ticketElemento');
+        const contactoSelect = document.getElementById('ticketContacto');
+        const machineDisplay = document.getElementById('ticketMachineDisplay');
+        const machineIdInput = document.getElementById('ticketMachineId');
+        const machineSerialInput = document.getElementById('ticketMachineSerial');
+        const contactoNombreInput = document.getElementById('ticketContactoNombre');
+        const asignadoSelect = document.querySelector('select[name="asignadoId"]');
+        const asignadoNombreInput = document.getElementById('ticketAsignadoNombre');
+        const categoriaClaveInput = document.getElementById('ticketCategoriaClave');
+        const categoriaElementoInput = document.getElementById('ticketCategoriaElemento');
+
+        // Funcion para filtrar elementos por tema y servicio
+        const updateElementos = () => {
+            const tema = temaSelect.value;
+            const servicio = servicioSelect.value;
+            const filtered = categories.filter(c => 
+                (!tema || c.tema === tema) && 
+                (!servicio || c.servicio === servicio)
+            );
+            
+            elementoSelect.innerHTML = '<option value="">Seleccionar elemento...</option>' +
+                filtered.map(c => `<option value="${c.id}">[${this.escapeHtml(c.clave)}] ${this.escapeHtml(c.elemento)}</option>`).join('');
+        };
+
+        // Event listeners para cascada de selects
+        temaSelect.addEventListener('change', updateElementos);
+        servicioSelect.addEventListener('change', updateElementos);
+
+        // Actualizar campos ocultos cuando se selecciona elemento
+        elementoSelect.addEventListener('change', () => {
+            const selected = categories.find(c => c.id === elementoSelect.value);
+            if (selected) {
+                categoriaClaveInput.value = selected.clave || '';
+                categoriaElementoInput.value = selected.elemento || '';
+            } else {
+                categoriaClaveInput.value = '';
+                categoriaElementoInput.value = '';
+            }
+        });
+
+        // Auto-llenado de maquina cuando se selecciona contacto
+        contactoSelect.addEventListener('change', async () => {
+            const employeeId = contactoSelect.value;
+            const employee = employees.find(e => e.id === employeeId);
+            
+            // Actualizar nombre del contacto
+            if (employee) {
+                contactoNombreInput.value = `${employee.name || ''} ${employee.lastName || ''}`.trim();
+            } else {
+                contactoNombreInput.value = '';
+            }
+            
+            // Buscar maquina asignada al empleado
+            if (employeeId) {
+                const activeAssignment = machineAssignments.find(a => 
+                    a.employeeId === employeeId && !a.endDate
+                );
+                
+                if (activeAssignment) {
+                    const machine = machines.find(m => m.id === activeAssignment.machineId);
+                    if (machine) {
+                        machineIdInput.value = machine.id;
+                        machineSerialInput.value = machine.serialNumber || '';
+                        machineDisplay.value = machine.serialNumber || machine.name || 'Maquina asignada';
+                    } else {
+                        machineIdInput.value = '';
+                        machineSerialInput.value = '';
+                        machineDisplay.value = '';
+                    }
+                } else {
+                    machineIdInput.value = '';
+                    machineSerialInput.value = '';
+                    machineDisplay.value = 'Sin maquina asignada';
+                }
+            } else {
+                machineIdInput.value = '';
+                machineSerialInput.value = '';
+                machineDisplay.value = '';
+            }
+        });
+
+        // Actualizar nombre del asignado
+        asignadoSelect?.addEventListener('change', () => {
+            const selected = users.find(u => u.id === asignadoSelect.value);
+            asignadoNombreInput.value = selected ? (selected.name || selected.email) : '';
+        });
+
+        // Toggle de tipo de ticket
+        document.querySelectorAll('.type-option input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                document.querySelectorAll('.type-option').forEach(opt => opt.classList.remove('active'));
+                radio.closest('.type-option').classList.add('active');
+            });
+        });
+
+        // Submit del formulario
         document.getElementById('ticketForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
+            
+            // Obtener servicio del select (para guardar como category tambien por compatibilidad)
+            data.category = data.servicio;
             
             try {
                 if (data.id) {
@@ -744,6 +1001,264 @@ const TicketsModule = {
                 this.showToast('Error al guardar el ticket', 'error');
             }
         });
+    },
+
+    // ========================================
+    // MODAL DE CATEGORIAS
+    // ========================================
+
+    async openCategoriesModal() {
+        let categories = [];
+        try {
+            categories = await Store.getCategories() || [];
+        } catch (e) {
+            console.error('Error cargando categorias:', e);
+        }
+
+        const servicioLabels = {
+            software: 'Software',
+            hardware: 'Hardware',
+            network: 'Red',
+            other: 'Otro'
+        };
+
+        // Agrupar por tema > servicio
+        const grouped = {};
+        categories.forEach(c => {
+            const tema = c.tema || 'Sin tema';
+            const servicio = c.servicio || 'other';
+            if (!grouped[tema]) grouped[tema] = {};
+            if (!grouped[tema][servicio]) grouped[tema][servicio] = [];
+            grouped[tema][servicio].push(c);
+        });
+
+        const renderCategoriesList = () => {
+            let html = '';
+            const temas = Object.keys(grouped).sort();
+            
+            if (temas.length === 0) {
+                return `<div style="text-align: center; padding: 2rem; color: var(--text-tertiary);">
+                    <p>No hay categorias registradas</p>
+                    <p style="font-size: 0.85rem; margin-top: 0.5rem;">Crea una nueva categoria para comenzar</p>
+                </div>`;
+            }
+
+            temas.forEach(tema => {
+                html += `
+                    <div class="category-tema-group" style="margin-bottom: 1rem;">
+                        <div style="font-weight: 600; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); margin-bottom: 0.5rem; color: var(--text-primary);">
+                            ${this.escapeHtml(tema)}
+                        </div>
+                `;
+                
+                const servicios = Object.keys(grouped[tema]).sort();
+                servicios.forEach(servicio => {
+                    html += `
+                        <div class="category-servicio-group" style="margin-left: 1rem; margin-bottom: 0.5rem;">
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); padding: 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${this.getCategoryColor(servicio)};"></span>
+                                ${servicioLabels[servicio] || servicio}
+                            </div>
+                            <div style="margin-left: 1rem;">
+                    `;
+                    
+                    grouped[tema][servicio].forEach(cat => {
+                        html += `
+                            <div class="category-item" style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 0.25rem;">
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <span style="font-family: monospace; font-size: 0.8rem; background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px;">${this.escapeHtml(cat.clave)}</span>
+                                    <span>${this.escapeHtml(cat.elemento)}</span>
+                                </div>
+                                <div style="display: flex; gap: 0.25rem;">
+                                    <button class="btn-icon btn-ghost sm" onclick="TicketsModule.editCategory('${cat.id}')" title="Editar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    </button>
+                                    <button class="btn-icon btn-ghost sm" onclick="TicketsModule.deleteCategory('${cat.id}')" title="Eliminar" style="color: #ef4444;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            });
+
+            return html;
+        };
+
+        const modalHtml = `
+            <div class="modal-overlay active" id="categoriesModal">
+                <div class="modal" style="max-width: 700px; max-height: 80vh;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Gestionar Categorias</h2>
+                        <button class="modal-close" onclick="document.getElementById('categoriesModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body" style="display: flex; gap: 1rem; max-height: 60vh;">
+                        <!-- Lista de categorias -->
+                        <div style="flex: 1; overflow-y: auto; padding-right: 0.5rem;" id="categoriesList">
+                            ${renderCategoriesList()}
+                        </div>
+                        
+                        <!-- Formulario para nueva categoria -->
+                        <div style="width: 280px; background: var(--bg-tertiary); padding: 1rem; border-radius: 12px; height: fit-content;">
+                            <div style="font-weight: 600; margin-bottom: 1rem;">Nueva Categoria</div>
+                            <form id="categoryForm" class="form">
+                                <div class="form-group" style="margin-bottom: 0.75rem;">
+                                    <label class="form-label" style="font-size: 0.85rem;">Tema <span class="required">*</span></label>
+                                    <input type="text" name="tema" class="form-input" required placeholder="Ej: Soporte Tecnico" list="temasDatalist" style="font-size: 0.9rem;">
+                                    <datalist id="temasDatalist">
+                                        ${[...new Set(categories.map(c => c.tema))].filter(Boolean).map(t => `<option value="${this.escapeHtml(t)}">`).join('')}
+                                    </datalist>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0.75rem;">
+                                    <label class="form-label" style="font-size: 0.85rem;">Servicio <span class="required">*</span></label>
+                                    <select name="servicio" class="form-select" required style="font-size: 0.9rem;">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="software">Software</option>
+                                        <option value="hardware">Hardware</option>
+                                        <option value="network">Red</option>
+                                        <option value="other">Otro</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0.75rem;">
+                                    <label class="form-label" style="font-size: 0.85rem;">Clave <span class="required">*</span></label>
+                                    <input type="text" name="clave" class="form-input" required placeholder="Ej: S1, SLACK-01" style="font-size: 0.9rem;">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0.75rem;">
+                                    <label class="form-label" style="font-size: 0.85rem;">Elemento <span class="required">*</span></label>
+                                    <input type="text" name="elemento" class="form-input" required placeholder="Ej: Actualizacion de Slack" style="font-size: 0.9rem;">
+                                </div>
+                                <input type="hidden" name="id" id="categoryId" value="">
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="cancelCategoryEdit" style="display: none; flex: 1;">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary btn-sm" style="flex: 1;" id="saveCategoryBtn">Agregar</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('categoriesModal').remove()">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        const categoryForm = document.getElementById('categoryForm');
+        const categoryIdInput = document.getElementById('categoryId');
+        const saveCategoryBtn = document.getElementById('saveCategoryBtn');
+        const cancelCategoryEdit = document.getElementById('cancelCategoryEdit');
+
+        const resetForm = () => {
+            categoryForm.reset();
+            categoryIdInput.value = '';
+            saveCategoryBtn.textContent = 'Agregar';
+            cancelCategoryEdit.style.display = 'none';
+        };
+
+        cancelCategoryEdit.addEventListener('click', resetForm);
+
+        categoryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                if (data.id) {
+                    // Editar existente
+                    await Store.saveCategory(data);
+                    this.showToast('Categoria actualizada', 'success');
+                } else {
+                    // Nueva categoria
+                    delete data.id;
+                    await Store.saveCategory(data);
+                    this.showToast('Categoria creada', 'success');
+                }
+
+                // Recargar lista
+                categories = await Store.getCategories() || [];
+                
+                // Reagrupar
+                Object.keys(grouped).forEach(k => delete grouped[k]);
+                categories.forEach(c => {
+                    const tema = c.tema || 'Sin tema';
+                    const servicio = c.servicio || 'other';
+                    if (!grouped[tema]) grouped[tema] = {};
+                    if (!grouped[tema][servicio]) grouped[tema][servicio] = [];
+                    grouped[tema][servicio].push(c);
+                });
+
+                document.getElementById('categoriesList').innerHTML = renderCategoriesList();
+                
+                // Actualizar datalist
+                const datalist = document.getElementById('temasDatalist');
+                if (datalist) {
+                    datalist.innerHTML = [...new Set(categories.map(c => c.tema))].filter(Boolean).map(t => `<option value="${this.escapeHtml(t)}">`).join('');
+                }
+
+                resetForm();
+            } catch (error) {
+                console.error('Error al guardar categoria:', error);
+                this.showToast('Error al guardar la categoria', 'error');
+            }
+        });
+
+        // Exponer funcion para editar categoria desde los botones
+        window.TicketsModule.editCategoryInModal = async (id) => {
+            const cat = categories.find(c => c.id === id);
+            if (cat) {
+                categoryIdInput.value = cat.id;
+                categoryForm.querySelector('[name="tema"]').value = cat.tema || '';
+                categoryForm.querySelector('[name="servicio"]').value = cat.servicio || '';
+                categoryForm.querySelector('[name="clave"]').value = cat.clave || '';
+                categoryForm.querySelector('[name="elemento"]').value = cat.elemento || '';
+                saveCategoryBtn.textContent = 'Actualizar';
+                cancelCategoryEdit.style.display = 'block';
+            }
+        };
+    },
+
+    async editCategory(id) {
+        // Si el modal ya esta abierto, editar en el modal
+        if (document.getElementById('categoriesModal')) {
+            this.editCategoryInModal(id);
+        } else {
+            // Abrir modal y luego editar
+            await this.openCategoriesModal();
+            setTimeout(() => this.editCategoryInModal(id), 100);
+        }
+    },
+
+    async deleteCategory(id) {
+        const categories = await Store.getCategories() || [];
+        const category = categories.find(c => c.id === id);
+        const name = category ? `${category.clave} - ${category.elemento}` : 'esta categoria';
+        
+        const confirmed = await Modal.confirmDelete(name, 'categoria');
+        if (confirmed) {
+            try {
+                await Store.deleteCategory(id);
+                
+                // Si el modal esta abierto, actualizar la lista
+                if (document.getElementById('categoriesModal')) {
+                    document.getElementById('categoriesModal').remove();
+                    await this.openCategoriesModal();
+                }
+                
+                this.showToast('Categoria eliminada', 'success');
+            } catch (error) {
+                console.error('Error al eliminar categoria:', error);
+                this.showToast('Error al eliminar la categoria', 'error');
+            }
+        }
     },
 
     // ========================================

@@ -21,6 +21,7 @@ const Store = {
         MACHINES: 'machines',
         LICENSES: 'licenses',
         TICKETS: 'tickets',
+        CATEGORIES: 'categories',
         ASSIGNMENTS_MACHINES: 'assignments_machines',
         ASSIGNMENTS_LICENSES: 'assignments_licenses',
         DEPARTMENTS: 'departments',
@@ -551,6 +552,79 @@ const Store = {
             machine.ticketCount = (machine.ticketCount || 0) + 1;
             await this.saveMachine(machine);
         }
+    },
+
+    // ========================================
+    // METODOS PARA CATEGORIAS DE TICKETS
+    // ========================================
+
+    async getCategories() {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.getCategories();
+            } catch (e) {}
+        }
+        return this.getLocal(this.KEYS.CATEGORIES) || [];
+    },
+
+    async getCategoryById(id) {
+        const categories = await this.getCategories();
+        return categories.find(c => c.id === id) || null;
+    },
+
+    async getCategoriesByTema(tema) {
+        const categories = await this.getCategories();
+        return categories.filter(c => c.tema === tema);
+    },
+
+    async getCategoriesByServicio(servicio) {
+        const categories = await this.getCategories();
+        return categories.filter(c => c.servicio === servicio);
+    },
+
+    async getCategoriesByTemaAndServicio(tema, servicio) {
+        const categories = await this.getCategories();
+        return categories.filter(c => c.tema === tema && c.servicio === servicio);
+    },
+
+    async getUniqueTemas() {
+        const categories = await this.getCategories();
+        return [...new Set(categories.map(c => c.tema))].filter(Boolean);
+    },
+
+    async saveCategory(category) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                return await FirestoreService.saveCategory(category);
+            } catch (e) {
+                console.warn('Error Firestore, guardando categoria localmente:', e);
+            }
+        }
+        
+        const categories = await this.getCategories();
+        const index = categories.findIndex(c => c.id === category.id);
+        
+        if (index >= 0) {
+            categories[index] = { ...categories[index], ...category, updatedAt: new Date().toISOString() };
+        } else {
+            category.id = this.generateId('CAT');
+            category.createdAt = new Date().toISOString();
+            categories.push(category);
+        }
+        
+        this.setLocal(this.KEYS.CATEGORIES, categories);
+        return category;
+    },
+
+    async deleteCategory(id) {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.deleteCategory(id);
+                return;
+            } catch (e) {}
+        }
+        const categories = (await this.getCategories()).filter(c => c.id !== id);
+        this.setLocal(this.KEYS.CATEGORIES, categories);
     },
 
     // ========================================
