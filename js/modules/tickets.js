@@ -6,7 +6,7 @@
 const TicketsModule = {
     tickets: [],
     filteredTickets: [],
-    currentView: 'table', // 'table' o 'cards'
+    currentView: 'cards', // 'table' o 'cards' - Por defecto tarjetas
     VIEW_PREFERENCE_KEY: 'fixify-tickets-view', // Key para localStorage
 
     // ========================================
@@ -29,21 +29,35 @@ const TicketsModule = {
         this.renderTable();
         this.renderCards();
         this.bindEvents();
+        
+        // Aplicar la vista guardada
         this.updateViewVisibility();
         this.updateViewToggleButtons();
+        
+        console.log('[Tickets] Vista actual:', this.currentView);
     },
 
     // Cargar preferencia de vista desde localStorage
     loadViewPreference() {
-        const savedView = localStorage.getItem(this.VIEW_PREFERENCE_KEY);
-        if (savedView && (savedView === 'table' || savedView === 'cards')) {
-            this.currentView = savedView;
+        try {
+            const savedView = localStorage.getItem(this.VIEW_PREFERENCE_KEY);
+            console.log('[Tickets] Vista guardada en localStorage:', savedView);
+            if (savedView && (savedView === 'table' || savedView === 'cards')) {
+                this.currentView = savedView;
+            }
+        } catch (e) {
+            console.warn('[Tickets] Error al cargar preferencia de vista:', e);
         }
     },
 
     // Guardar preferencia de vista en localStorage
     saveViewPreference() {
-        localStorage.setItem(this.VIEW_PREFERENCE_KEY, this.currentView);
+        try {
+            localStorage.setItem(this.VIEW_PREFERENCE_KEY, this.currentView);
+            console.log('[Tickets] Vista guardada:', this.currentView);
+        } catch (e) {
+            console.warn('[Tickets] Error al guardar preferencia de vista:', e);
+        }
     },
 
     async loadData() {

@@ -71,12 +71,12 @@
 
             <!-- Vista de tickets (tabla o cards) -->
             <div class="view-toggle" id="viewToggle">
-                <button class="view-btn active" data-view="table">Tabla</button>
-                <button class="view-btn" data-view="cards">Tarjetas</button>
+                <button class="view-btn" data-view="table">Tabla</button>
+                <button class="view-btn active" data-view="cards">Tarjetas</button>
             </div>
 
             <!-- Tabla de tickets -->
-            <section class="data-table-container" id="tableView">
+            <section class="data-table-container hidden" id="tableView">
                 <table class="data-table" id="ticketsTable">
                     <!-- Tabla renderizada por JS -->
                 </table>
@@ -86,7 +86,7 @@
             </section>
 
             <!-- Vista de tarjetas -->
-            <section class="cards-grid hidden" id="cardsView">
+            <section class="cards-grid" id="cardsView">
                 <!-- Tarjetas renderizadas por JS -->
             </section>
         </div>
