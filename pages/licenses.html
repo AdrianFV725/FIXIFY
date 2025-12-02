@@ -18,6 +18,47 @@
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/components.css">
     <script>(function(){const t=localStorage.getItem('fixify-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        /* Barra de progreso de licencias */
+        .license-progress-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 150px;
+        }
+
+        .license-progress-bar-small {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .license-progress-fill-small {
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #a855f7);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .license-progress-text {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            white-space: nowrap;
+            min-width: 45px;
+        }
+
+        .assigned-count {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .assigned-count.has-assignments {
+            color: #22c55e;
+        }
+    </style>
 </head>
 <body class="dashboard-body">
     <aside class="sidebar" id="sidebar"></aside>

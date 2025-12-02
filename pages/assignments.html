@@ -627,6 +627,459 @@
         }
 
         /* ========================================
+           TABLA DE MAQUINAS
+           ======================================== */
+        
+        .machines-table-container {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .table-controls {
+            display: flex;
+            gap: 1rem;
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+        }
+
+        .search-group {
+            flex: 1;
+            min-width: 250px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+        }
+
+        .search-group svg {
+            color: var(--text-tertiary);
+            flex-shrink: 0;
+        }
+
+        .table-search {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            outline: none;
+        }
+
+        .table-search::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+        }
+
+        .filter-select {
+            padding: 0.625rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            outline: none;
+        }
+
+        .filter-select:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        .assignments-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .assignments-table thead {
+            background: var(--bg-tertiary);
+        }
+
+        .assignments-table th {
+            padding: 1rem;
+            text-align: left;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .assignments-table td {
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .assignments-table tbody tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        .machine-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .machine-icon-cell {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .machine-row.assigned .machine-icon-cell {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+
+        .machine-name-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .machine-name-cell strong {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .machine-meta {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+
+        .assignee-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .assignee-cell svg {
+            color: #22c55e;
+            flex-shrink: 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-type {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+
+        .badge-assigned {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+
+        .badge-available {
+            background: rgba(107, 114, 128, 0.1);
+            color: #6b7280;
+        }
+
+        .table-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-icon.sm {
+            width: 28px;
+            height: 28px;
+        }
+
+        .btn-icon.xs {
+            width: 24px;
+            height: 24px;
+        }
+
+        .btn-success {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+
+        .btn-success:hover {
+            background: #22c55e;
+            color: white;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        .empty-table {
+            padding: 3rem 1rem !important;
+        }
+
+        .text-muted {
+            color: var(--text-tertiary);
+            font-size: 0.875rem;
+        }
+
+        /* ========================================
+           TARJETAS DE LICENCIAS
+           ======================================== */
+        
+        .licenses-table-container {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .licenses-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .license-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .license-card:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .license-card.depleted {
+            opacity: 0.7;
+        }
+
+        .license-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .license-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(168, 85, 247, 0.1);
+            color: #a855f7;
+            border-radius: 10px;
+            flex-shrink: 0;
+        }
+
+        .license-icon.expired {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .license-icon.depleted {
+            background: rgba(107, 114, 128, 0.1);
+            color: #6b7280;
+        }
+
+        .license-title {
+            flex: 1;
+        }
+
+        .license-title h4 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .license-type {
+            display: inline-block;
+            margin-top: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .license-progress-section {
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+        }
+
+        .license-progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .progress-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .progress-count {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .license-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .license-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #a855f7);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .license-availability-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .available-count {
+            font-size: 0.8rem;
+            color: #22c55e;
+            font-weight: 500;
+        }
+
+        .available-count.depleted {
+            color: #ef4444;
+        }
+
+        .license-expiry {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .license-expiry.expired {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .license-expiry svg {
+            flex-shrink: 0;
+        }
+
+        .license-assignments-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .no-assignments {
+            padding: 0.75rem;
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        .license-assignment-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.625rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .assignment-employee {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+        }
+
+        .assignment-employee svg {
+            color: #22c55e;
+            flex-shrink: 0;
+        }
+
+        .license-card-actions {
+            margin-top: auto;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .btn-sm:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ========================================
            RESPONSIVE
            ======================================== */
         
@@ -643,6 +1096,27 @@
 
             .assignment-tab span:not(.tab-badge) {
                 display: none;
+            }
+
+            .table-controls {
+                flex-direction: column;
+            }
+
+            .search-group {
+                min-width: 100%;
+            }
+
+            .assignments-table {
+                font-size: 0.85rem;
+            }
+
+            .assignments-table th,
+            .assignments-table td {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .licenses-grid {
+                grid-template-columns: 1fr;
             }
 
             .history-header {

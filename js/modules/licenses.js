@@ -5,6 +5,7 @@
 const LicensesModule = {
     licenses: [],
     filteredLicenses: [],
+    licenseAssignments: [],
 
     async init() {
         if (!Auth.isAuthenticated()) {
@@ -23,10 +24,12 @@ const LicensesModule = {
     async loadData() {
         try {
             this.licenses = await Store.getLicenses() || [];
+            this.licenseAssignments = await Store.getLicenseAssignments() || [];
             this.filteredLicenses = [...this.licenses];
         } catch (e) {
             console.error('Error cargando licencias:', e);
             this.licenses = [];
+            this.licenseAssignments = [];
             this.filteredLicenses = [];
         }
     },
@@ -179,6 +182,9 @@ const LicensesModule = {
             container.appendChild(tableContainer);
         }
 
+        // Calcular asignaciones activas por licencia dinámicamente
+        const activeAssignments = this.licenseAssignments.filter(a => !a.endDate);
+        
         const formatDate = (date) => date ? new Date(date).toLocaleDateString('es-MX') : '-';
         
         const getStatus = (expirationDate) => {
@@ -200,6 +206,7 @@ const LicensesModule = {
                         <th>Tipo</th>
                         <th>Cantidad</th>
                         <th>Asignadas</th>
+                        <th>Uso</th>
                         <th>Vencimiento</th>
                         <th>Estado</th>
                         <th>Acciones</th>
@@ -207,13 +214,29 @@ const LicensesModule = {
                 </thead>
                 <tbody>
                     ${this.filteredLicenses.length === 0 ? `
-                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.licenses.length === 0 ? 'No hay licencias registradas' : 'No se encontraron resultados'}</td></tr>
-                    ` : this.filteredLicenses.map(l => `
+                        <tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.licenses.length === 0 ? 'No hay licencias registradas' : 'No se encontraron resultados'}</td></tr>
+                    ` : this.filteredLicenses.map(l => {
+                        // Calcular asignaciones activas para esta licencia
+                        const assignedCount = activeAssignments.filter(a => a.licenseId === l.id).length;
+                        const totalQuantity = l.quantity || 0;
+                        const usagePercent = totalQuantity > 0 ? (assignedCount / totalQuantity) * 100 : 0;
+                        
+                        return `
                         <tr data-id="${l.id}">
-                            <td>${this.escapeHtml(l.software || '')}</td>
+                            <td><strong>${this.escapeHtml(l.software || '')}</strong></td>
                             <td>${l.type || '-'}</td>
-                            <td>${l.quantity || '-'}</td>
-                            <td>${l.assignedCount || 0}</td>
+                            <td>${totalQuantity || '-'}</td>
+                            <td>
+                                <span class="assigned-count ${assignedCount > 0 ? 'has-assignments' : ''}">${assignedCount}</span>
+                            </td>
+                            <td>
+                                <div class="license-progress-cell">
+                                    <div class="license-progress-bar-small">
+                                        <div class="license-progress-fill-small" style="width: ${usagePercent}%"></div>
+                                    </div>
+                                    <span class="license-progress-text">${assignedCount}/${totalQuantity}</span>
+                                </div>
+                            </td>
                             <td>${formatDate(l.expirationDate)}</td>
                             <td>${getStatus(l.expirationDate)}</td>
                             <td>
@@ -225,7 +248,8 @@ const LicensesModule = {
                                 </button>
                             </td>
                         </tr>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </tbody>
             </table>
         `;
@@ -335,6 +359,7 @@ const LicensesModule = {
             document.getElementById('licenseModal').remove();
             await this.loadData();
             this.renderStats();
+            this.renderAlerts();
             this.renderTable();
             this.showToast(isEdit ? 'Licencia actualizada' : 'Licencia registrada');
         });
@@ -349,6 +374,7 @@ const LicensesModule = {
             await Store.deleteLicense(id);
             await this.loadData();
             this.renderStats();
+            this.renderAlerts();
             this.renderTable();
             this.showToast('Licencia eliminada');
         }

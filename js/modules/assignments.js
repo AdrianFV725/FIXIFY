@@ -106,231 +106,259 @@ const AssignmentsModule = {
     },
 
     renderMachinesPanel(activeEmployees, assignedMachines, availableMachines) {
+        // Vista de tabla mejorada con búsqueda avanzada
         return `
-            <div class="assignment-grid">
-                <!-- Columna: Maquinas Disponibles -->
-                <div class="assignment-column">
-                    <div class="column-header">
-                        <h3 class="column-title">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                                <line x1="8" y1="21" x2="16" y2="21"></line>
-                                <line x1="12" y1="17" x2="12" y2="21"></line>
-                            </svg>
-                            Disponibles (${availableMachines.length})
-                        </h3>
-                        <input type="text" class="column-search" placeholder="Buscar maquina..." id="searchAvailableMachines">
+            <div class="machines-table-container">
+                <div class="table-controls">
+                    <div class="search-group">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                        <input type="text" class="table-search" placeholder="Buscar por máquina, empleado, serie..." id="machinesSearchInput">
                     </div>
-                    <div class="column-list" id="availableMachinesList">
-                        ${availableMachines.length === 0 ? `
-                            <div class="empty-list">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                                    <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                                    <line x1="8" y1="21" x2="16" y2="21"></line>
-                                    <line x1="12" y1="17" x2="12" y2="21"></line>
-                                </svg>
-                                <p>No hay maquinas disponibles</p>
-                            </div>
-                        ` : availableMachines.map(m => `
-                            <div class="resource-item" data-id="${m.id}" onclick="AssignmentsModule.selectMachine('${m.id}', 'available')">
-                                <div class="resource-icon available">
-                                    ${this.getMachineIcon(m.type)}
-                                </div>
-                                <div class="resource-info">
-                                    <div class="resource-name">${this.escapeHtml(m.name)}</div>
-                                    <div class="resource-detail">${m.serialNumber || 'Sin serie'}</div>
-                                    <div class="resource-meta">${m.brand || ''} ${m.model || ''}</div>
-                                </div>
-                                <button class="resource-action-btn assign-btn" onclick="event.stopPropagation(); AssignmentsModule.showAssignMachineModal('${m.id}')" title="Asignar">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                                        <polyline points="12 5 19 12 12 19"></polyline>
-                                    </svg>
-                                </button>
-                            </div>
-                        `).join('')}
+                    <div class="filter-group">
+                        <select id="machinesFilterStatus" class="filter-select">
+                            <option value="all">Todas las máquinas</option>
+                            <option value="assigned">Solo asignadas</option>
+                            <option value="available">Solo disponibles</option>
+                        </select>
                     </div>
                 </div>
-
-                <!-- Columna: Maquinas Asignadas -->
-                <div class="assignment-column">
-                    <div class="column-header">
-                        <h3 class="column-title assigned">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="8.5" cy="7" r="4"></circle>
-                                <polyline points="17 11 19 13 23 9"></polyline>
-                            </svg>
-                            Asignadas (${assignedMachines.length})
-                        </h3>
-                        <input type="text" class="column-search" placeholder="Buscar..." id="searchAssignedMachines">
-                    </div>
-                    <div class="column-list" id="assignedMachinesList">
-                        ${assignedMachines.length === 0 ? `
-                            <div class="empty-list">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="8.5" cy="7" r="4"></circle>
-                                </svg>
-                                <p>No hay maquinas asignadas</p>
-                            </div>
-                        ` : assignedMachines.map(m => {
-                            const employee = this.employees.find(e => e.id === m.assignedTo);
-                            const assignment = this.machineAssignments.find(a => a.machineId === m.id && !a.endDate);
-                            return `
-                                <div class="resource-item assigned" data-id="${m.id}">
-                                    <div class="resource-icon assigned">
-                                        ${this.getMachineIcon(m.type)}
-                                    </div>
-                                    <div class="resource-info">
-                                        <div class="resource-name">${this.escapeHtml(m.name)}</div>
-                                        <div class="resource-detail">${m.serialNumber || 'Sin serie'}</div>
-                                        <div class="resource-assignee">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                                <circle cx="12" cy="7" r="4"></circle>
-                                            </svg>
-                                            ${employee ? `${employee.name} ${employee.lastName || ''}` : 'Desconocido'}
-                                        </div>
-                                        ${assignment ? `<div class="resource-date">Desde: ${this.formatDate(assignment.startDate)}</div>` : ''}
-                                    </div>
-                                    <button class="resource-action-btn unassign-btn" onclick="AssignmentsModule.confirmUnassignMachine('${m.id}')" title="Desasignar">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
+                
+                <div class="table-wrapper">
+                    <table class="assignments-table">
+                        <thead>
+                            <tr>
+                                <th>Máquina</th>
+                                <th>Tipo</th>
+                                <th>Serie</th>
+                                <th>Asignada a</th>
+                                <th>Fecha Asignación</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="machinesTableBody">
+                            ${this.renderMachinesTableRows(assignedMachines, availableMachines, activeEmployees)}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         `;
     },
 
+    renderMachinesTableRows(assignedMachines, availableMachines, activeEmployees) {
+        const allMachines = [
+            ...assignedMachines.map(m => ({ ...m, status: 'assigned' })),
+            ...availableMachines.map(m => ({ ...m, status: 'available' }))
+        ];
+
+        if (allMachines.length === 0) {
+            return `
+                <tr>
+                    <td colspan="7" class="empty-table">
+                        <div class="empty-list">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                                <line x1="8" y1="21" x2="16" y2="21"></line>
+                                <line x1="12" y1="17" x2="12" y2="21"></line>
+                            </svg>
+                            <p>No hay máquinas registradas</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        return allMachines.map(m => {
+            const employee = m.assignedTo ? this.employees.find(e => e.id === m.assignedTo) : null;
+            const assignment = this.machineAssignments.find(a => a.machineId === m.id && !a.endDate);
+            
+            return `
+                <tr class="machine-row ${m.status}" data-machine-id="${m.id}" data-status="${m.status}">
+                    <td>
+                        <div class="machine-cell">
+                            <div class="machine-icon-cell">
+                                ${this.getMachineIcon(m.type)}
+                            </div>
+                            <div class="machine-name-cell">
+                                <strong>${this.escapeHtml(m.name)}</strong>
+                                <span class="machine-meta">${m.brand || ''} ${m.model || ''}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge badge-type">${m.type || 'N/A'}</span></td>
+                    <td>${this.escapeHtml(m.serialNumber || 'Sin serie')}</td>
+                    <td>
+                        ${employee ? `
+                            <div class="assignee-cell">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                <span>${this.escapeHtml(employee.name)} ${this.escapeHtml(employee.lastName || '')}</span>
+                            </div>
+                        ` : '<span class="text-muted">Disponible</span>'}
+                    </td>
+                    <td>
+                        ${assignment ? this.formatDate(assignment.startDate) : '<span class="text-muted">-</span>'}
+                    </td>
+                    <td>
+                        ${m.status === 'assigned' ? 
+                            '<span class="badge badge-assigned">Asignada</span>' : 
+                            '<span class="badge badge-available">Disponible</span>'
+                        }
+                    </td>
+                    <td>
+                        <div class="table-actions">
+                            ${m.status === 'available' ? `
+                                <button class="btn-icon sm btn-success" onclick="AssignmentsModule.showAssignMachineModal('${m.id}')" title="Asignar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                </button>
+                            ` : `
+                                <button class="btn-icon sm btn-danger" onclick="AssignmentsModule.confirmUnassignMachine('${m.id}')" title="Desasignar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            `}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
     renderLicensesPanel(activeEmployees, activeLicenseAssignments) {
+        // Calcular asignaciones por licencia dinámicamente
+        const licensesWithStats = this.licenses.map(l => {
+            const assignedCount = activeLicenseAssignments.filter(a => a.licenseId === l.id).length;
+            const totalQuantity = l.quantity || 0;
+            const available = totalQuantity > 0 ? totalQuantity - assignedCount : 0;
+            const isExpired = l.expirationDate && new Date(l.expirationDate) < new Date();
+            const usagePercent = totalQuantity > 0 ? (assignedCount / totalQuantity) * 100 : 0;
+            
+            return {
+                ...l,
+                assignedCount,
+                available,
+                isExpired,
+                usagePercent
+            };
+        });
+
         return `
-            <div class="assignment-grid">
-                <!-- Columna: Licencias Disponibles -->
-                <div class="assignment-column">
-                    <div class="column-header">
-                        <h3 class="column-title">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="licenses-table-container">
+                <div class="table-controls">
+                    <div class="search-group">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                        <input type="text" class="table-search" placeholder="Buscar por software, empleado..." id="licensesSearchInput">
+                    </div>
+                </div>
+                
+                <div class="licenses-grid">
+                    ${licensesWithStats.length === 0 ? `
+                        <div class="empty-list" style="grid-column: 1 / -1;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
                                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                             </svg>
-                            Licencias Disponibles
-                        </h3>
-                        <input type="text" class="column-search" placeholder="Buscar licencia..." id="searchLicenses">
-                    </div>
-                    <div class="column-list" id="licensesList">
-                        ${this.licenses.length === 0 ? `
-                            <div class="empty-list">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                </svg>
-                                <p>No hay licencias registradas</p>
-                            </div>
-                        ` : this.licenses.map(l => {
-                            const assignedCount = activeLicenseAssignments.filter(a => a.licenseId === l.id).length;
-                            const available = (l.quantity || 0) - assignedCount;
-                            const isExpired = l.expirationDate && new Date(l.expirationDate) < new Date();
-                            return `
-                                <div class="resource-item license ${available <= 0 || isExpired ? 'depleted' : ''}" data-id="${l.id}">
-                                    <div class="resource-icon license ${isExpired ? 'expired' : available <= 0 ? 'depleted' : ''}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <p>No hay licencias registradas</p>
+                        </div>
+                    ` : licensesWithStats.map(l => {
+                        const assignmentsForLicense = activeLicenseAssignments.filter(a => a.licenseId === l.id);
+                        const canAssign = l.available > 0 && !l.isExpired;
+                        
+                        return `
+                            <div class="license-card ${!canAssign ? 'depleted' : ''}" data-license-id="${l.id}">
+                                <div class="license-card-header">
+                                    <div class="license-icon ${l.isExpired ? 'expired' : l.available <= 0 ? 'depleted' : ''}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                                             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                                         </svg>
                                     </div>
-                                    <div class="resource-info">
-                                        <div class="resource-name">${this.escapeHtml(l.software)}</div>
-                                        <div class="resource-detail">${l.type || 'Licencia'}</div>
-                                        <div class="license-availability">
-                                            <span class="availability-bar">
-                                                <span class="availability-fill" style="width: ${(assignedCount / (l.quantity || 1)) * 100}%"></span>
-                                            </span>
-                                            <span class="availability-text">${assignedCount}/${l.quantity || 0} usadas</span>
-                                        </div>
-                                        ${l.expirationDate ? `
-                                            <div class="resource-expiry ${isExpired ? 'expired' : ''}">
-                                                ${isExpired ? 'Expirada' : 'Expira'}: ${this.formatDate(l.expirationDate)}
-                                            </div>
-                                        ` : ''}
+                                    <div class="license-title">
+                                        <h4>${this.escapeHtml(l.software)}</h4>
+                                        <span class="license-type">${l.type || 'Licencia'}</span>
                                     </div>
-                                    <button class="resource-action-btn assign-btn" 
+                                </div>
+                                
+                                <div class="license-progress-section">
+                                    <div class="license-progress-header">
+                                        <span class="progress-label">Uso de Licencias</span>
+                                        <span class="progress-count">${l.assignedCount} / ${l.quantity || 0}</span>
+                                    </div>
+                                    <div class="license-progress-bar">
+                                        <div class="license-progress-fill" style="width: ${l.usagePercent}%"></div>
+                                    </div>
+                                    <div class="license-availability-info">
+                                        <span class="available-count ${l.available <= 0 ? 'depleted' : ''}">
+                                            ${l.available} disponible${l.available !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                ${l.expirationDate ? `
+                                    <div class="license-expiry ${l.isExpired ? 'expired' : ''}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <polyline points="12 6 12 12 16 14"></polyline>
+                                        </svg>
+                                        <span>${l.isExpired ? 'Expirada' : 'Expira'}: ${this.formatDate(l.expirationDate)}</span>
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="license-assignments-list">
+                                    ${assignmentsForLicense.length === 0 ? `
+                                        <div class="no-assignments">
+                                            <span>No hay asignaciones activas</span>
+                                        </div>
+                                    ` : assignmentsForLicense.map(a => {
+                                        const employee = this.employees.find(e => e.id === a.employeeId);
+                                        if (!employee) return '';
+                                        return `
+                                            <div class="license-assignment-item">
+                                                <div class="assignment-employee">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                                        <circle cx="12" cy="7" r="4"></circle>
+                                                    </svg>
+                                                    <span>${this.escapeHtml(employee.name)} ${this.escapeHtml(employee.lastName || '')}</span>
+                                                </div>
+                                                <button class="btn-icon xs btn-danger" onclick="AssignmentsModule.confirmUnassignLicense('${a.licenseId}', '${a.employeeId}')" title="Desasignar">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                                
+                                <div class="license-card-actions">
+                                    <button class="btn btn-primary btn-sm" 
                                             onclick="AssignmentsModule.showAssignLicenseModal('${l.id}')" 
-                                            title="Asignar"
-                                            ${available <= 0 || isExpired ? 'disabled' : ''}>
+                                            ${!canAssign ? 'disabled' : ''}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <line x1="12" y1="5" x2="12" y2="19"></line>
                                             <line x1="5" y1="12" x2="19" y2="12"></line>
                                         </svg>
+                                        Asignar
                                     </button>
                                 </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-
-                <!-- Columna: Licencias Asignadas -->
-                <div class="assignment-column">
-                    <div class="column-header">
-                        <h3 class="column-title assigned">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="8.5" cy="7" r="4"></circle>
-                                <polyline points="17 11 19 13 23 9"></polyline>
-                            </svg>
-                            Asignaciones Activas (${activeLicenseAssignments.length})
-                        </h3>
-                        <input type="text" class="column-search" placeholder="Buscar..." id="searchAssignedLicenses">
-                    </div>
-                    <div class="column-list" id="assignedLicensesList">
-                        ${activeLicenseAssignments.length === 0 ? `
-                            <div class="empty-list">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="8.5" cy="7" r="4"></circle>
-                                </svg>
-                                <p>No hay licencias asignadas</p>
                             </div>
-                        ` : activeLicenseAssignments.map(a => {
-                            const license = this.licenses.find(l => l.id === a.licenseId);
-                            const employee = this.employees.find(e => e.id === a.employeeId);
-                            if (!license || !employee) return '';
-                            return `
-                                <div class="resource-item assigned license-assignment" data-assignment-id="${a.id}">
-                                    <div class="resource-icon license assigned">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                        </svg>
-                                    </div>
-                                    <div class="resource-info">
-                                        <div class="resource-name">${this.escapeHtml(license.software)}</div>
-                                        <div class="resource-assignee">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                                <circle cx="12" cy="7" r="4"></circle>
-                                            </svg>
-                                            ${employee.name} ${employee.lastName || ''}
-                                        </div>
-                                        <div class="resource-date">Desde: ${this.formatDate(a.startDate)}</div>
-                                        ${a.notes ? `<div class="resource-notes">${this.escapeHtml(a.notes)}</div>` : ''}
-                                    </div>
-                                    <button class="resource-action-btn unassign-btn" onclick="AssignmentsModule.confirmUnassignLicense('${a.licenseId}', '${a.employeeId}')" title="Desasignar">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -493,27 +521,64 @@ const AssignmentsModule = {
     },
 
     bindSearchEvents() {
-        const searches = [
-            { id: 'searchAvailableMachines', listId: 'availableMachinesList' },
-            { id: 'searchAssignedMachines', listId: 'assignedMachinesList' },
-            { id: 'searchLicenses', listId: 'licensesList' },
-            { id: 'searchAssignedLicenses', listId: 'assignedLicensesList' }
-        ];
+        // Búsqueda de máquinas en tabla
+        const machinesSearchInput = document.getElementById('machinesSearchInput');
+        const machinesFilterStatus = document.getElementById('machinesFilterStatus');
+        
+        if (machinesSearchInput) {
+            machinesSearchInput.addEventListener('input', () => this.filterMachinesTable());
+        }
+        
+        if (machinesFilterStatus) {
+            machinesFilterStatus.addEventListener('change', () => this.filterMachinesTable());
+        }
+        
+        // Búsqueda de licencias
+        const licensesSearchInput = document.getElementById('licensesSearchInput');
+        if (licensesSearchInput) {
+            licensesSearchInput.addEventListener('input', () => this.filterLicensesCards());
+        }
+    },
 
-        searches.forEach(({ id, listId }) => {
-            const input = document.getElementById(id);
-            if (input) {
-                input.addEventListener('input', (e) => {
-                    const query = e.target.value.toLowerCase();
-                    const list = document.getElementById(listId);
-                    if (!list) return;
+    filterMachinesTable() {
+        const searchQuery = (document.getElementById('machinesSearchInput')?.value || '').toLowerCase();
+        const statusFilter = document.getElementById('machinesFilterStatus')?.value || 'all';
+        const tbody = document.getElementById('machinesTableBody');
+        
+        if (!tbody) return;
+        
+        tbody.querySelectorAll('.machine-row').forEach(row => {
+            const machineName = row.querySelector('.machine-name-cell strong')?.textContent.toLowerCase() || '';
+            const serialNumber = row.cells[2]?.textContent.toLowerCase() || '';
+            const assignee = row.cells[3]?.textContent.toLowerCase() || '';
+            const status = row.dataset.status || '';
+            
+            const matchesSearch = !searchQuery || 
+                machineName.includes(searchQuery) || 
+                serialNumber.includes(searchQuery) || 
+                assignee.includes(searchQuery);
+            
+            const matchesStatus = statusFilter === 'all' || status === statusFilter;
+            
+            row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+        });
+    },
 
-                    list.querySelectorAll('.resource-item').forEach(item => {
-                        const text = item.textContent.toLowerCase();
-                        item.style.display = text.includes(query) ? '' : 'none';
-                    });
-                });
-            }
+    filterLicensesCards() {
+        const searchQuery = (document.getElementById('licensesSearchInput')?.value || '').toLowerCase();
+        const cards = document.querySelectorAll('.license-card');
+        
+        cards.forEach(card => {
+            const software = card.querySelector('.license-title h4')?.textContent.toLowerCase() || '';
+            const assignments = Array.from(card.querySelectorAll('.assignment-employee span'))
+                .map(span => span.textContent.toLowerCase())
+                .join(' ');
+            
+            const matches = !searchQuery || 
+                software.includes(searchQuery) || 
+                assignments.includes(searchQuery);
+            
+            card.style.display = matches ? '' : 'none';
         });
     },
 
