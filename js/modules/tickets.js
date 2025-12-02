@@ -142,55 +142,45 @@ const TicketsModule = {
         const temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
 
         container.innerHTML = `
-            <div class="filter-group">
-                <input type="text" class="filter-input" id="searchInput" placeholder="Buscar por folio, descripcion...">
+            <div class="filter-search">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <input type="text" id="searchInput" placeholder="Buscar...">
             </div>
-            <div class="filter-group">
-                <label class="filter-label">Tipo:</label>
-                <select class="filter-select" id="tipoFilter">
-                    <option value="">Todos</option>
+            <div class="filter-selects">
+                <select class="filter-select-compact" id="tipoFilter">
+                    <option value="">Tipo</option>
                     <option value="incidencia">Incidencia</option>
                     <option value="requerimiento">Requerimiento</option>
                 </select>
-            </div>
-            <div class="filter-group">
-                <label class="filter-label">Estado:</label>
-                <select class="filter-select" id="statusFilter">
-                    <option value="">Todos</option>
+                <select class="filter-select-compact" id="statusFilter">
+                    <option value="">Estado</option>
                     <option value="open">Abierto</option>
                     <option value="in_progress">En Progreso</option>
                     <option value="resolved">Resuelto</option>
                     <option value="closed">Cerrado</option>
                 </select>
-            </div>
-            <div class="filter-group">
-                <label class="filter-label">Tema:</label>
-                <select class="filter-select" id="temaFilter">
-                    <option value="">Todos</option>
+                <select class="filter-select-compact" id="temaFilter">
+                    <option value="">Tema</option>
                     ${temas.map(t => `<option value="${this.escapeHtml(t)}">${this.escapeHtml(t)}</option>`).join('')}
                 </select>
-            </div>
-            <div class="filter-group">
-                <label class="filter-label">Servicio:</label>
-                <select class="filter-select" id="servicioFilter">
-                    <option value="">Todos</option>
+                <select class="filter-select-compact" id="servicioFilter">
+                    <option value="">Servicio</option>
                     <option value="hardware">Hardware</option>
                     <option value="software">Software</option>
                     <option value="network">Red</option>
                     <option value="other">Otro</option>
                 </select>
-            </div>
-            <div class="filter-group">
-                <label class="filter-label">Prioridad:</label>
-                <select class="filter-select" id="priorityFilter">
-                    <option value="">Todas</option>
+                <select class="filter-select-compact" id="priorityFilter">
+                    <option value="">Prioridad</option>
                     <option value="low">Baja</option>
                     <option value="medium">Media</option>
                     <option value="high">Alta</option>
                     <option value="critical">Critica</option>
                 </select>
             </div>
-            <button class="filter-btn" id="clearFilters">Limpiar</button>
+            <button class="filter-clear-btn" id="clearFilters" title="Limpiar filtros">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+            </button>
         `;
     },
 
