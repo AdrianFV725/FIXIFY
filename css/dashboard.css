@@ -755,15 +755,28 @@ body.dashboard-body {
 
 .shortcuts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 1.25rem;
+    max-width: 100%;
+}
+
+@media (min-width: 1200px) {
+    .shortcuts-grid {
+        grid-template-columns: repeat(6, 1fr);
+    }
+}
+
+@media (min-width: 900px) and (max-width: 1199px) {
+    .shortcuts-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
 .shortcut-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 16px;
-    padding: 1.75rem;
+    padding: 1.5rem 1.25rem;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -773,7 +786,8 @@ body.dashboard-body {
     transition: all var(--transition-fast);
     position: relative;
     overflow: hidden;
-    min-height: 140px;
+    min-height: 130px;
+    aspect-ratio: 1;
 }
 
 .shortcut-card::before {
@@ -799,20 +813,21 @@ body.dashboard-body {
 }
 
 .shortcut-icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 16px;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     position: relative;
     z-index: 1;
+    flex-shrink: 0;
 }
 
 .shortcut-icon svg {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
 }
 
 .shortcut-card[data-shortcut="tickets"] .shortcut-icon {
@@ -846,11 +861,12 @@ body.dashboard-body {
 }
 
 .shortcut-label {
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-primary);
     text-align: center;
-    margin-top: 0.5rem;
+    margin-top: 0.25rem;
+    line-height: 1.2;
 }
 
 .shortcut-badge {
@@ -1693,6 +1709,12 @@ body.dashboard-body {
     }
 }
 
+@media (min-width: 768px) and (max-width: 899px) {
+    .shortcuts-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     .main-content {
         margin-left: 0 !important;
@@ -1749,9 +1771,39 @@ body.dashboard-body {
     }
 }
 
+@media (max-width: 767px) {
+    .shortcuts-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .shortcut-card {
+        min-height: 120px;
+        padding: 1.25rem 1rem;
+    }
+    
+    .shortcut-icon {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .shortcut-icon svg {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .shortcut-label {
+        font-size: 0.85rem;
+    }
+}
+
 @media (max-width: 480px) {
     .shortcuts-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .shortcut-card {
+        min-height: 110px;
+        padding: 1rem 0.75rem;
     }
 }
 
