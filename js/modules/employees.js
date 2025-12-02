@@ -376,19 +376,74 @@ const EmployeesModule = {
     },
 
     async addDepartment() {
-        const name = prompt('Nombre del departamento:');
-        if (!name || !name.trim()) return;
+        const modalHtml = `
+            <div class="modal-overlay active" id="addDepartmentModal">
+                <div class="modal" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2>Agregar Departamento</h2>
+                        <button class="modal-close" onclick="document.getElementById('addDepartmentModal').remove()">&times;</button>
+                    </div>
+                    <form id="addDepartmentForm" class="modal-body">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Nombre del Departamento *</label>
+                            <input type="text" name="name" required placeholder="Ej: Recursos Humanos" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                        </div>
+                        <div class="form-group">
+                            <label>Color</label>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <input type="color" name="color" value="#3b82f6" style="width: 60px; height: 40px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer;">
+                                <input type="text" id="colorHex" value="#3b82f6" readonly style="flex: 1; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-family: monospace;">
+                            </div>
+                        </div>
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('addDepartmentModal').remove()">Cancelar</button>
+                        <button type="submit" form="addDepartmentForm" class="btn btn-primary">Agregar</button>
+                    </div>
+                </div>
+            </div>
+        `;
 
-        const department = {
-            name: name.trim(),
-            color: '#3b82f6'
-        };
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        await Store.saveDepartment(department);
-        await this.loadData();
-        document.getElementById('optionsModal').remove();
-        await this.openOptionsManager();
-        this.showToast('Departamento agregado');
+        // Sincronizar color picker con input de texto
+        const colorInput = document.querySelector('#addDepartmentModal input[type="color"]');
+        const colorHex = document.getElementById('colorHex');
+        
+        colorInput.addEventListener('input', (e) => {
+            colorHex.value = e.target.value.toUpperCase();
+        });
+
+        colorHex.addEventListener('input', (e) => {
+            const value = e.target.value;
+            if (/^#[0-9A-F]{6}$/i.test(value)) {
+                colorInput.value = value;
+            }
+        });
+
+        document.getElementById('addDepartmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const name = formData.get('name').trim();
+            const color = formData.get('color');
+
+            if (!name) {
+                this.showToast('El nombre es requerido', 'error');
+                return;
+            }
+
+            const department = {
+                name: name,
+                color: color
+            };
+
+            await Store.saveDepartment(department);
+            await this.loadData();
+            document.getElementById('addDepartmentModal').remove();
+            document.getElementById('optionsModal').remove();
+            await this.openOptionsManager();
+            this.showToast('Departamento agregado');
+        });
     },
 
     async updateDepartment(id, field, value) {
@@ -413,22 +468,72 @@ const EmployeesModule = {
     },
 
     async addStatusOption() {
-        const value = prompt('Valor del estado (ej: active, inactive, suspended):');
-        if (!value || !value.trim()) return;
+        const modalHtml = `
+            <div class="modal-overlay active" id="addStatusModal">
+                <div class="modal" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2>Agregar Estado</h2>
+                        <button class="modal-close" onclick="document.getElementById('addStatusModal').remove()">&times;</button>
+                    </div>
+                    <form id="addStatusForm" class="modal-body">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Valor del Estado *</label>
+                            <input type="text" name="value" required placeholder="Ej: active, inactive, suspended" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);" pattern="[a-z_]+" title="Solo letras minúsculas y guiones bajos">
+                            <small style="color: var(--text-tertiary); margin-top: 0.25rem; display: block;">Solo letras minúsculas y guiones bajos (ej: active, inactive)</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Etiqueta *</label>
+                            <input type="text" name="label" required placeholder="Ej: Activo, Inactivo, Suspendido" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            <small style="color: var(--text-tertiary); margin-top: 0.25rem; display: block;">Nombre que se mostrará en la interfaz</small>
+                        </div>
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('addStatusModal').remove()">Cancelar</button>
+                        <button type="submit" form="addStatusForm" class="btn btn-primary">Agregar</button>
+                    </div>
+                </div>
+            </div>
+        `;
 
-        const label = prompt('Etiqueta del estado (ej: Activo, Inactivo, Suspendido):');
-        if (!label || !label.trim()) return;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        const option = {
-            value: value.trim().toLowerCase(),
-            label: label.trim()
-        };
+        document.getElementById('addStatusForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const value = formData.get('value').trim().toLowerCase();
+            const label = formData.get('label').trim();
 
-        await Store.addEmployeeOption('status', option);
-        await this.loadData();
-        document.getElementById('optionsModal').remove();
-        await this.openOptionsManager();
-        this.showToast('Estado agregado');
+            if (!value || !label) {
+                this.showToast('Todos los campos son requeridos', 'error');
+                return;
+            }
+
+            // Validar formato del valor
+            if (!/^[a-z_]+$/.test(value)) {
+                this.showToast('El valor solo puede contener letras minúsculas y guiones bajos', 'error');
+                return;
+            }
+
+            // Verificar si ya existe
+            const options = await Store.getEmployeeOptions();
+            const exists = (options.status || []).find(s => s.value === value);
+            if (exists) {
+                this.showToast('Ya existe un estado con ese valor', 'error');
+                return;
+            }
+
+            const option = {
+                value: value,
+                label: label
+            };
+
+            await Store.addEmployeeOption('status', option);
+            await this.loadData();
+            document.getElementById('addStatusModal').remove();
+            document.getElementById('optionsModal').remove();
+            await this.openOptionsManager();
+            this.showToast('Estado agregado');
+        });
     },
 
     async updateStatusOption(oldValue, field, newValue) {
