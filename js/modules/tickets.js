@@ -7,6 +7,7 @@ const TicketsModule = {
     tickets: [],
     filteredTickets: [],
     currentView: 'table', // 'table' o 'cards'
+    VIEW_PREFERENCE_KEY: 'fixify-tickets-view', // Key para localStorage
 
     // ========================================
     // INICIALIZACION
@@ -18,6 +19,9 @@ const TicketsModule = {
             return;
         }
 
+        // Cargar la preferencia de vista guardada
+        this.loadViewPreference();
+
         await this.loadData();
         this.filteredTickets = [...this.tickets];
         this.renderStats();
@@ -26,6 +30,20 @@ const TicketsModule = {
         this.renderCards();
         this.bindEvents();
         this.updateViewVisibility();
+        this.updateViewToggleButtons();
+    },
+
+    // Cargar preferencia de vista desde localStorage
+    loadViewPreference() {
+        const savedView = localStorage.getItem(this.VIEW_PREFERENCE_KEY);
+        if (savedView && (savedView === 'table' || savedView === 'cards')) {
+            this.currentView = savedView;
+        }
+    },
+
+    // Guardar preferencia de vista en localStorage
+    saveViewPreference() {
+        localStorage.setItem(this.VIEW_PREFERENCE_KEY, this.currentView);
     },
 
     async loadData() {
@@ -390,6 +408,7 @@ const TicketsModule = {
 
     setView(view) {
         this.currentView = view;
+        this.saveViewPreference(); // Guardar la preferencia
         this.updateViewVisibility();
         this.updateViewToggleButtons();
     },
