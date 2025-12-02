@@ -738,6 +738,281 @@ body.dashboard-body {
 }
 
 /* ========================================
+   SHORTCUTS SECTION
+   ======================================== */
+
+.shortcuts-section {
+    margin-bottom: 2.5rem;
+}
+
+.shortcuts-section .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+}
+
+.shortcuts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+}
+
+.shortcut-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+    min-height: 140px;
+}
+
+.shortcut-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    transform: scaleX(0);
+    transition: transform var(--transition-fast);
+}
+
+.shortcut-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px var(--shadow-color);
+    border-color: var(--accent-primary);
+}
+
+.shortcut-card:hover::before {
+    transform: scaleX(1);
+}
+
+.shortcut-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.shortcut-icon svg {
+    width: 32px;
+    height: 32px;
+}
+
+.shortcut-card[data-shortcut="tickets"] .shortcut-icon {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.25));
+    color: #3b82f6;
+}
+
+.shortcut-card[data-shortcut="machines"] .shortcut-icon {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.25));
+    color: #22c55e;
+}
+
+.shortcut-card[data-shortcut="employees"] .shortcut-icon {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(168, 85, 247, 0.25));
+    color: #a855f7;
+}
+
+.shortcut-card[data-shortcut="licenses"] .shortcut-icon {
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(249, 115, 22, 0.25));
+    color: #f97316;
+}
+
+.shortcut-card[data-shortcut="assignments"] .shortcut-icon {
+    background: linear-gradient(135deg, rgba(201, 168, 108, 0.15), rgba(201, 168, 108, 0.25));
+    color: var(--accent-primary);
+}
+
+.shortcut-card[data-shortcut="analytics"] .shortcut-icon {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.25));
+    color: #8b5cf6;
+}
+
+.shortcut-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
+.shortcut-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: var(--accent-primary);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    min-width: 24px;
+    text-align: center;
+}
+
+/* ========================================
+   ACTIVITY & ALERTS SECTION
+   ======================================== */
+
+.activity-alerts-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.activity-card,
+.alerts-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem;
+    transition: all var(--transition-fast);
+}
+
+.activity-card:hover,
+.alerts-card:hover {
+    box-shadow: 0 8px 30px var(--shadow-color);
+}
+
+.card-header {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.card-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+
+.activity-list,
+.alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.activity-list::-webkit-scrollbar,
+.alerts-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.activity-list::-webkit-scrollbar-track,
+.alerts-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.activity-list::-webkit-scrollbar-thumb,
+.alerts-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.activity-item,
+.alert-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+}
+
+.activity-item:hover,
+.alert-item:hover {
+    background: var(--accent-light);
+    transform: translateX(4px);
+}
+
+.activity-icon,
+.alert-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.activity-content,
+.alert-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-title,
+.alert-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.activity-description,
+.alert-description {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+}
+
+.activity-time,
+.alert-time {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 0.25rem;
+}
+
+.alert-item.urgent {
+    border-left: 4px solid #ef4444;
+}
+
+.alert-item.warning {
+    border-left: 4px solid #f97316;
+}
+
+.alert-item.info {
+    border-left: 4px solid #3b82f6;
+}
+
+.empty-activity,
+.empty-alerts {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-tertiary);
+    font-size: 0.9rem;
+}
+
+/* ========================================
    KPI GRID
    ======================================== */
 
@@ -751,14 +1026,33 @@ body.dashboard-body {
 .kpi-card {
     background: var(--card-bg);
     border-radius: 16px;
-    padding: 1.5rem;
+    padding: 1.75rem;
     border: 1px solid var(--border-color);
     transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    opacity: 0;
+    transition: opacity var(--transition-fast);
 }
 
 .kpi-card:hover {
-    box-shadow: 0 8px 30px var(--shadow-color);
-    transform: translateY(-2px);
+    box-shadow: 0 12px 40px var(--shadow-color);
+    transform: translateY(-4px);
+    border-color: var(--accent-primary);
+}
+
+.kpi-card:hover::before {
+    opacity: 1;
 }
 
 .kpi-header {
@@ -796,15 +1090,23 @@ body.dashboard-body {
 .kpi-trend.neutral { color: var(--text-tertiary); }
 
 .kpi-value {
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
+    line-height: 1;
 }
 
 .kpi-label {
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.kpi-subtext {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    margin-top: 0.5rem;
 }
 
 /* ========================================
@@ -855,6 +1157,89 @@ body.dashboard-body {
 }
 
 /* ========================================
+   QUICK STATS GRID
+   ======================================== */
+
+.quick-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem;
+    transition: all var(--transition-fast);
+}
+
+.stat-card:hover {
+    box-shadow: 0 8px 30px var(--shadow-color);
+    transform: translateY(-2px);
+}
+
+.stat-card .stat-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem;
+    border-radius: 10px;
+    transition: all var(--transition-fast);
+    border: 1px solid transparent;
+}
+
+.stat-item:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+.stat-item-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.stat-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-item-title {
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.stat-item-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+/* ========================================
    CHARTS GRID
    ======================================== */
 
@@ -868,8 +1253,13 @@ body.dashboard-body {
 .chart-card {
     background: var(--card-bg);
     border-radius: 16px;
-    padding: 1.5rem;
+    padding: 1.75rem;
     border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
+}
+
+.chart-card:hover {
+    box-shadow: 0 8px 30px var(--shadow-color);
 }
 
 .chart-card.large {
@@ -1289,6 +1679,20 @@ body.dashboard-body {
     }
 }
 
+@media (max-width: 1024px) {
+    .activity-alerts-section {
+        grid-template-columns: 1fr;
+    }
+    
+    .quick-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .shortcuts-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     .main-content {
         margin-left: 0 !important;
@@ -1330,6 +1734,24 @@ body.dashboard-body {
     
     .header-right .user-info {
         display: none;
+    }
+    
+    .shortcuts-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .quick-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .activity-alerts-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .shortcuts-grid {
+        grid-template-columns: 1fr;
     }
 }
 

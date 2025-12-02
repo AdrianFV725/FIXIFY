@@ -65,9 +65,39 @@
 
         <!-- Contenido del dashboard -->
         <div class="page-content">
+            <!-- Accesos directos -->
+            <section class="shortcuts-section">
+                <h2 class="section-title">Accesos Directos</h2>
+                <div class="shortcuts-grid" id="shortcutsGrid">
+                    <!-- Se renderiza desde dashboard.js -->
+                </div>
+            </section>
+
             <!-- KPIs principales -->
             <section class="kpi-grid" id="kpiGrid">
                 <!-- Se renderiza desde dashboard.js -->
+            </section>
+
+            <!-- Actividad reciente y alertas -->
+            <section class="activity-alerts-section">
+                <div class="activity-card" id="recentActivity">
+                    <div class="card-header">
+                        <h3 class="card-title">Actividad Reciente</h3>
+                        <span class="card-subtitle">Lo que has usado últimamente</span>
+                    </div>
+                    <div class="activity-list" id="activityList">
+                        <!-- Se renderiza desde dashboard.js -->
+                    </div>
+                </div>
+                <div class="alerts-card" id="urgentAlerts">
+                    <div class="card-header">
+                        <h3 class="card-title">Alertas Urgentes</h3>
+                        <span class="card-subtitle">Requieren atención inmediata</span>
+                    </div>
+                    <div class="alerts-list" id="alertsList">
+                        <!-- Se renderiza desde dashboard.js -->
+                    </div>
+                </div>
             </section>
 
             <!-- Graficas principales -->
@@ -81,12 +111,15 @@
             </section>
 
             <!-- Resumen rapido -->
-            <section class="quick-stats" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;">
-                <div class="stat-card" id="recentTickets" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+            <section class="quick-stats-grid">
+                <div class="stat-card" id="recentTickets">
                     <!-- Lista: Ultimos tickets creados -->
                 </div>
-                <div class="stat-card" id="expiringLicenses" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
+                <div class="stat-card" id="expiringLicenses">
                     <!-- Lista: Licencias proximas a vencer -->
+                </div>
+                <div class="stat-card" id="urgentTickets">
+                    <!-- Tickets urgentes -->
                 </div>
             </section>
         </div>
