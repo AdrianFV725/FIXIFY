@@ -438,90 +438,177 @@ const Auth = {
     },
 
     // ========================================
-    // LOGIN CON GOOGLE
+    // CAMBIO DE CONTRASENA
     // ========================================
 
     /**
-     * Inicia sesion con Google (solo usuarios pre-registrados)
+     * Cambia la contrasena del usuario actual (cuando el usuario cambia su propia contrasena)
      */
-    async loginWithGoogle() {
+    async changeOwnPassword(currentPassword, newPassword) {
+        try {
+            const currentUser = this.getCurrentUser();
+            if (!currentUser) {
+                return { success: false, message: 'No hay sesion activa' };
+            }
+
+            if (this.useFirebase) {
+                const auth = getFirebaseAuth();
+                const firebaseUser = auth.currentUser;
+
+                if (firebaseUser) {
+                    // Re-autenticar al usuario antes de cambiar la contrasena
+                    const credential = firebase.auth.EmailAuthProvider.credential(
+                        firebaseUser.email,
+                        currentPassword
+                    );
+
+                    try {
+                        await firebaseUser.reauthenticateWithCredential(credential);
+                    } catch (reAuthError) {
+                        console.error('Error de re-autenticacion:', reAuthError);
+                        if (reAuthError.code === 'auth/wrong-password') {
+                            return { success: false, message: 'La contrasena actual es incorrecta' };
+                        }
+                        return { success: false, message: 'Error de autenticacion. Intenta cerrar sesion y volver a entrar.' };
+                    }
+
+                    // Cambiar la contrasena en Firebase Auth
+                    try {
+                        await firebaseUser.updatePassword(newPassword);
+                        
+                        // Registrar la actividad
+                        try {
+                            await FirestoreService.logActivity('password_changed', { email: currentUser.email });
+                        } catch (e) {}
+
+                        return { success: true, message: 'Contrasena actualizada correctamente' };
+                    } catch (updateError) {
+                        console.error('Error al actualizar contrasena:', updateError);
+                        if (updateError.code === 'auth/weak-password') {
+                            return { success: false, message: 'La contrasena debe tener al menos 6 caracteres' };
+                        }
+                        return { success: false, message: 'Error al actualizar la contrasena' };
+                    }
+                }
+            }
+
+            // Fallback: actualizar solo en Firestore/localStorage
+            const users = await Store.getUsers() || [];
+            const userToUpdate = users.find(u => u.email?.toLowerCase() === currentUser.email?.toLowerCase());
+            
+            if (!userToUpdate) {
+                return { success: false, message: 'Usuario no encontrado' };
+            }
+
+            if (userToUpdate.password !== currentPassword) {
+                return { success: false, message: 'La contrasena actual es incorrecta' };
+            }
+
+            userToUpdate.password = newPassword;
+            await Store.saveUser(userToUpdate);
+
+            return { success: true, message: 'Contrasena actualizada correctamente' };
+
+        } catch (error) {
+            console.error('Error al cambiar contrasena:', error);
+            return { success: false, message: error.message || 'Error al cambiar la contrasena' };
+        }
+    },
+
+    /**
+     * Envia un correo de restablecimiento de contrasena (para admin cambiando contrasena de otro usuario)
+     */
+    async sendPasswordResetToUser(userEmail) {
         try {
             if (!this.useFirebase) {
-                return { success: false, message: 'Google Sign-In requiere Firebase' };
+                return { 
+                    success: false, 
+                    message: 'El restablecimiento de contrasena requiere Firebase' 
+                };
             }
 
             const auth = getFirebaseAuth();
-            const provider = new firebase.auth.GoogleAuthProvider();
-            
-            // Forzar seleccion de cuenta
-            provider.setCustomParameters({ prompt: 'select_account' });
-            
-            const result = await auth.signInWithPopup(provider);
-            const firebaseUser = result.user;
-            
-            // RESTRICCION: Verificar si el usuario ya existe en Firestore
-            const userData = await FirestoreService.getUserByEmail(firebaseUser.email);
-            
+            auth.languageCode = 'es';
+
+            // Verificar que el usuario existe
+            const userData = await FirestoreService.getUserByEmail(userEmail);
             if (!userData) {
-                // El usuario NO esta registrado en el sistema
-                await auth.signOut();
+                return { success: false, message: 'Usuario no encontrado' };
+            }
+
+            // Si el usuario tiene firebaseUid, enviar email de reset
+            if (userData.firebaseUid) {
+                await auth.sendPasswordResetEmail(userEmail);
+                
+                try {
+                    await FirestoreService.logActivity('password_reset_sent_by_admin', { 
+                        targetEmail: userEmail,
+                        adminEmail: this.getCurrentUser()?.email 
+                    });
+                } catch (e) {}
+
                 return { 
-                    success: false, 
-                    message: 'Tu cuenta no esta registrada en el sistema. Contacta al administrador.' 
+                    success: true, 
+                    message: `Se ha enviado un correo a ${userEmail} para restablecer la contrasena`,
+                    method: 'email'
+                };
+            } else {
+                // Usuario no migrado a Firebase Auth, actualizar directamente en Firestore
+                return { 
+                    success: true, 
+                    message: 'Usuario en modo legacy - puede actualizar la contrasena directamente',
+                    method: 'direct',
+                    userId: userData.id
                 };
             }
-            
-            if (userData.status === 'inactive') {
-                await auth.signOut();
-                return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
-            }
-            
-            // Actualizar el firebaseUid si no lo tiene (primera vez con Google)
-            if (!userData.firebaseUid) {
-                try {
-                    await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
-                        firebaseUid: firebaseUser.uid,
-                        provider: 'google',
-                        lastLogin: new Date().toISOString()
-                    }, userData.id);
-                } catch (e) {
-                    console.warn('No se pudo actualizar firebaseUid');
-                }
-            }
-            
-            const sessionUser = {
-                id: firebaseUser.uid,
-                email: firebaseUser.email,
-                name: userData.name || firebaseUser.displayName || 'Usuario',
-                role: userData.role || 'user',
-                loginAt: new Date().toISOString()
-            };
-            
-            localStorage.setItem(this.SESSION_KEY, 'active');
-            localStorage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
-            
-            // Registrar actividad
-            try {
-                await FirestoreService.updateUserLastLogin(firebaseUser.email);
-                await FirestoreService.logActivity('user_login_google', { email: firebaseUser.email });
-            } catch (e) {
-                console.warn('No se pudo registrar actividad');
-            }
-            
-            return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
-            
+
         } catch (error) {
-            console.error('Error en Google Sign-In:', error);
+            console.error('Error al enviar correo de reset:', error);
             
-            if (error.code === 'auth/popup-closed-by-user') {
-                return { success: false, message: 'Inicio de sesion cancelado' };
+            let message = 'Error al enviar el correo';
+            if (error.code === 'auth/user-not-found') {
+                message = 'Usuario no encontrado en Firebase Auth';
+            } else if (error.code === 'auth/too-many-requests') {
+                message = 'Demasiados intentos. Intenta mas tarde.';
             }
             
-            if (error.code === 'auth/popup-blocked') {
-                return { success: false, message: 'El navegador bloqueo la ventana emergente. Permite las ventanas emergentes e intenta de nuevo.' };
+            return { success: false, message };
+        }
+    },
+
+    /**
+     * Actualiza la contrasena directamente (solo para usuarios en modo legacy sin Firebase Auth)
+     */
+    async updatePasswordDirect(userId, newPassword) {
+        try {
+            const user = await Store.getUserById(userId);
+            if (!user) {
+                return { success: false, message: 'Usuario no encontrado' };
             }
-            
-            return { success: false, message: 'Error al iniciar sesion con Google' };
+
+            // Verificar que no tiene firebaseUid (no esta migrado)
+            if (user.firebaseUid) {
+                return { 
+                    success: false, 
+                    message: 'Este usuario usa Firebase Auth. Usa la opcion de enviar correo de restablecimiento.' 
+                };
+            }
+
+            user.password = newPassword;
+            await Store.saveUser(user);
+
+            try {
+                await FirestoreService.logActivity('password_updated_by_admin', { 
+                    targetUserId: userId,
+                    adminEmail: this.getCurrentUser()?.email 
+                });
+            } catch (e) {}
+
+            return { success: true, message: 'Contrasena actualizada correctamente' };
+
+        } catch (error) {
+            console.error('Error al actualizar contrasena:', error);
+            return { success: false, message: error.message || 'Error al actualizar la contrasena' };
         }
     },
 

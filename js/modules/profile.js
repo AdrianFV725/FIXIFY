@@ -474,33 +474,36 @@ const ProfileModule = {
                 return;
             }
 
+            // Deshabilitar boton mientras procesa
+            const submitBtn = document.querySelector('#changePasswordModal .btn-primary');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Cambiando...';
+            }
+
             try {
-                // Verificar contrasena actual
-                const users = await Store.getUsers() || [];
-                const userToUpdate = users.find(u => u.email?.toLowerCase() === this.user?.email?.toLowerCase());
-                
-                if (!userToUpdate) {
-                    throw new Error('Usuario no encontrado');
-                }
-
-                if (userToUpdate.password !== data.currentPassword) {
-                    Modal.alert({
-                        title: 'Contrasena incorrecta',
-                        message: 'La contrasena actual no es correcta',
-                        type: 'error'
-                    });
-                    return;
-                }
-
-                // Actualizar contrasena
-                userToUpdate.password = data.newPassword;
-                await Store.saveUser(userToUpdate);
+                // Usar el nuevo metodo de Auth que maneja Firebase Auth
+                const result = await Auth.changeOwnPassword(data.currentPassword, data.newPassword);
 
                 document.getElementById('changePasswordModal').remove();
-                this.showToast('Contrasena actualizada correctamente', 'success');
+
+                if (result.success) {
+                    this.showToast('Contrasena actualizada correctamente', 'success');
+                } else {
+                    Modal.alert({
+                        title: 'Error',
+                        message: result.message,
+                        type: 'error'
+                    });
+                }
             } catch (error) {
                 console.error('Error cambiando contrasena:', error);
-                this.showToast('Error al cambiar la contrasena', 'error');
+                document.getElementById('changePasswordModal').remove();
+                Modal.alert({
+                    title: 'Error',
+                    message: error.message || 'Error al cambiar la contrasena',
+                    type: 'error'
+                });
             }
         });
     },

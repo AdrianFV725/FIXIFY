@@ -368,67 +368,132 @@ const UsersModule = {
         const user = this.getById(userId);
         if (!user) return;
 
+        // Verificar si el usuario esta migrado a Firebase Auth
+        const isMigrated = !!user.firebaseUid;
+
         const modalHtml = `
             <div class="modal-overlay active" id="passwordModal">
-                <div class="modal" style="max-width: 400px;">
+                <div class="modal" style="max-width: 450px;">
                     <div class="modal-header">
                         <h2>Cambiar Contrasena</h2>
                         <button class="modal-close" onclick="document.getElementById('passwordModal').remove()">&times;</button>
                     </div>
-                    <form id="passwordForm" class="modal-body">
-                        <p style="margin-bottom: 1rem; color: var(--text-secondary);">Cambiar contrasena de: <strong>${user.name}</strong></p>
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label>Nueva contrasena *</label>
-                            <input type="password" name="newPassword" required minlength="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
-                        </div>
-                        <div class="form-group">
-                            <label>Confirmar contrasena *</label>
-                            <input type="password" name="confirmPassword" required minlength="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
-                        </div>
-                        <input type="hidden" name="userId" value="${userId}">
-                    </form>
-                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
-                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('passwordModal').remove()">Cancelar</button>
-                        <button type="submit" form="passwordForm" class="btn btn-primary">Cambiar Contrasena</button>
+                    <div class="modal-body">
+                        <p style="margin-bottom: 1rem; color: var(--text-secondary);">Usuario: <strong>${user.name}</strong> (${user.email})</p>
+                        
+                        ${isMigrated ? `
+                            <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                                <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="vertical-align: middle; margin-right: 0.5rem;">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                    </svg>
+                                    Este usuario usa autenticacion de Firebase. Se enviara un correo para que restablezca su contrasena.
+                                </p>
+                            </div>
+                            <button type="button" id="sendResetEmailBtn" class="btn btn-primary" style="width: 100%;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.5rem;">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                    <polyline points="22,6 12,13 2,6"></polyline>
+                                </svg>
+                                Enviar Correo de Restablecimiento
+                            </button>
+                        ` : `
+                            <form id="passwordForm">
+                                <div class="form-group" style="margin-bottom: 1rem;">
+                                    <label>Nueva contrasena *</label>
+                                    <input type="password" name="newPassword" required minlength="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Confirmar contrasena *</label>
+                                    <input type="password" name="confirmPassword" required minlength="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                </div>
+                                <input type="hidden" name="userId" value="${userId}">
+                            </form>
+                        `}
                     </div>
+                    ${!isMigrated ? `
+                        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('passwordModal').remove()">Cancelar</button>
+                            <button type="submit" form="passwordForm" class="btn btn-primary">Cambiar Contrasena</button>
+                        </div>
+                    ` : `
+                        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('passwordModal').remove()">Cerrar</button>
+                        </div>
+                    `}
                 </div>
             </div>
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData);
-            
-            if (data.newPassword !== data.confirmPassword) {
-                Modal.alert({
-                    title: 'Error de validacion',
-                    message: 'Las contrasenas no coinciden',
-                    type: 'error'
-                });
-                return;
-            }
+        // Para usuarios migrados: enviar correo de reset
+        if (isMigrated) {
+            document.getElementById('sendResetEmailBtn')?.addEventListener('click', async () => {
+                const btn = document.getElementById('sendResetEmailBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<span style="opacity: 0.7;">Enviando...</span>';
 
-            if (data.newPassword.length < 6) {
-                Modal.alert({
-                    title: 'Contrasena muy corta',
-                    message: 'La contrasena debe tener al menos 6 caracteres',
-                    type: 'warning'
-                });
-                return;
-            }
+                const result = await Auth.sendPasswordResetToUser(user.email);
+                
+                document.getElementById('passwordModal').remove();
 
-            const userToUpdate = this.getById(data.userId);
-            if (userToUpdate) {
-                userToUpdate.password = data.newPassword;
-                await Store.saveUser(userToUpdate);
-            }
+                if (result.success) {
+                    Modal.alert({
+                        title: 'Correo Enviado',
+                        message: result.message,
+                        type: 'success'
+                    });
+                } else {
+                    Modal.alert({
+                        title: 'Error',
+                        message: result.message,
+                        type: 'error'
+                    });
+                }
+            });
+        } else {
+            // Para usuarios no migrados: formulario directo
+            document.getElementById('passwordForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData);
+                
+                if (data.newPassword !== data.confirmPassword) {
+                    Modal.alert({
+                        title: 'Error de validacion',
+                        message: 'Las contrasenas no coinciden',
+                        type: 'error'
+                    });
+                    return;
+                }
 
-            document.getElementById('passwordModal').remove();
-            this.showToast('Contrasena actualizada');
-        });
+                if (data.newPassword.length < 6) {
+                    Modal.alert({
+                        title: 'Contrasena muy corta',
+                        message: 'La contrasena debe tener al menos 6 caracteres',
+                        type: 'warning'
+                    });
+                    return;
+                }
+
+                const result = await Auth.updatePasswordDirect(data.userId, data.newPassword);
+                
+                document.getElementById('passwordModal').remove();
+
+                if (result.success) {
+                    this.showToast('Contrasena actualizada');
+                } else {
+                    Modal.alert({
+                        title: 'Error',
+                        message: result.message,
+                        type: 'error'
+                    });
+                }
+            });
+        }
     },
 
     async deleteUser(id) {
