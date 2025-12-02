@@ -1176,59 +1176,62 @@ const TicketsModule = {
             }
             
             // Analizar las claves existentes para encontrar el patron
-            // Buscar el formato mas comun: PREFIJO-NUMERO o PREFIJO.NUMERO o PREFIJO_NUMERO o PREFIJONUMERO
             const claves = temasCategories.map(c => c.clave).filter(Boolean);
             
             if (claves.length === 0) return '';
             
-            // Intentar detectar el patron de la primera clave
+            // Usar la primera clave como referencia del formato
             const firstClave = claves[0];
             
-            // Regex para detectar diferentes formatos: AP-1, AP.1, AP_1, AP1
+            // Regex para detectar diferentes formatos y capturar el numero con su formato original
             const patterns = [
-                /^([A-Za-z]+)-(\d+)$/,      // PREFIJO-NUMERO (ej: AP-1)
-                /^([A-Za-z]+)\.(\d+)$/,     // PREFIJO.NUMERO (ej: AP.1)
-                /^([A-Za-z]+)_(\d+)$/,      // PREFIJO_NUMERO (ej: AP_1)
-                /^([A-Za-z]+)(\d+)$/        // PREFIJONUMERO (ej: AP1)
+                { regex: /^([A-Za-z]+)-(\d+)$/, separator: '-' },
+                { regex: /^([A-Za-z]+)\.(\d+)$/, separator: '.' },
+                { regex: /^([A-Za-z]+)_(\d+)$/, separator: '_' },
+                { regex: /^([A-Za-z]+)(\d+)$/, separator: '' }
             ];
             
             let detectedPrefix = '';
-            let detectedSeparator = '-';
+            let detectedSeparator = '.';
+            let numberLength = 1; // Longitud del numero (para padding con ceros)
             let maxNumber = 0;
             
-            for (const pattern of patterns) {
-                const match = firstClave.match(pattern);
+            // Detectar el formato de la primera clave
+            for (const { regex, separator } of patterns) {
+                const match = firstClave.match(regex);
                 if (match) {
                     detectedPrefix = match[1];
-                    // Detectar el separador usado
-                    if (pattern.source.includes('-')) detectedSeparator = '-';
-                    else if (pattern.source.includes('\\.')) detectedSeparator = '.';
-                    else if (pattern.source.includes('_')) detectedSeparator = '_';
-                    else detectedSeparator = '';
+                    detectedSeparator = separator;
+                    numberLength = match[2].length; // Guardar la longitud original (ej: "01" = 2)
                     break;
                 }
             }
             
             if (!detectedPrefix) {
-                // No se pudo detectar el patron, usar la clave completa como prefijo
-                detectedPrefix = firstClave.replace(/\d+$/, '').replace(/[-._]$/, '');
-                if (!detectedPrefix) return '';
+                // No se pudo detectar el patron
+                return '';
             }
             
             // Encontrar el numero mas alto existente para este prefijo
             for (const clave of claves) {
-                for (const pattern of patterns) {
-                    const match = clave.match(pattern);
+                for (const { regex } of patterns) {
+                    const match = clave.match(regex);
                     if (match && match[1].toUpperCase() === detectedPrefix.toUpperCase()) {
                         const num = parseInt(match[2], 10);
+                        // Tambien actualizar numberLength si encontramos uno mas largo
+                        if (match[2].length > numberLength) {
+                            numberLength = match[2].length;
+                        }
                         if (num > maxNumber) maxNumber = num;
                     }
                 }
             }
             
-            // Generar la siguiente clave
+            // Generar la siguiente clave con el mismo formato
             const nextNumber = maxNumber + 1;
-            return `${detectedPrefix}${detectedSeparator}${nextNumber}`;
+            // Aplicar padding con ceros para mantener el mismo formato (ej: 01, 02, etc.)
+            const paddedNumber = String(nextNumber).padStart(numberLength, '0');
+            return `${detectedPrefix}${detectedSeparator}${paddedNumber}`;
         };
 
         // Listener para auto-generar clave cuando cambia el tema
