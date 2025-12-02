@@ -580,6 +580,12 @@ const Auth = {
             this.logout();
         });
 
+        container.querySelector('[data-action="profile"]')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.href = 'profile.html';
+        });
+
         document.addEventListener('click', (e) => {
             if (!container.contains(e.target)) {
                 container.classList.remove('open');
