@@ -719,6 +719,23 @@ const TicketsModule = {
             console.error('Error cargando datos para formulario:', e);
         }
 
+        // Auto-detectar empleado basado en el usuario autenticado (solo para nuevos tickets)
+        let defaultContactoId = ticket?.contactoId || '';
+        let defaultContactoNombre = ticket?.contactoNombre || '';
+        if (!isEdit && Auth && Auth.getCurrentUser) {
+            const currentUser = Auth.getCurrentUser();
+            if (currentUser && currentUser.email) {
+                // Buscar empleado con el mismo email
+                const matchingEmployee = employees.find(e => 
+                    e.email && e.email.toLowerCase() === currentUser.email.toLowerCase()
+                );
+                if (matchingEmployee) {
+                    defaultContactoId = matchingEmployee.id;
+                    defaultContactoNombre = `${matchingEmployee.name || ''} ${matchingEmployee.lastName || ''}`.trim();
+                }
+            }
+        }
+
         // Obtener temas unicos de las categorias
         const temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
         
@@ -804,7 +821,7 @@ const TicketsModule = {
                                     <label class="form-label">Contacto (Empleado) <span class="required">*</span></label>
                                     <select name="contactoId" id="ticketContacto" class="form-select" required>
                                         <option value="">Seleccionar empleado...</option>
-                                        ${employees.map(e => `<option value="${e.id}" ${ticket?.contactoId === e.id ? 'selected' : ''}>${this.escapeHtml(e.name || '')} ${this.escapeHtml(e.lastName || '')}</option>`).join('')}
+                                        ${employees.map(e => `<option value="${e.id}" ${(isEdit ? ticket?.contactoId === e.id : defaultContactoId === e.id) ? 'selected' : ''}>${this.escapeHtml(e.name || '')} ${this.escapeHtml(e.lastName || '')}</option>`).join('')}
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -854,7 +871,7 @@ const TicketsModule = {
                             ` : ''}
                             
                             <input type="hidden" name="id" value="${ticket?.id || ''}">
-                            <input type="hidden" name="contactoNombre" id="ticketContactoNombre" value="${ticket?.contactoNombre || ''}">
+                            <input type="hidden" name="contactoNombre" id="ticketContactoNombre" value="${isEdit ? (ticket?.contactoNombre || '') : (defaultContactoNombre || ticket?.contactoNombre || '')}">
                             <input type="hidden" name="asignadoNombre" id="ticketAsignadoNombre" value="${ticket?.asignadoNombre || ''}">
                             <input type="hidden" name="categoriaClave" id="ticketCategoriaClave" value="${ticket?.categoriaClave || ''}">
                             <input type="hidden" name="categoriaElemento" id="ticketCategoriaElemento" value="${ticket?.categoriaElemento || ''}">
@@ -977,6 +994,20 @@ const TicketsModule = {
                 radio.closest('.type-option').classList.add('active');
             });
         });
+
+        // Auto-seleccionar contacto si fue detectado automaticamente (solo para nuevos tickets)
+        if (!isEdit && defaultContactoId && contactoSelect) {
+            // Si el valor ya está seleccionado en el HTML, solo necesitamos ejecutar la lógica de auto-llenado
+            const currentValue = contactoSelect.value;
+            if (currentValue !== defaultContactoId) {
+                contactoSelect.value = defaultContactoId;
+            }
+            // Disparar el evento change para que se ejecute la lógica de auto-llenado (máquina, etc.)
+            contactoSelect.dispatchEvent(new Event('change'));
+        } else if (contactoSelect && contactoSelect.value) {
+            // Si ya hay un contacto seleccionado (desde el HTML en modo edición), también ejecutar la lógica
+            contactoSelect.dispatchEvent(new Event('change'));
+        }
 
         // Submit del formulario
         document.getElementById('ticketForm').addEventListener('submit', async (e) => {
