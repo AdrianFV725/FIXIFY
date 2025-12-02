@@ -407,6 +407,15 @@ const AssignmentsModule = {
                     </div>
                 </div>
                 
+                <!-- Buscador de historial -->
+                <div style="margin-bottom: 1rem; position: relative;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none;">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" id="historySearchInput" placeholder="Buscar por recurso, empleado, notas..." style="width: 100%; padding: 0.6rem 0.75rem 0.6rem 2.5rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.85rem; outline: none; transition: border-color 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'" onblur="this.style.borderColor='var(--border-color)'">
+                </div>
+                
                 <div class="history-list" id="historyList">
                     ${allAssignments.length === 0 ? `
                         <div class="empty-list">
@@ -508,12 +517,16 @@ const AssignmentsModule = {
         // Filtros de historial
         const filterType = document.getElementById('historyFilterType');
         const filterStatus = document.getElementById('historyFilterStatus');
+        const historySearchInput = document.getElementById('historySearchInput');
         
         if (filterType) {
             filterType.addEventListener('change', () => this.filterHistory());
         }
         if (filterStatus) {
             filterStatus.addEventListener('change', () => this.filterHistory());
+        }
+        if (historySearchInput) {
+            historySearchInput.addEventListener('input', () => this.filterHistory());
         }
 
         // Busquedas
@@ -585,11 +598,27 @@ const AssignmentsModule = {
     filterHistory() {
         const typeFilter = document.getElementById('historyFilterType')?.value || 'all';
         const statusFilter = document.getElementById('historyFilterStatus')?.value || 'all';
+        const searchQuery = (document.getElementById('historySearchInput')?.value || '').toLowerCase().trim();
         
         document.querySelectorAll('.history-item').forEach(item => {
             const matchType = typeFilter === 'all' || item.dataset.type === typeFilter;
             const matchStatus = statusFilter === 'all' || item.dataset.status === statusFilter;
-            item.style.display = matchType && matchStatus ? '' : 'none';
+            
+            // Buscar en el contenido del item
+            let matchesSearch = true;
+            if (searchQuery) {
+                const resourceName = item.querySelector('.history-resource')?.textContent.toLowerCase() || '';
+                const employeeName = item.querySelector('.history-employee')?.textContent.toLowerCase() || '';
+                const notes = item.querySelector('.history-notes')?.textContent.toLowerCase() || '';
+                const assignedBy = item.querySelector('.history-by')?.textContent.toLowerCase() || '';
+                
+                matchesSearch = resourceName.includes(searchQuery) || 
+                               employeeName.includes(searchQuery) || 
+                               notes.includes(searchQuery) || 
+                               assignedBy.includes(searchQuery);
+            }
+            
+            item.style.display = matchType && matchStatus && matchesSearch ? '' : 'none';
         });
     },
 

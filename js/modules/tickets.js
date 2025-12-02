@@ -1150,8 +1150,18 @@ const TicketsModule = {
                     </div>
                     <div class="modal-body" style="display: grid; grid-template-columns: 1fr 280px; gap: 1.25rem; padding: 1rem 1.5rem; flex: 1; min-height: 0; overflow: hidden;">
                         <!-- Lista de categorias (con scroll) -->
-                        <div style="overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--card-bg); min-height: 200px; max-height: 100%;" id="categoriesList">
-                            ${renderCategoriesList()}
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <!-- Buscador de categorias -->
+                            <div style="position: relative;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none;">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                                <input type="text" id="categoriesSearchInput" placeholder="Buscar por tema, servicio, clave o elemento..." style="width: 100%; padding: 0.6rem 0.75rem 0.6rem 2.5rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.85rem; outline: none; transition: border-color 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'" onblur="this.style.borderColor='var(--border-color)'">
+                            </div>
+                            <div style="overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--card-bg); min-height: 200px; max-height: 100%; flex: 1;" id="categoriesList">
+                                ${renderCategoriesList()}
+                            </div>
                         </div>
                         
                         <!-- Panel lateral: Formulario (sin scroll) -->
@@ -1229,6 +1239,43 @@ const TicketsModule = {
         const temaInput = document.getElementById('categoryTemaInput');
         const claveInput = document.getElementById('categoryClaveInput');
         const claveAutoIndicator = document.getElementById('claveAutoIndicator');
+        const categoriesSearchInput = document.getElementById('categoriesSearchInput');
+
+        // Funcion para filtrar categorias en la tabla
+        const filterCategoriesTable = () => {
+            const searchQuery = (categoriesSearchInput?.value || '').toLowerCase().trim();
+            const table = document.querySelector('#categoriesList table tbody');
+            
+            if (!table) return;
+            
+            const rows = table.querySelectorAll('tr');
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length === 0) return;
+                
+                // Obtener texto de todas las celdas relevantes (tema, servicio, clave, elemento)
+                const tema = (cells[0]?.textContent || '').toLowerCase();
+                const servicio = (cells[1]?.textContent || '').toLowerCase();
+                const clave = (cells[2]?.textContent || '').toLowerCase();
+                const elemento = (cells[3]?.textContent || '').toLowerCase();
+                
+                const matches = !searchQuery || 
+                    tema.includes(searchQuery) || 
+                    servicio.includes(searchQuery) || 
+                    clave.includes(searchQuery) || 
+                    elemento.includes(searchQuery);
+                
+                row.style.display = matches ? '' : 'none';
+                if (matches) visibleCount++;
+            });
+        };
+
+        // Event listener para el buscador de categorias
+        if (categoriesSearchInput) {
+            categoriesSearchInput.addEventListener('input', filterCategoriesTable);
+        }
 
         // Funcion para generar la siguiente clave consecutiva
         const generateNextClave = (tema) => {
@@ -1374,6 +1421,11 @@ const TicketsModule = {
                 });
 
                 document.getElementById('categoriesList').innerHTML = renderCategoriesList();
+                
+                // Aplicar filtro si hay texto en el buscador
+                if (categoriesSearchInput && categoriesSearchInput.value) {
+                    filterCategoriesTable();
+                }
                 
                 // Actualizar datalist
                 const datalist = document.getElementById('temasDatalist');
