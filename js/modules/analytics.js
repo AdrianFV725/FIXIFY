@@ -1,177 +1,1295 @@
 // ========================================
-// ANALYTICS MODULE
+// ANALYTICS MODULE - Dashboard Enriquecido
 // ========================================
 
 const AnalyticsModule = {
+    data: {
+        tickets: [],
+        machines: [],
+        employees: [],
+        licenses: [],
+        assignments: [],
+        categories: []
+    },
+
     async init() {
         if (!Auth.isAuthenticated()) {
             window.location.href = '../index.html';
             return;
         }
 
+        await this.loadAllData();
         await this.renderDashboard();
     },
 
-    async renderDashboard() {
-        const container = document.querySelector('.page-content');
-        if (!container) return;
-
-        let stats, tickets, machines, licenses, employees;
-        
+    async loadAllData() {
         try {
-            stats = await Store.getStats();
-            tickets = await Store.getTickets() || [];
-            machines = await Store.getMachines() || [];
-            licenses = await Store.getLicenses() || [];
-            employees = await Store.getEmployees() || [];
+            const [tickets, machines, employees, licenses, assignments, categories] = await Promise.all([
+                Store.getTickets() || [],
+                Store.getMachines() || [],
+                Store.getEmployees() || [],
+                Store.getLicenses() || [],
+                Store.getMachineAssignments() || [],
+                Store.getCategories() || []
+            ]);
+            
+            this.data = { tickets, machines, employees, licenses, assignments, categories };
         } catch (e) {
             console.error('Error cargando datos:', e);
-            stats = { tickets: {}, machines: {}, licenses: {}, employees: {} };
-            tickets = [];
-            machines = [];
-            licenses = [];
-            employees = [];
+            this.data = { tickets: [], machines: [], employees: [], licenses: [], assignments: [], categories: [] };
         }
+    },
 
-        // Top maquinas problematicas
-        const problematicMachines = machines
-            .filter(m => (m.ticketCount || 0) > 0)
-            .sort((a, b) => (b.ticketCount || 0) - (a.ticketCount || 0))
-            .slice(0, 5);
+    // ========================================
+    // CALCULOS Y METRICAS
+    // ========================================
+
+    getTicketMetrics() {
+        const { tickets } = this.data;
+        const now = new Date();
+        const last30Days = new Date(now - 30 * 24 * 60 * 60 * 1000);
+        const last7Days = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+        const recentTickets = tickets.filter(t => new Date(t.createdAt) >= last30Days);
+        const thisWeekTickets = tickets.filter(t => new Date(t.createdAt) >= last7Days);
 
         // Tickets por estado
-        const ticketsByStatus = {
+        const byStatus = {
             open: tickets.filter(t => t.status === 'open').length,
             in_progress: tickets.filter(t => t.status === 'in_progress').length,
             resolved: tickets.filter(t => t.status === 'resolved').length,
             closed: tickets.filter(t => t.status === 'closed').length
         };
 
-        // Tickets por categoria
-        const ticketsByCategory = {
-            hardware: tickets.filter(t => t.category === 'hardware').length,
-            software: tickets.filter(t => t.category === 'software').length,
-            network: tickets.filter(t => t.category === 'network').length,
-            other: tickets.filter(t => t.category === 'other').length
+        // Tickets por prioridad
+        const byPriority = {
+            critical: tickets.filter(t => t.priority === 'critical').length,
+            high: tickets.filter(t => t.priority === 'high').length,
+            medium: tickets.filter(t => t.priority === 'medium').length,
+            low: tickets.filter(t => t.priority === 'low').length
         };
 
+        // Tickets por tipo (incidencia/requerimiento)
+        const byType = {
+            incidencia: tickets.filter(t => t.tipo === 'incidencia').length,
+            requerimiento: tickets.filter(t => t.tipo === 'requerimiento').length
+        };
+
+        // Tickets por servicio/categoria
+        const byService = {
+            hardware: tickets.filter(t => t.servicio === 'hardware' || t.category === 'hardware').length,
+            software: tickets.filter(t => t.servicio === 'software' || t.category === 'software').length,
+            network: tickets.filter(t => t.servicio === 'network' || t.category === 'network').length,
+            other: tickets.filter(t => t.servicio === 'other' || t.category === 'other').length
+        };
+
+        // Tiempo promedio de resolucion (en horas)
+        const resolvedTickets = tickets.filter(t => t.resolvedAt && t.createdAt);
+        let avgResolutionTime = 0;
+        if (resolvedTickets.length > 0) {
+            const totalTime = resolvedTickets.reduce((acc, t) => {
+                const created = new Date(t.createdAt);
+                const resolved = new Date(t.resolvedAt);
+                return acc + (resolved - created);
+            }, 0);
+            avgResolutionTime = totalTime / resolvedTickets.length / (1000 * 60 * 60); // en horas
+        }
+
+        // Tasa de resolucion
+        const resolutionRate = tickets.length > 0 
+            ? ((byStatus.resolved + byStatus.closed) / tickets.length * 100).toFixed(1)
+            : 0;
+
+        // Tickets por tema
+        const byTema = {};
+        tickets.forEach(t => {
+            const tema = t.tema || 'Sin clasificar';
+            byTema[tema] = (byTema[tema] || 0) + 1;
+        });
+
+        return {
+            total: tickets.length,
+            recentCount: recentTickets.length,
+            thisWeekCount: thisWeekTickets.length,
+            byStatus,
+            byPriority,
+            byType,
+            byService,
+            byTema,
+            avgResolutionTime,
+            resolutionRate,
+            pendingCount: byStatus.open + byStatus.in_progress
+        };
+    },
+
+    getMachineMetrics() {
+        const { machines, assignments, tickets } = this.data;
+        
+        // Estado de maquinas
+        const byStatus = {
+            active: machines.filter(m => m.status === 'active').length,
+            maintenance: machines.filter(m => m.status === 'maintenance').length,
+            inactive: machines.filter(m => m.status === 'inactive').length
+        };
+
+        // Maquinas por tipo
+        const byType = {};
+        machines.forEach(m => {
+            const type = m.type || 'Sin tipo';
+            byType[type] = (byType[type] || 0) + 1;
+        });
+
+        // Asignaciones activas
+        const activeAssignments = assignments.filter(a => !a.endDate);
+        const assignedMachineIds = new Set(activeAssignments.map(a => a.machineId));
+        const assignedCount = assignedMachineIds.size;
+        const unassignedCount = machines.length - assignedCount;
+
+        // Maquinas con tickets (problematicas)
+        const machineTicketCount = {};
+        tickets.forEach(t => {
+            if (t.machineId) {
+                machineTicketCount[t.machineId] = (machineTicketCount[t.machineId] || 0) + 1;
+            }
+        });
+
+        const problematicMachines = machines
+            .map(m => ({
+                ...m,
+                ticketCount: machineTicketCount[m.id] || 0
+            }))
+            .filter(m => m.ticketCount > 0)
+            .sort((a, b) => b.ticketCount - a.ticketCount)
+            .slice(0, 5);
+
+        // Antiguedad de maquinas
+        const now = new Date();
+        const machineAges = machines.map(m => {
+            if (m.purchaseDate) {
+                const purchaseDate = new Date(m.purchaseDate);
+                return (now - purchaseDate) / (1000 * 60 * 60 * 24 * 365); // años
+            }
+            return 0;
+        }).filter(age => age > 0);
+
+        const avgAge = machineAges.length > 0 
+            ? (machineAges.reduce((a, b) => a + b, 0) / machineAges.length).toFixed(1)
+            : 0;
+
+        const oldMachines = machines.filter(m => {
+            if (m.purchaseDate) {
+                const age = (now - new Date(m.purchaseDate)) / (1000 * 60 * 60 * 24 * 365);
+                return age > 3; // mas de 3 años
+            }
+            return false;
+        });
+
+        return {
+            total: machines.length,
+            byStatus,
+            byType,
+            assignedCount,
+            unassignedCount,
+            utilizationRate: machines.length > 0 ? ((assignedCount / machines.length) * 100).toFixed(1) : 0,
+            problematicMachines,
+            avgAge,
+            oldMachinesCount: oldMachines.length
+        };
+    },
+
+    getEmployeeMetrics() {
+        const { employees, assignments, tickets } = this.data;
+
+        // Empleados por estado
+        const byStatus = {
+            active: employees.filter(e => e.status === 'active').length,
+            inactive: employees.filter(e => e.status === 'inactive').length
+        };
+
+        // Empleados por departamento
+        const byDepartment = {};
+        employees.forEach(e => {
+            const dept = e.department || 'Sin departamento';
+            byDepartment[dept] = (byDepartment[dept] || 0) + 1;
+        });
+
+        // Empleados con maquina asignada
+        const activeAssignments = assignments.filter(a => !a.endDate);
+        const employeesWithMachine = new Set(activeAssignments.map(a => a.employeeId)).size;
+
+        // Empleados que mas tickets generan
+        const employeeTicketCount = {};
+        tickets.forEach(t => {
+            if (t.contactoId) {
+                employeeTicketCount[t.contactoId] = (employeeTicketCount[t.contactoId] || 0) + 1;
+            }
+        });
+
+        const topTicketGenerators = employees
+            .map(e => ({
+                ...e,
+                ticketCount: employeeTicketCount[e.id] || 0
+            }))
+            .filter(e => e.ticketCount > 0)
+            .sort((a, b) => b.ticketCount - a.ticketCount)
+            .slice(0, 5);
+
+        // Tickets por departamento
+        const ticketsByDepartment = {};
+        tickets.forEach(t => {
+            if (t.contactoId) {
+                const employee = employees.find(e => e.id === t.contactoId);
+                if (employee) {
+                    const dept = employee.department || 'Sin departamento';
+                    ticketsByDepartment[dept] = (ticketsByDepartment[dept] || 0) + 1;
+                }
+            }
+        });
+
+        return {
+            total: employees.length,
+            byStatus,
+            byDepartment,
+            employeesWithMachine,
+            withoutMachine: employees.length - employeesWithMachine,
+            topTicketGenerators,
+            ticketsByDepartment
+        };
+    },
+
+    getLicenseMetrics() {
+        const { licenses } = this.data;
+        const now = new Date();
+
+        // Licencias por estado de vencimiento
+        const expiringSoon = licenses.filter(l => {
+            if (l.expirationDate) {
+                const expDate = new Date(l.expirationDate);
+                const daysUntilExpiry = (expDate - now) / (1000 * 60 * 60 * 24);
+                return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
+            }
+            return false;
+        });
+
+        const expired = licenses.filter(l => {
+            if (l.expirationDate) {
+                return new Date(l.expirationDate) < now;
+            }
+            return false;
+        });
+
+        // Licencias por tipo
+        const byType = {};
+        licenses.forEach(l => {
+            const type = l.type || l.software || 'Sin tipo';
+            byType[type] = (byType[type] || 0) + 1;
+        });
+
+        // Costo total (si hay datos de costo)
+        const totalCost = licenses.reduce((acc, l) => acc + (parseFloat(l.cost) || 0), 0);
+
+        return {
+            total: licenses.length,
+            expiringSoon: expiringSoon.length,
+            expired: expired.length,
+            active: licenses.length - expired.length,
+            byType,
+            totalCost,
+            expiringList: expiringSoon.slice(0, 5)
+        };
+    },
+
+    generateInsights() {
+        const ticketMetrics = this.getTicketMetrics();
+        const machineMetrics = this.getMachineMetrics();
+        const employeeMetrics = this.getEmployeeMetrics();
+        const licenseMetrics = this.getLicenseMetrics();
+
+        const insights = [];
+
+        // Insight: Tickets pendientes altos
+        if (ticketMetrics.pendingCount > 5) {
+            insights.push({
+                type: 'warning',
+                icon: 'alert-triangle',
+                title: 'Tickets Pendientes',
+                message: `Hay ${ticketMetrics.pendingCount} tickets sin resolver. Considera priorizar su atencion.`,
+                metric: ticketMetrics.pendingCount
+            });
+        }
+
+        // Insight: Tickets criticos
+        if (ticketMetrics.byPriority.critical > 0) {
+            insights.push({
+                type: 'danger',
+                icon: 'alert-circle',
+                title: 'Tickets Criticos',
+                message: `${ticketMetrics.byPriority.critical} ticket(s) con prioridad critica requieren atencion inmediata.`,
+                metric: ticketMetrics.byPriority.critical
+            });
+        }
+
+        // Insight: Maquinas problematicas
+        if (machineMetrics.problematicMachines.length > 0) {
+            const topMachine = machineMetrics.problematicMachines[0];
+            insights.push({
+                type: 'warning',
+                icon: 'monitor',
+                title: 'Maquina Problematica',
+                message: `"${topMachine.name || topMachine.serialNumber}" tiene ${topMachine.ticketCount} tickets. Considera revision o reemplazo.`,
+                metric: topMachine.ticketCount
+            });
+        }
+
+        // Insight: Maquinas antiguas
+        if (machineMetrics.oldMachinesCount > 0) {
+            insights.push({
+                type: 'info',
+                icon: 'clock',
+                title: 'Equipos Antiguos',
+                message: `${machineMetrics.oldMachinesCount} maquina(s) tienen mas de 3 años. Evalua plan de renovacion.`,
+                metric: machineMetrics.oldMachinesCount
+            });
+        }
+
+        // Insight: Empleados sin maquina
+        if (employeeMetrics.withoutMachine > 0) {
+            insights.push({
+                type: 'info',
+                icon: 'user-x',
+                title: 'Sin Equipo Asignado',
+                message: `${employeeMetrics.withoutMachine} empleado(s) activo(s) no tienen maquina asignada.`,
+                metric: employeeMetrics.withoutMachine
+            });
+        }
+
+        // Insight: Licencias por vencer
+        if (licenseMetrics.expiringSoon > 0) {
+            insights.push({
+                type: 'warning',
+                icon: 'calendar',
+                title: 'Licencias por Vencer',
+                message: `${licenseMetrics.expiringSoon} licencia(s) venceran en los proximos 30 dias.`,
+                metric: licenseMetrics.expiringSoon
+            });
+        }
+
+        // Insight: Licencias vencidas
+        if (licenseMetrics.expired > 0) {
+            insights.push({
+                type: 'danger',
+                icon: 'x-circle',
+                title: 'Licencias Vencidas',
+                message: `${licenseMetrics.expired} licencia(s) ya estan vencidas y requieren renovacion.`,
+                metric: licenseMetrics.expired
+            });
+        }
+
+        // Insight: Buen rendimiento
+        if (parseFloat(ticketMetrics.resolutionRate) > 80) {
+            insights.push({
+                type: 'success',
+                icon: 'check-circle',
+                title: 'Buen Rendimiento',
+                message: `Tasa de resolucion del ${ticketMetrics.resolutionRate}%. El equipo esta haciendo un excelente trabajo.`,
+                metric: `${ticketMetrics.resolutionRate}%`
+            });
+        }
+
+        // Insight: Departamento problematico
+        const deptEntries = Object.entries(employeeMetrics.ticketsByDepartment);
+        if (deptEntries.length > 0) {
+            const [topDept, topCount] = deptEntries.sort((a, b) => b[1] - a[1])[0];
+            if (topCount > 3) {
+                insights.push({
+                    type: 'info',
+                    icon: 'users',
+                    title: 'Departamento con Mas Incidencias',
+                    message: `"${topDept}" genera el mayor numero de tickets (${topCount}). Considera capacitacion.`,
+                    metric: topCount
+                });
+            }
+        }
+
+        return insights;
+    },
+
+    // ========================================
+    // RENDERIZADO
+    // ========================================
+
+    async renderDashboard() {
+        const container = document.querySelector('.page-content');
+        if (!container) return;
+
+        const ticketMetrics = this.getTicketMetrics();
+        const machineMetrics = this.getMachineMetrics();
+        const employeeMetrics = this.getEmployeeMetrics();
+        const licenseMetrics = this.getLicenseMetrics();
+        const insights = this.generateInsights();
+
         container.innerHTML = `
-            <!-- KPIs Resumen -->
-            <section class="kpi-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
-                <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
-                    <div style="font-size: 0.875rem; color: var(--text-tertiary); margin-bottom: 0.5rem;">Total Tickets</div>
-                    <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">${tickets.length}</div>
-                    <div style="font-size: 0.75rem; color: #3b82f6; margin-top: 0.5rem;">${ticketsByStatus.open} abiertos</div>
-                </div>
-                <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
-                    <div style="font-size: 0.875rem; color: var(--text-tertiary); margin-bottom: 0.5rem;">Maquinas</div>
-                    <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">${machines.length}</div>
-                    <div style="font-size: 0.75rem; color: #22c55e; margin-top: 0.5rem;">${machines.filter(m => m.assignedTo).length} asignadas</div>
-                </div>
-                <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
-                    <div style="font-size: 0.875rem; color: var(--text-tertiary); margin-bottom: 0.5rem;">Empleados</div>
-                    <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">${employees.length}</div>
-                    <div style="font-size: 0.75rem; color: #a855f7; margin-top: 0.5rem;">${employees.filter(e => e.status === 'active').length} activos</div>
-                </div>
-                <div class="kpi-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
-                    <div style="font-size: 0.875rem; color: var(--text-tertiary); margin-bottom: 0.5rem;">Licencias</div>
-                    <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">${licenses.length}</div>
-                    <div style="font-size: 0.75rem; color: #f97316; margin-top: 0.5rem;">${stats.licenses?.expiring || 0} por vencer</div>
-                </div>
+            <!-- KPIs Principales -->
+            <section class="analytics-kpis-grid">
+                ${this.renderKPICard('Tickets Totales', ticketMetrics.total, ticketMetrics.pendingCount + ' pendientes', '#3b82f6', 'file-text')}
+                ${this.renderKPICard('Tasa Resolucion', ticketMetrics.resolutionRate + '%', 'de tickets cerrados', '#22c55e', 'check-circle')}
+                ${this.renderKPICard('Tiempo Promedio', this.formatTime(ticketMetrics.avgResolutionTime), 'de resolucion', '#f97316', 'clock')}
+                ${this.renderKPICard('Maquinas', machineMetrics.total, machineMetrics.assignedCount + ' asignadas', '#8b5cf6', 'monitor')}
+                ${this.renderKPICard('Empleados', employeeMetrics.total, employeeMetrics.byStatus.active + ' activos', '#ec4899', 'users')}
+                ${this.renderKPICard('Licencias', licenseMetrics.total, licenseMetrics.expiringSoon + ' por vencer', '#14b8a6', 'key')}
             </section>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                <!-- Tickets por Estado -->
-                <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
-                    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1.5rem;">Tickets por Estado</h3>
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="width: 100px; font-size: 0.875rem;">Abiertos</span>
-                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
-                                <div style="width: ${tickets.length ? (ticketsByStatus.open / tickets.length * 100) : 0}%; height: 100%; background: #3b82f6;"></div>
-                            </div>
-                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByStatus.open}</span>
+            <!-- Insights y Alertas -->
+            ${insights.length > 0 ? `
+            <section class="insights-section">
+                <h2 class="section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
+                    Insights y Alertas
+                </h2>
+                <div class="insights-grid">
+                    ${insights.map(i => this.renderInsightCard(i)).join('')}
+                </div>
+            </section>
+            ` : ''}
+
+            <!-- Analisis de Tickets -->
+            <section class="analytics-section">
+                <h2 class="section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path></svg>
+                    Analisis de Tickets
+                </h2>
+                <div class="analytics-grid-3">
+                    <!-- Por Estado -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Por Estado</h3>
+                        <div class="status-bars">
+                            ${this.renderStatusBar('Abiertos', ticketMetrics.byStatus.open, ticketMetrics.total, '#3b82f6')}
+                            ${this.renderStatusBar('En Progreso', ticketMetrics.byStatus.in_progress, ticketMetrics.total, '#f97316')}
+                            ${this.renderStatusBar('Resueltos', ticketMetrics.byStatus.resolved, ticketMetrics.total, '#22c55e')}
+                            ${this.renderStatusBar('Cerrados', ticketMetrics.byStatus.closed, ticketMetrics.total, '#6b7280')}
                         </div>
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="width: 100px; font-size: 0.875rem;">En Progreso</span>
-                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
-                                <div style="width: ${tickets.length ? (ticketsByStatus.in_progress / tickets.length * 100) : 0}%; height: 100%; background: #f97316;"></div>
-                            </div>
-                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByStatus.in_progress}</span>
+                    </div>
+
+                    <!-- Por Prioridad -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Por Prioridad</h3>
+                        <div class="priority-grid">
+                            ${this.renderPriorityBox('Critica', ticketMetrics.byPriority.critical, '#dc2626')}
+                            ${this.renderPriorityBox('Alta', ticketMetrics.byPriority.high, '#ef4444')}
+                            ${this.renderPriorityBox('Media', ticketMetrics.byPriority.medium, '#f97316')}
+                            ${this.renderPriorityBox('Baja', ticketMetrics.byPriority.low, '#6b7280')}
                         </div>
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="width: 100px; font-size: 0.875rem;">Resueltos</span>
-                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
-                                <div style="width: ${tickets.length ? (ticketsByStatus.resolved / tickets.length * 100) : 0}%; height: 100%; background: #22c55e;"></div>
+                    </div>
+
+                    <!-- Por Tipo -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Por Tipo</h3>
+                        <div class="type-comparison">
+                            <div class="type-item">
+                                <div class="type-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                </div>
+                                <div class="type-value">${ticketMetrics.byType.incidencia}</div>
+                                <div class="type-label">Incidencias</div>
                             </div>
-                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByStatus.resolved}</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="width: 100px; font-size: 0.875rem;">Cerrados</span>
-                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
-                                <div style="width: ${tickets.length ? (ticketsByStatus.closed / tickets.length * 100) : 0}%; height: 100%; background: #6b7280;"></div>
+                            <div class="type-item">
+                                <div class="type-icon" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                </div>
+                                <div class="type-value">${ticketMetrics.byType.requerimiento}</div>
+                                <div class="type-label">Requerimientos</div>
                             </div>
-                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByStatus.closed}</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tickets por Categoria -->
-                <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem;">
-                    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1.5rem;">Tickets por Categoria</h3>
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="width: 100px; font-size: 0.875rem;">Hardware</span>
-                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
-                                <div style="width: ${tickets.length ? (ticketsByCategory.hardware / tickets.length * 100) : 0}%; height: 100%; background: #ef4444;"></div>
-                            </div>
-                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByCategory.hardware}</span>
+                <!-- Tickets por Servicio y Tema -->
+                <div class="analytics-grid-2" style="margin-top: 1.5rem;">
+                    <div class="analytics-card">
+                        <h3 class="card-title">Por Servicio</h3>
+                        <div class="service-bars">
+                            ${this.renderServiceBar('Hardware', ticketMetrics.byService.hardware, ticketMetrics.total, '#ef4444')}
+                            ${this.renderServiceBar('Software', ticketMetrics.byService.software, ticketMetrics.total, '#8b5cf6')}
+                            ${this.renderServiceBar('Red', ticketMetrics.byService.network, ticketMetrics.total, '#06b6d4')}
+                            ${this.renderServiceBar('Otro', ticketMetrics.byService.other, ticketMetrics.total, '#6b7280')}
                         </div>
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="width: 100px; font-size: 0.875rem;">Software</span>
-                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
-                                <div style="width: ${tickets.length ? (ticketsByCategory.software / tickets.length * 100) : 0}%; height: 100%; background: #8b5cf6;"></div>
+                    </div>
+
+                    <div class="analytics-card">
+                        <h3 class="card-title">Por Tema</h3>
+                        ${Object.keys(ticketMetrics.byTema).length === 0 ? `
+                            <p class="empty-message">No hay tickets clasificados por tema</p>
+                        ` : `
+                            <div class="tema-list">
+                                ${Object.entries(ticketMetrics.byTema)
+                                    .sort((a, b) => b[1] - a[1])
+                                    .slice(0, 5)
+                                    .map(([tema, count]) => `
+                                        <div class="tema-item">
+                                            <span class="tema-name">${this.escapeHtml(tema)}</span>
+                                            <span class="tema-count">${count}</span>
+                                        </div>
+                                    `).join('')}
                             </div>
-                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByCategory.software}</span>
+                        `}
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analisis de Maquinas -->
+            <section class="analytics-section">
+                <h2 class="section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    Analisis de Maquinas
+                </h2>
+                <div class="analytics-grid-3">
+                    <!-- Utilizacion -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Utilizacion</h3>
+                        <div class="utilization-chart">
+                            <div class="donut-container">
+                                ${this.renderDonutChart(machineMetrics.assignedCount, machineMetrics.total, '#22c55e')}
+                            </div>
+                            <div class="utilization-legend">
+                                <div class="legend-item">
+                                    <span class="legend-dot" style="background: #22c55e;"></span>
+                                    <span>Asignadas: ${machineMetrics.assignedCount}</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-dot" style="background: var(--border-color);"></span>
+                                    <span>Disponibles: ${machineMetrics.unassignedCount}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="width: 100px; font-size: 0.875rem;">Red</span>
-                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
-                                <div style="width: ${tickets.length ? (ticketsByCategory.network / tickets.length * 100) : 0}%; height: 100%; background: #06b6d4;"></div>
+                    </div>
+
+                    <!-- Por Estado -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Por Estado</h3>
+                        <div class="machine-status-grid">
+                            <div class="status-box active">
+                                <div class="status-value">${machineMetrics.byStatus.active}</div>
+                                <div class="status-label">Activas</div>
                             </div>
-                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByCategory.network}</span>
+                            <div class="status-box maintenance">
+                                <div class="status-value">${machineMetrics.byStatus.maintenance}</div>
+                                <div class="status-label">Mantenimiento</div>
+                            </div>
+                            <div class="status-box inactive">
+                                <div class="status-value">${machineMetrics.byStatus.inactive}</div>
+                                <div class="status-label">Inactivas</div>
+                            </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <span style="width: 100px; font-size: 0.875rem;">Otro</span>
-                            <div style="flex: 1; height: 24px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
-                                <div style="width: ${tickets.length ? (ticketsByCategory.other / tickets.length * 100) : 0}%; height: 100%; background: #6b7280;"></div>
+                    </div>
+
+                    <!-- Antiguedad -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Antiguedad</h3>
+                        <div class="age-info">
+                            <div class="age-stat">
+                                <div class="age-value">${machineMetrics.avgAge}</div>
+                                <div class="age-label">años promedio</div>
                             </div>
-                            <span style="width: 30px; text-align: right; font-weight: 600;">${ticketsByCategory.other}</span>
+                            <div class="age-warning ${machineMetrics.oldMachinesCount > 0 ? 'show' : ''}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                ${machineMetrics.oldMachinesCount} equipos con +3 años
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Maquinas Problematicas -->
-                <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; grid-column: span 2;">
-                    <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1.5rem;">Maquinas con Mas Fallas</h3>
-                    ${problematicMachines.length === 0 ? `
-                        <p style="color: var(--text-tertiary); text-align: center; padding: 2rem;">No hay datos de fallas registradas</p>
-                    ` : `
-                        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;">
-                            ${problematicMachines.map((m, i) => `
-                                <div style="background: var(--bg-tertiary); border-radius: 12px; padding: 1rem; text-align: center;">
-                                    <div style="width: 48px; height: 48px; background: rgba(239, 68, 68, ${0.2 - i * 0.03}); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem; color: #ef4444; font-weight: 700; font-size: 1.25rem;">
-                                        ${m.ticketCount || 0}
-                                    </div>
-                                    <div style="font-weight: 500; font-size: 0.875rem; margin-bottom: 0.25rem;">${this.escapeHtml(m.name)}</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-tertiary);">${m.serialNumber}</div>
+                ${machineMetrics.problematicMachines.length > 0 ? `
+                <div class="analytics-card full-width" style="margin-top: 1.5rem;">
+                    <h3 class="card-title">Top Maquinas con Mas Incidencias</h3>
+                    <div class="problematic-machines-grid">
+                        ${machineMetrics.problematicMachines.map((m, i) => `
+                            <div class="problematic-machine">
+                                <div class="machine-rank">#${i + 1}</div>
+                                <div class="machine-info">
+                                    <div class="machine-name">${this.escapeHtml(m.name || 'Sin nombre')}</div>
+                                    <div class="machine-serial">${this.escapeHtml(m.serialNumber || '-')}</div>
                                 </div>
-                            `).join('')}
+                                <div class="machine-tickets" style="background: rgba(239, 68, 68, ${0.15 - i * 0.02});">
+                                    ${m.ticketCount} tickets
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+            </section>
+
+            <!-- Analisis de Personal -->
+            <section class="analytics-section">
+                <h2 class="section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    Analisis de Personal
+                </h2>
+                <div class="analytics-grid-2">
+                    <!-- Empleados por Departamento -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Empleados por Departamento</h3>
+                        ${Object.keys(employeeMetrics.byDepartment).length === 0 ? `
+                            <p class="empty-message">No hay empleados registrados</p>
+                        ` : `
+                            <div class="department-bars">
+                                ${Object.entries(employeeMetrics.byDepartment)
+                                    .sort((a, b) => b[1] - a[1])
+                                    .map(([dept, count]) => this.renderDepartmentBar(dept, count, employeeMetrics.total))
+                                    .join('')}
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Tickets por Departamento -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Tickets por Departamento</h3>
+                        ${Object.keys(employeeMetrics.ticketsByDepartment).length === 0 ? `
+                            <p class="empty-message">No hay datos de tickets por departamento</p>
+                        ` : `
+                            <div class="department-tickets">
+                                ${Object.entries(employeeMetrics.ticketsByDepartment)
+                                    .sort((a, b) => b[1] - a[1])
+                                    .map(([dept, count]) => `
+                                        <div class="dept-ticket-item">
+                                            <span class="dept-name">${this.escapeHtml(dept)}</span>
+                                            <div class="dept-bar-container">
+                                                <div class="dept-bar" style="width: ${ticketMetrics.total > 0 ? (count / ticketMetrics.total * 100) : 0}%;"></div>
+                                            </div>
+                                            <span class="dept-count">${count}</span>
+                                        </div>
+                                    `).join('')}
+                            </div>
+                        `}
+                    </div>
+                </div>
+
+                <!-- Top Generadores de Tickets -->
+                ${employeeMetrics.topTicketGenerators.length > 0 ? `
+                <div class="analytics-card full-width" style="margin-top: 1.5rem;">
+                    <h3 class="card-title">Empleados con Mas Tickets Generados</h3>
+                    <div class="top-generators-grid">
+                        ${employeeMetrics.topTicketGenerators.map((e, i) => `
+                            <div class="generator-item">
+                                <div class="generator-avatar" style="background: ${this.getAvatarColor(i)};">
+                                    ${this.getInitials(e.name, e.lastName)}
+                                </div>
+                                <div class="generator-info">
+                                    <div class="generator-name">${this.escapeHtml((e.name || '') + ' ' + (e.lastName || ''))}</div>
+                                    <div class="generator-dept">${this.escapeHtml(e.department || 'Sin departamento')}</div>
+                                </div>
+                                <div class="generator-count">${e.ticketCount}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+            </section>
+
+            <!-- Licencias -->
+            <section class="analytics-section">
+                <h2 class="section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                    Licencias
+                </h2>
+                <div class="analytics-grid-3">
+                    <div class="analytics-card">
+                        <h3 class="card-title">Estado General</h3>
+                        <div class="license-overview">
+                            <div class="license-stat">
+                                <div class="license-value" style="color: #22c55e;">${licenseMetrics.active}</div>
+                                <div class="license-label">Activas</div>
+                            </div>
+                            <div class="license-stat">
+                                <div class="license-value" style="color: #f97316;">${licenseMetrics.expiringSoon}</div>
+                                <div class="license-label">Por Vencer</div>
+                            </div>
+                            <div class="license-stat">
+                                <div class="license-value" style="color: #ef4444;">${licenseMetrics.expired}</div>
+                                <div class="license-label">Vencidas</div>
+                            </div>
                         </div>
-                    `}
+                    </div>
+
+                    <div class="analytics-card">
+                        <h3 class="card-title">Por Tipo</h3>
+                        ${Object.keys(licenseMetrics.byType).length === 0 ? `
+                            <p class="empty-message">No hay licencias registradas</p>
+                        ` : `
+                            <div class="license-types">
+                                ${Object.entries(licenseMetrics.byType)
+                                    .sort((a, b) => b[1] - a[1])
+                                    .slice(0, 4)
+                                    .map(([type, count]) => `
+                                        <div class="license-type-item">
+                                            <span class="license-type-name">${this.escapeHtml(type)}</span>
+                                            <span class="license-type-count">${count}</span>
+                                        </div>
+                                    `).join('')}
+                            </div>
+                        `}
+                    </div>
+
+                    <div class="analytics-card">
+                        <h3 class="card-title">Proximos Vencimientos</h3>
+                        ${licenseMetrics.expiringList.length === 0 ? `
+                            <p class="empty-message success">No hay licencias por vencer pronto</p>
+                        ` : `
+                            <div class="expiring-list">
+                                ${licenseMetrics.expiringList.map(l => `
+                                    <div class="expiring-item">
+                                        <span class="expiring-name">${this.escapeHtml(l.software || l.name || 'Sin nombre')}</span>
+                                        <span class="expiring-date">${this.formatDate(l.expirationDate)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `}
+                    </div>
+                </div>
+            </section>
+
+            <style>
+                .analytics-kpis-grid {
+                    display: grid;
+                    grid-template-columns: repeat(6, 1fr);
+                    gap: 1rem;
+                    margin-bottom: 2rem;
+                }
+                .kpi-card-new {
+                    background: var(--card-bg);
+                    border: 1px solid var(--border-color);
+                    border-radius: 12px;
+                    padding: 1.25rem;
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 1rem;
+                }
+                .kpi-icon-box {
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
+                .kpi-content {
+                    flex: 1;
+                    min-width: 0;
+                }
+                .kpi-value-new {
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    color: var(--text-primary);
+                    line-height: 1;
+                }
+                .kpi-label-new {
+                    font-size: 0.75rem;
+                    color: var(--text-tertiary);
+                    margin-top: 0.25rem;
+                }
+                .kpi-sub {
+                    font-size: 0.7rem;
+                    margin-top: 0.35rem;
+                }
+
+                .insights-section {
+                    margin-bottom: 2rem;
+                }
+                .insights-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                    gap: 1rem;
+                }
+                .insight-card {
+                    background: var(--card-bg);
+                    border: 1px solid var(--border-color);
+                    border-radius: 12px;
+                    padding: 1rem;
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 0.75rem;
+                    border-left: 4px solid;
+                }
+                .insight-card.warning { border-left-color: #f97316; }
+                .insight-card.danger { border-left-color: #ef4444; }
+                .insight-card.success { border-left-color: #22c55e; }
+                .insight-card.info { border-left-color: #3b82f6; }
+                .insight-icon {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
+                .insight-card.warning .insight-icon { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+                .insight-card.danger .insight-icon { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+                .insight-card.success .insight-icon { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+                .insight-card.info .insight-icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+                .insight-content { flex: 1; }
+                .insight-title { font-weight: 600; font-size: 0.875rem; margin-bottom: 0.25rem; }
+                .insight-message { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; }
+
+                .analytics-section {
+                    margin-bottom: 2.5rem;
+                }
+                .section-title {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    margin-bottom: 1rem;
+                    color: var(--text-primary);
+                }
+                .analytics-grid-2 {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 1.5rem;
+                }
+                .analytics-grid-3 {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 1.5rem;
+                }
+                .analytics-card {
+                    background: var(--card-bg);
+                    border: 1px solid var(--border-color);
+                    border-radius: 12px;
+                    padding: 1.25rem;
+                }
+                .analytics-card.full-width {
+                    grid-column: 1 / -1;
+                }
+                .card-title {
+                    font-size: 0.875rem;
+                    font-weight: 600;
+                    color: var(--text-secondary);
+                    margin-bottom: 1rem;
+                }
+
+                .status-bars, .service-bars, .department-bars {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                }
+                .status-bar-item, .service-bar-item, .dept-bar-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                }
+                .bar-label {
+                    width: 90px;
+                    font-size: 0.8rem;
+                    color: var(--text-secondary);
+                }
+                .bar-container {
+                    flex: 1;
+                    height: 8px;
+                    background: var(--bg-tertiary);
+                    border-radius: 4px;
+                    overflow: hidden;
+                }
+                .bar-fill {
+                    height: 100%;
+                    border-radius: 4px;
+                    transition: width 0.3s ease;
+                }
+                .bar-value {
+                    width: 30px;
+                    text-align: right;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                }
+
+                .priority-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 0.75rem;
+                }
+                .priority-box {
+                    text-align: center;
+                    padding: 1rem;
+                    border-radius: 10px;
+                    background: var(--bg-tertiary);
+                }
+                .priority-value {
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                }
+                .priority-label {
+                    font-size: 0.75rem;
+                    color: var(--text-tertiary);
+                    margin-top: 0.25rem;
+                }
+
+                .type-comparison {
+                    display: flex;
+                    justify-content: space-around;
+                    padding: 1rem 0;
+                }
+                .type-item {
+                    text-align: center;
+                }
+                .type-icon {
+                    width: 56px;
+                    height: 56px;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 0.75rem;
+                }
+                .type-value {
+                    font-size: 1.75rem;
+                    font-weight: 700;
+                }
+                .type-label {
+                    font-size: 0.75rem;
+                    color: var(--text-tertiary);
+                }
+
+                .tema-list, .license-types, .expiring-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                }
+                .tema-item, .license-type-item, .expiring-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 0.5rem 0.75rem;
+                    background: var(--bg-tertiary);
+                    border-radius: 6px;
+                    font-size: 0.8rem;
+                }
+                .tema-count, .license-type-count {
+                    font-weight: 600;
+                }
+                .expiring-date {
+                    font-size: 0.75rem;
+                    color: #f97316;
+                }
+
+                .donut-container {
+                    width: 120px;
+                    height: 120px;
+                    margin: 0 auto 1rem;
+                }
+                .utilization-legend {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                }
+                .legend-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    font-size: 0.8rem;
+                }
+                .legend-dot {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                }
+
+                .machine-status-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 0.75rem;
+                }
+                .status-box {
+                    text-align: center;
+                    padding: 1rem 0.5rem;
+                    border-radius: 8px;
+                }
+                .status-box.active { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+                .status-box.maintenance { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+                .status-box.inactive { background: rgba(107, 114, 128, 0.1); color: #6b7280; }
+                .status-value { font-size: 1.5rem; font-weight: 700; }
+                .status-label { font-size: 0.7rem; margin-top: 0.25rem; }
+
+                .age-info {
+                    text-align: center;
+                    padding: 1rem;
+                }
+                .age-stat { margin-bottom: 1rem; }
+                .age-value { font-size: 2.5rem; font-weight: 700; color: var(--text-primary); }
+                .age-label { font-size: 0.8rem; color: var(--text-tertiary); }
+                .age-warning {
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.5rem;
+                    font-size: 0.75rem;
+                    color: #f97316;
+                    background: rgba(249, 115, 22, 0.1);
+                    padding: 0.5rem;
+                    border-radius: 6px;
+                }
+                .age-warning.show { display: flex; }
+
+                .problematic-machines-grid, .top-generators-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                    gap: 1rem;
+                }
+                .problematic-machine, .generator-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 0.75rem;
+                    background: var(--bg-tertiary);
+                    border-radius: 10px;
+                }
+                .machine-rank {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 6px;
+                    background: var(--accent-light);
+                    color: var(--accent-primary);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 700;
+                    font-size: 0.75rem;
+                }
+                .machine-info, .generator-info { flex: 1; min-width: 0; }
+                .machine-name, .generator-name { font-weight: 500; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .machine-serial, .generator-dept { font-size: 0.7rem; color: var(--text-tertiary); }
+                .machine-tickets {
+                    padding: 0.25rem 0.6rem;
+                    border-radius: 6px;
+                    font-size: 0.7rem;
+                    font-weight: 600;
+                    color: #ef4444;
+                }
+                .generator-avatar {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: 600;
+                    font-size: 0.75rem;
+                }
+                .generator-count {
+                    font-weight: 700;
+                    font-size: 1.1rem;
+                    color: var(--text-primary);
+                }
+
+                .department-tickets {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                }
+                .dept-ticket-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                }
+                .dept-name {
+                    width: 100px;
+                    font-size: 0.8rem;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .dept-bar-container {
+                    flex: 1;
+                    height: 8px;
+                    background: var(--bg-tertiary);
+                    border-radius: 4px;
+                    overflow: hidden;
+                }
+                .dept-bar {
+                    height: 100%;
+                    background: var(--accent-primary);
+                    border-radius: 4px;
+                }
+                .dept-count {
+                    width: 25px;
+                    text-align: right;
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                }
+
+                .license-overview {
+                    display: flex;
+                    justify-content: space-around;
+                    padding: 1rem 0;
+                }
+                .license-stat { text-align: center; }
+                .license-value { font-size: 1.75rem; font-weight: 700; }
+                .license-label { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 0.25rem; }
+
+                .empty-message {
+                    text-align: center;
+                    padding: 1.5rem;
+                    color: var(--text-tertiary);
+                    font-size: 0.85rem;
+                }
+                .empty-message.success { color: #22c55e; }
+
+                @media (max-width: 1200px) {
+                    .analytics-kpis-grid { grid-template-columns: repeat(3, 1fr); }
+                }
+                @media (max-width: 900px) {
+                    .analytics-kpis-grid { grid-template-columns: repeat(2, 1fr); }
+                    .analytics-grid-3 { grid-template-columns: 1fr; }
+                    .analytics-grid-2 { grid-template-columns: 1fr; }
+                }
+                @media (max-width: 600px) {
+                    .analytics-kpis-grid { grid-template-columns: 1fr; }
+                }
+            </style>
+        `;
+    },
+
+    // ========================================
+    // HELPERS DE RENDERIZADO
+    // ========================================
+
+    renderKPICard(label, value, subtext, color, icon) {
+        return `
+            <div class="kpi-card-new">
+                <div class="kpi-icon-box" style="background: ${color}15; color: ${color};">
+                    ${this.getIcon(icon)}
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-value-new">${value}</div>
+                    <div class="kpi-label-new">${label}</div>
+                    <div class="kpi-sub" style="color: ${color};">${subtext}</div>
                 </div>
             </div>
         `;
+    },
+
+    renderInsightCard(insight) {
+        return `
+            <div class="insight-card ${insight.type}">
+                <div class="insight-icon">
+                    ${this.getIcon(insight.icon)}
+                </div>
+                <div class="insight-content">
+                    <div class="insight-title">${insight.title}</div>
+                    <div class="insight-message">${insight.message}</div>
+                </div>
+            </div>
+        `;
+    },
+
+    renderStatusBar(label, value, total, color) {
+        const percent = total > 0 ? (value / total * 100) : 0;
+        return `
+            <div class="status-bar-item">
+                <span class="bar-label">${label}</span>
+                <div class="bar-container">
+                    <div class="bar-fill" style="width: ${percent}%; background: ${color};"></div>
+                </div>
+                <span class="bar-value">${value}</span>
+            </div>
+        `;
+    },
+
+    renderServiceBar(label, value, total, color) {
+        const percent = total > 0 ? (value / total * 100) : 0;
+        return `
+            <div class="service-bar-item">
+                <span class="bar-label">${label}</span>
+                <div class="bar-container">
+                    <div class="bar-fill" style="width: ${percent}%; background: ${color};"></div>
+                </div>
+                <span class="bar-value">${value}</span>
+            </div>
+        `;
+    },
+
+    renderDepartmentBar(label, value, total) {
+        const percent = total > 0 ? (value / total * 100) : 0;
+        return `
+            <div class="dept-bar-item">
+                <span class="bar-label">${this.escapeHtml(label)}</span>
+                <div class="bar-container">
+                    <div class="bar-fill" style="width: ${percent}%; background: var(--accent-primary);"></div>
+                </div>
+                <span class="bar-value">${value}</span>
+            </div>
+        `;
+    },
+
+    renderPriorityBox(label, value, color) {
+        return `
+            <div class="priority-box">
+                <div class="priority-value" style="color: ${color};">${value}</div>
+                <div class="priority-label">${label}</div>
+            </div>
+        `;
+    },
+
+    renderDonutChart(value, total, color) {
+        const percent = total > 0 ? (value / total * 100) : 0;
+        const circumference = 2 * Math.PI * 45;
+        const offset = circumference - (percent / 100) * circumference;
+        
+        return `
+            <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="var(--border-color)" stroke-width="10"/>
+                <circle cx="50" cy="50" r="45" fill="none" stroke="${color}" stroke-width="10"
+                    stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
+                    transform="rotate(-90 50 50)" stroke-linecap="round"/>
+                <text x="50" y="50" text-anchor="middle" dy="0.35em" font-size="18" font-weight="700" fill="var(--text-primary)">
+                    ${percent.toFixed(0)}%
+                </text>
+            </svg>
+        `;
+    },
+
+    getIcon(name) {
+        const icons = {
+            'file-text': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+            'check-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
+            'clock': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+            'monitor': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
+            'users': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+            'key': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>',
+            'alert-triangle': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+            'alert-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
+            'calendar': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>',
+            'x-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+            'user-x': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>'
+        };
+        return icons[name] || '';
+    },
+
+    formatTime(hours) {
+        if (hours === 0) return '0h';
+        if (hours < 1) return Math.round(hours * 60) + 'm';
+        if (hours < 24) return hours.toFixed(1) + 'h';
+        return (hours / 24).toFixed(1) + 'd';
+    },
+
+    formatDate(dateStr) {
+        if (!dateStr) return '-';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+    },
+
+    getInitials(name, lastName) {
+        const first = (name || '').charAt(0).toUpperCase();
+        const last = (lastName || '').charAt(0).toUpperCase();
+        return first + last || '??';
+    },
+
+    getAvatarColor(index) {
+        const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#22c55e'];
+        return colors[index % colors.length];
     },
 
     escapeHtml(text) {
