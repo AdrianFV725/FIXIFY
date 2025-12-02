@@ -18,6 +18,17 @@ const Auth = {
         
         if (this.useFirebase) {
             console.log('Auth: Usando Firebase Authentication');
+            
+            // Mostrar informacion de configuracion para el administrador
+            const currentDomain = window.location.hostname;
+            console.log('%c[Firebase Auth Config]', 'color: #3b82f6; font-weight: bold');
+            console.log('Dominio actual:', currentDomain);
+            console.log('Para que el restablecimiento de contrasena funcione, asegurate de:');
+            console.log('1. Ir a Firebase Console > Authentication > Settings > Authorized domains');
+            console.log('2. Agregar este dominio:', currentDomain);
+            console.log('3. Si usas localhost, agregar: localhost');
+            console.log('Action URL para reset:', this.getActionCodeUrl());
+            
             getFirebaseAuth().onAuthStateChanged((user) => {
                 if (user) {
                     this.syncUserData(user);
@@ -92,6 +103,9 @@ const Auth = {
                 return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
             }
 
+            // Verificar si el usuario ya esta migrado a Firebase Auth
+            const isUserMigrated = !!userData.firebaseUid || !!userData.migratedAt;
+
             // Intentar login con Firebase Auth
             try {
                 const userCredential = await auth.signInWithEmailAndPassword(email, password);
@@ -110,6 +124,17 @@ const Auth = {
                 storage.setItem(this.SESSION_KEY, 'active');
                 storage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
 
+                // Si no tenia firebaseUid, actualizarlo ahora
+                if (!userData.firebaseUid) {
+                    try {
+                        await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
+                            firebaseUid: firebaseUser.uid
+                        }, userData.id);
+                    } catch (e) {
+                        console.warn('No se pudo actualizar firebaseUid');
+                    }
+                }
+
                 // Actualizar ultimo login
                 try {
                     await FirestoreService.updateUserLastLogin(email);
@@ -123,20 +148,30 @@ const Auth = {
             } catch (authError) {
                 console.log('Error de Firebase Auth:', authError.code);
                 
-                // Si el usuario no existe en Firebase Auth, intentar crearlo
+                // Si el usuario no existe en Firebase Auth
                 if (authError.code === 'auth/user-not-found') {
-                    // Verificar contrasena contra Firestore (migracion)
-                    if (userData.password === password) {
-                        // Crear usuario en Firebase Auth
-                        const migrationResult = await this.migrateUserToFirebaseAuth(email, password, userData);
-                        if (migrationResult.success) {
-                            return migrationResult;
+                    // Solo intentar migrar si el usuario NO esta marcado como migrado
+                    // y tiene una contrasena legacy en Firestore
+                    if (!isUserMigrated && userData.password) {
+                        // Verificar contrasena contra Firestore (migracion)
+                        if (userData.password === password) {
+                            // Crear usuario en Firebase Auth
+                            const migrationResult = await this.migrateUserToFirebaseAuth(email, password, userData);
+                            if (migrationResult.success) {
+                                return migrationResult;
+                            }
                         }
                     }
                     return { success: false, message: 'Credenciales incorrectas' };
                 }
                 
-                if (authError.code === 'auth/wrong-password') {
+                // Contraseña incorrecta - NO intentar con contraseña de Firestore
+                // porque el usuario podria haber reseteado su contraseña
+                if (authError.code === 'auth/wrong-password' || authError.code === 'auth/invalid-credential') {
+                    // Si el usuario restableció su contraseña, la contraseña de Firestore es obsoleta
+                    if (isUserMigrated || userData.passwordResetAt) {
+                        return { success: false, message: 'Contrasena incorrecta. Si olvidaste tu contrasena, usa "Olvide mi contrasena".' };
+                    }
                     return { success: false, message: 'Contrasena incorrecta' };
                 }
                 
@@ -146,6 +181,10 @@ const Auth = {
 
                 if (authError.code === 'auth/too-many-requests') {
                     return { success: false, message: 'Demasiados intentos fallidos. Intenta mas tarde.' };
+                }
+
+                if (authError.code === 'auth/user-disabled') {
+                    return { success: false, message: 'Esta cuenta ha sido deshabilitada. Contacta al administrador.' };
                 }
 
                 return { success: false, message: 'Error al iniciar sesion' };
@@ -173,11 +212,24 @@ const Auth = {
                 displayName: userData.name || 'Usuario'
             });
 
-            // Actualizar documento en Firestore (remover password en texto plano)
-            await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
-                firebaseUid: firebaseUser.uid,
-                migratedAt: new Date().toISOString()
-            }, userData.id);
+            // Actualizar documento en Firestore y remover password en texto plano
+            try {
+                const db = getFirebaseDb();
+                await db.collection(FirestoreService.COLLECTIONS.USERS).doc(userData.id).update({
+                    firebaseUid: firebaseUser.uid,
+                    migratedAt: new Date().toISOString(),
+                    // Eliminar el campo password usando FieldValue.delete()
+                    password: firebase.firestore.FieldValue.delete()
+                });
+                console.log('Contrasena legacy eliminada de Firestore tras migracion');
+            } catch (updateError) {
+                // Si falla el delete, al menos guardar el firebaseUid
+                console.warn('No se pudo eliminar password legacy, guardando firebaseUid:', updateError);
+                await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
+                    firebaseUid: firebaseUser.uid,
+                    migratedAt: new Date().toISOString()
+                }, userData.id);
+            }
 
             const sessionUser = {
                 id: firebaseUser.uid,
@@ -191,10 +243,21 @@ const Auth = {
             localStorage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
 
             console.log('Usuario migrado exitosamente a Firebase Auth');
+            
+            // Registrar actividad
+            try {
+                await FirestoreService.logActivity('user_migrated_to_firebase_auth', { email: email });
+            } catch (e) {}
+
             return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
 
         } catch (error) {
             console.error('Error al migrar usuario:', error);
+            
+            if (error.code === 'auth/email-already-in-use') {
+                return { success: false, message: 'Esta cuenta ya existe. Intenta recuperar tu contrasena.' };
+            }
+            
             return { success: false, message: 'Error al migrar cuenta' };
         }
     },
@@ -344,6 +407,36 @@ const Auth = {
     // ========================================
 
     /**
+     * Obtiene la URL base para los action codes de Firebase
+     */
+    getActionCodeUrl() {
+        // Detectar la URL base del sitio
+        const currentUrl = window.location.href;
+        const urlParts = currentUrl.split('/');
+        
+        // Si estamos en localhost o desarrollo
+        if (currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1')) {
+            // Usar la URL base actual
+            const baseUrl = urlParts.slice(0, 3).join('/');
+            const pathParts = window.location.pathname.split('/');
+            
+            // Determinar si estamos en la raiz o en pages/
+            if (pathParts.includes('pages')) {
+                return `${baseUrl}/${pathParts.slice(1, -1).join('/')}/reset-password.html`;
+            } else {
+                // Encontrar el path del proyecto
+                const projectPath = pathParts.slice(1, -1).join('/');
+                return `${baseUrl}/${projectPath}/pages/reset-password.html`;
+            }
+        }
+        
+        // Para produccion, usar el dominio configurado en Firebase
+        // Esto deberia coincidir con los dominios autorizados en Firebase Console
+        const baseUrl = urlParts.slice(0, 3).join('/');
+        return `${baseUrl}/pages/reset-password.html`;
+    },
+
+    /**
      * Envia un correo para restablecer la contrasena
      */
     async resetPassword(email) {
@@ -366,9 +459,19 @@ const Auth = {
             // Configurar idioma del email
             auth.languageCode = 'es';
 
+            // Configurar action code settings para el enlace de reset
+            const actionCodeSettings = {
+                // URL a donde se redirige despues de hacer clic en el enlace
+                url: this.getActionCodeUrl(),
+                // Manejar el codigo en la app (no en el widget de Firebase)
+                handleCodeInApp: true
+            };
+
+            console.log('Reset password - Action URL:', actionCodeSettings.url);
+
             // Intentar enviar correo de recuperacion
             try {
-                await auth.sendPasswordResetEmail(email);
+                await auth.sendPasswordResetEmail(email, actionCodeSettings);
                 
                 // Registrar actividad
                 try {
@@ -381,7 +484,7 @@ const Auth = {
                 };
 
             } catch (authError) {
-                console.log('Error de Firebase Auth:', authError.code);
+                console.log('Error de Firebase Auth:', authError.code, authError.message);
                 
                 // Si el usuario no existe en Firebase Auth, crearlo primero
                 if (authError.code === 'auth/user-not-found') {
@@ -389,19 +492,39 @@ const Auth = {
                     if (userData.password) {
                         try {
                             console.log('Migrando usuario a Firebase Auth...');
-                            await auth.createUserWithEmailAndPassword(email, userData.password);
                             
-                            // Ahora enviar el correo de recuperacion
-                            await auth.sendPasswordResetEmail(email);
+                            // Crear usuario en Firebase Auth
+                            const userCredential = await auth.createUserWithEmailAndPassword(email, userData.password);
+                            const firebaseUser = userCredential.user;
+                            
+                            // Actualizar displayName
+                            if (userData.name) {
+                                await firebaseUser.updateProfile({
+                                    displayName: userData.name
+                                });
+                            }
                             
                             // Actualizar Firestore para marcar como migrado
                             await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
-                                firebaseUid: auth.currentUser?.uid,
+                                firebaseUid: firebaseUser.uid,
                                 migratedAt: new Date().toISOString()
                             }, userData.id);
                             
-                            // Cerrar sesion del usuario recien creado
+                            console.log('Usuario migrado con UID:', firebaseUser.uid);
+                            
+                            // Cerrar sesion del usuario recien creado antes de enviar el correo
                             await auth.signOut();
+                            
+                            // Ahora enviar el correo de recuperacion
+                            await auth.sendPasswordResetEmail(email, actionCodeSettings);
+                            
+                            // Registrar actividad
+                            try {
+                                await FirestoreService.logActivity('password_reset_requested', { 
+                                    email: email,
+                                    migrated: true 
+                                });
+                            } catch (e) {}
                             
                             return { 
                                 success: true, 
@@ -409,14 +532,31 @@ const Auth = {
                             };
                         } catch (createError) {
                             console.error('Error al migrar usuario:', createError);
+                            
                             if (createError.code === 'auth/email-already-in-use') {
-                                // El email ya existe, intentar enviar de nuevo
-                                await auth.sendPasswordResetEmail(email);
+                                // El email ya existe en Firebase Auth, intentar enviar de nuevo
+                                try {
+                                    await auth.sendPasswordResetEmail(email, actionCodeSettings);
+                                    return { 
+                                        success: true, 
+                                        message: 'Se ha enviado un correo para restablecer tu contrasena' 
+                                    };
+                                } catch (retryError) {
+                                    console.error('Error al reenviar correo:', retryError);
+                                    return { 
+                                        success: false, 
+                                        message: 'Error al enviar el correo. Intenta de nuevo.' 
+                                    };
+                                }
+                            }
+                            
+                            if (createError.code === 'auth/weak-password') {
                                 return { 
-                                    success: true, 
-                                    message: 'Se ha enviado un correo para restablecer tu contrasena' 
+                                    success: false, 
+                                    message: 'Tu cuenta tiene una contrasena muy corta. Contacta al administrador.' 
                                 };
                             }
+                            
                             return { 
                                 success: false, 
                                 message: 'Error al procesar la solicitud. Intenta de nuevo.' 
@@ -432,10 +572,20 @@ const Auth = {
                 
                 // Manejar error de dominio no autorizado
                 if (authError.code === 'auth/unauthorized-continue-uri') {
-                    return { 
-                        success: false, 
-                        message: 'Error de configuracion. El dominio no esta autorizado en Firebase.' 
-                    };
+                    console.error('Dominio no autorizado:', actionCodeSettings.url);
+                    // Intentar sin actionCodeSettings como fallback
+                    try {
+                        await auth.sendPasswordResetEmail(email);
+                        return { 
+                            success: true, 
+                            message: 'Se ha enviado un correo para restablecer tu contrasena' 
+                        };
+                    } catch (fallbackError) {
+                        return { 
+                            success: false, 
+                            message: 'Error de configuracion. Contacta al administrador.' 
+                        };
+                    }
                 }
                 
                 throw authError;
@@ -450,6 +600,8 @@ const Auth = {
                 message = 'Correo electronico invalido';
             } else if (error.code === 'auth/too-many-requests') {
                 message = 'Demasiados intentos. Intenta mas tarde.';
+            } else if (error.code === 'auth/network-request-failed') {
+                message = 'Error de conexion. Verifica tu internet.';
             }
             
             return { success: false, message };
@@ -621,9 +773,24 @@ const Auth = {
                 return { success: false, message: 'Usuario no encontrado' };
             }
 
+            // Configurar action code settings
+            const actionCodeSettings = {
+                url: this.getActionCodeUrl(),
+                handleCodeInApp: true
+            };
+
             // Si el usuario tiene firebaseUid, enviar email de reset
             if (userData.firebaseUid) {
-                await auth.sendPasswordResetEmail(userEmail);
+                try {
+                    await auth.sendPasswordResetEmail(userEmail, actionCodeSettings);
+                } catch (sendError) {
+                    // Si falla con actionCodeSettings, intentar sin ellos
+                    if (sendError.code === 'auth/unauthorized-continue-uri') {
+                        await auth.sendPasswordResetEmail(userEmail);
+                    } else {
+                        throw sendError;
+                    }
+                }
                 
                 try {
                     await FirestoreService.logActivity('password_reset_sent_by_admin', { 
@@ -638,13 +805,81 @@ const Auth = {
                     method: 'email'
                 };
             } else {
-                // Usuario no migrado a Firebase Auth, actualizar directamente en Firestore
-                return { 
-                    success: true, 
-                    message: 'Usuario en modo legacy - puede actualizar la contrasena directamente',
-                    method: 'direct',
-                    userId: userData.id
-                };
+                // Usuario no migrado a Firebase Auth
+                // Intentar migrarlo primero si tiene password
+                if (userData.password) {
+                    try {
+                        // Crear en Firebase Auth
+                        const userCredential = await auth.createUserWithEmailAndPassword(userEmail, userData.password);
+                        
+                        // Actualizar Firestore
+                        await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
+                            firebaseUid: userCredential.user.uid,
+                            migratedAt: new Date().toISOString()
+                        }, userData.id);
+                        
+                        // Cerrar sesion
+                        await auth.signOut();
+                        
+                        // Ahora enviar email de reset
+                        try {
+                            await auth.sendPasswordResetEmail(userEmail, actionCodeSettings);
+                        } catch (sendError) {
+                            if (sendError.code === 'auth/unauthorized-continue-uri') {
+                                await auth.sendPasswordResetEmail(userEmail);
+                            } else {
+                                throw sendError;
+                            }
+                        }
+                        
+                        try {
+                            await FirestoreService.logActivity('password_reset_sent_by_admin', { 
+                                targetEmail: userEmail,
+                                adminEmail: this.getCurrentUser()?.email,
+                                migrated: true
+                            });
+                        } catch (e) {}
+                        
+                        return { 
+                            success: true, 
+                            message: `Se ha enviado un correo a ${userEmail} para restablecer la contrasena`,
+                            method: 'email'
+                        };
+                    } catch (migrateError) {
+                        console.error('Error al migrar usuario para reset:', migrateError);
+                        
+                        if (migrateError.code === 'auth/email-already-in-use') {
+                            // El usuario ya existe en Firebase Auth, enviar email
+                            try {
+                                await auth.sendPasswordResetEmail(userEmail, actionCodeSettings);
+                            } catch (sendError) {
+                                if (sendError.code === 'auth/unauthorized-continue-uri') {
+                                    await auth.sendPasswordResetEmail(userEmail);
+                                } else {
+                                    throw sendError;
+                                }
+                            }
+                            return { 
+                                success: true, 
+                                message: `Se ha enviado un correo a ${userEmail} para restablecer la contrasena`,
+                                method: 'email'
+                            };
+                        }
+                        
+                        // Si no se puede migrar, permitir actualizacion directa
+                        return { 
+                            success: true, 
+                            message: 'Usuario en modo legacy - puede actualizar la contrasena directamente',
+                            method: 'direct',
+                            userId: userData.id
+                        };
+                    }
+                } else {
+                    return { 
+                        success: false, 
+                        message: 'El usuario no tiene contrasena configurada. Debe establecer una nueva.' 
+                    };
+                }
             }
 
         } catch (error) {

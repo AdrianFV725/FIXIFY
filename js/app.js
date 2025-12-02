@@ -782,36 +782,45 @@ class LoginController {
         this.setLoading(true);
 
         try {
-            const result = await AuthManager.authenticate(
-                elements.emailInput.value,
-                elements.passwordInput.value
-            );
+            const email = elements.emailInput.value;
+            const password = elements.passwordInput.value;
+            const rememberMe = document.getElementById('remember').checked;
+            
+            let result;
+
+            // Usar Auth.login() si esta disponible (usa Firebase Auth)
+            if (window.Auth && typeof Auth.login === 'function') {
+                console.log('Usando Auth.login con Firebase Auth');
+                result = await Auth.login(email, password, rememberMe);
+            } else {
+                // Fallback al AuthManager local
+                console.log('Usando AuthManager local (fallback)');
+                result = await AuthManager.authenticate(email, password);
+                
+                // Si el AuthManager funciona, guardar sesion manualmente
+                if (result.success) {
+                    const storage = rememberMe ? localStorage : sessionStorage;
+                    let userData = result.user;
+                    if (!userData) {
+                        try {
+                            userData = await Store.getUserByEmail(email);
+                        } catch (e) {
+                            console.warn('No se pudo obtener datos del usuario');
+                        }
+                    }
+                    
+                    storage.setItem('fixify-session', 'active');
+                    storage.setItem('fixify-user', JSON.stringify({
+                        id: userData?.id || 'unknown',
+                        email: userData?.email || email,
+                        name: userData?.name || 'Usuario',
+                        role: userData?.role || 'user',
+                        loginAt: new Date().toISOString()
+                    }));
+                }
+            }
 
             if (result.success) {
-                // Guardar estado de sesion si "recordarme" esta activo
-                const rememberMe = document.getElementById('remember').checked;
-                const storage = rememberMe ? localStorage : sessionStorage;
-                
-                // Usar datos del usuario del resultado
-                let userData = result.user;
-                if (!userData) {
-                    try {
-                        userData = await Store.getUserByEmail(elements.emailInput.value);
-                    } catch (e) {
-                        console.warn('No se pudo obtener datos del usuario');
-                    }
-                }
-                
-                // Guardar sesion y datos del usuario
-                storage.setItem('fixify-session', 'active');
-                storage.setItem('fixify-user', JSON.stringify({
-                    id: userData?.id || 'unknown',
-                    email: userData?.email || elements.emailInput.value,
-                    name: userData?.name || 'Usuario',
-                    role: userData?.role || 'user',
-                    loginAt: new Date().toISOString()
-                }));
-
                 // Mostrar mensaje de redireccion y redirigir al dashboard
                 this.showSuccessState();
                 setTimeout(() => {
@@ -822,6 +831,7 @@ class LoginController {
                 this.shakeCard();
             }
         } catch (error) {
+            console.error('Error en login:', error);
             NotificationManager.show('Error de conexion. Intenta de nuevo.', 'error');
             this.shakeCard();
         } finally {
