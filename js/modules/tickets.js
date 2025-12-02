@@ -1148,7 +1148,7 @@ const TicketsModule = {
                         </div>
                         <button class="modal-close" onclick="document.getElementById('categoriesModal').remove()">&times;</button>
                     </div>
-                    <div class="modal-body" style="display: grid; grid-template-columns: 1fr 280px; gap: 1.25rem; padding: 1rem 1.5rem; flex: 1; min-height: 0; overflow: hidden;">
+                    <div class="modal-body" id="categoriesModalBody" style="display: grid; grid-template-columns: 1fr 280px; gap: 1.25rem; padding: 1rem 1.5rem; flex: 1; min-height: 0; overflow: hidden; transition: grid-template-columns 0.3s ease;">
                         <!-- Lista de categorias (con scroll) -->
                         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                             <!-- Buscador de categorias -->
@@ -1165,7 +1165,7 @@ const TicketsModule = {
                         </div>
                         
                         <!-- Panel lateral: Formulario (sin scroll) -->
-                        <div style="display: flex; flex-direction: column; gap: 0.75rem; overflow: visible;">
+                        <div id="categoryFormPanel" style="display: flex; flex-direction: column; gap: 0.75rem; overflow: visible; transition: opacity 0.3s ease, transform 0.3s ease;">
                             <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 10px;">
                                 <div style="font-weight: 600; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -1245,8 +1245,29 @@ const TicketsModule = {
         const filterCategoriesTable = () => {
             const searchQuery = (categoriesSearchInput?.value || '').toLowerCase().trim();
             const table = document.querySelector('#categoriesList table tbody');
+            const modalBody = document.getElementById('categoriesModalBody');
+            const formPanel = document.getElementById('categoryFormPanel');
             
             if (!table) return;
+            
+            // Ocultar/mostrar formulario según si hay búsqueda activa
+            if (searchQuery) {
+                // Hay búsqueda: ocultar formulario y expandir tabla
+                if (modalBody) {
+                    modalBody.style.gridTemplateColumns = '1fr';
+                }
+                if (formPanel) {
+                    formPanel.style.display = 'none';
+                }
+            } else {
+                // No hay búsqueda: mostrar formulario y layout normal
+                if (modalBody) {
+                    modalBody.style.gridTemplateColumns = '1fr 280px';
+                }
+                if (formPanel) {
+                    formPanel.style.display = 'flex';
+                }
+            }
             
             const rows = table.querySelectorAll('tr');
             let visibleCount = 0;
