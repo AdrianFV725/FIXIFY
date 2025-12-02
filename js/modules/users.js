@@ -6,6 +6,7 @@ const UsersModule = {
     users: [],
     filteredUsers: [],
     departments: [],
+    employeeOptions: {},
 
     async init() {
         if (!Auth.isAuthenticated()) {
@@ -35,15 +36,71 @@ const UsersModule = {
 
     async loadData() {
         try {
-            this.users = await Store.getUsers() || [];
+            // Cargar usuarios y empleados
+            const [users, employees] = await Promise.all([
+                Store.getUsers() || [],
+                Store.getEmployees() || []
+            ]);
+            
             this.departments = await Store.getDepartments() || [];
+            this.employeeOptions = await Store.getEmployeeOptions() || {};
+            
+            // Unificar usuarios y empleados
+            // Primero, agregar todos los usuarios existentes
+            this.users = [...users];
+            
+            // Luego, convertir empleados en usuarios si no existen ya
+            for (const employee of employees) {
+                // Buscar si ya existe un usuario con el mismo email
+                const existingUser = this.users.find(u => 
+                    u.email && employee.email && 
+                    u.email.toLowerCase() === employee.email.toLowerCase()
+                );
+                
+                if (!existingUser) {
+                    // Crear usuario a partir del empleado
+                    const userFromEmployee = {
+                        id: employee.id || Store.generateId('USR'),
+                        email: employee.email || '',
+                        name: employee.name || '',
+                        lastName: employee.lastName || '',
+                        role: 'employee',
+                        status: employee.status || 'active',
+                        employeeNumber: employee.employeeNumber || '',
+                        department: employee.department || '',
+                        position: employee.position || '',
+                        phone: employee.phone || '',
+                        startDate: employee.startDate || '',
+                        notes: employee.notes || '',
+                        createdAt: employee.createdAt || new Date().toISOString(),
+                        isFromEmployee: true // Marca para identificar que viene de empleados
+                    };
+                    this.users.push(userFromEmployee);
+                } else {
+                    // Si ya existe, actualizar con datos del empleado si faltan
+                    if (existingUser.role !== 'employee') {
+                        existingUser.role = 'employee';
+                    }
+                    if (!existingUser.employeeNumber && employee.employeeNumber) {
+                        existingUser.employeeNumber = employee.employeeNumber;
+                    }
+                    if (!existingUser.department && employee.department) {
+                        existingUser.department = employee.department;
+                    }
+                    if (!existingUser.position && employee.position) {
+                        existingUser.position = employee.position;
+                    }
+                    if (!existingUser.lastName && employee.lastName) {
+                        existingUser.lastName = employee.lastName;
+                    }
+                }
+            }
             
             // Actualizar usuarios que no tienen fecha de creacion
             for (const user of this.users) {
                 if (!user.createdAt) {
                     user.createdAt = new Date().toISOString();
                     await Store.saveUser(user);
-                    console.log(`Fecha de creacion agregada a usuario: ${user.email}`);
                 }
             }
             
@@ -53,6 +110,7 @@ const UsersModule = {
             this.users = [];
             this.filteredUsers = [];
             this.departments = [];
+            this.employeeOptions = {};
         }
     },
 
@@ -91,7 +149,8 @@ const UsersModule = {
             total: this.users.length,
             active: this.users.filter(u => u.status === 'active').length,
             admins: this.users.filter(u => u.role === 'admin').length,
-            users: this.users.filter(u => u.role === 'user').length
+            users: this.users.filter(u => u.role === 'user').length,
+            employees: this.users.filter(u => u.role === 'employee').length
         };
 
         container.innerHTML = `
@@ -129,6 +188,15 @@ const UsersModule = {
                 <div class="mini-stat-content">
                     <span class="mini-stat-value">${stats.users}</span>
                     <span class="mini-stat-label">Usuarios</span>
+                </div>
+            </div>
+            <div class="mini-stat">
+                <div class="mini-stat-icon" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                </div>
+                <div class="mini-stat-content">
+                    <span class="mini-stat-value">${stats.employees}</span>
+                    <span class="mini-stat-label">Empleados</span>
                 </div>
             </div>
         `;
@@ -203,6 +271,9 @@ const UsersModule = {
 
         const currentUser = Auth.getCurrentUser();
 
+        const hasEmployees = this.users.some(u => u.role === 'employee');
+        const colCount = hasEmployees ? 9 : 7;
+
         tableContainer.innerHTML = `
             <table class="data-table">
                 <thead>
@@ -210,7 +281,7 @@ const UsersModule = {
                         <th>Usuario</th>
                         <th>Correo</th>
                         <th>Rol</th>
-                        ${this.users.some(u => u.role === 'employee') ? '<th>Departamento</th><th>Puesto</th>' : ''}
+                        ${hasEmployees ? '<th>Departamento</th><th>Puesto</th>' : ''}
                         <th>Estado</th>
                         <th>Creado</th>
                         <th>Ultimo Acceso</th>
@@ -219,7 +290,7 @@ const UsersModule = {
                 </thead>
                 <tbody>
                     ${this.filteredUsers.length === 0 ? `
-                        <tr><td colspan="${7 + (this.users.some(u => u.role === 'employee') ? 2 : 0)}" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.users.length === 0 ? 'No hay usuarios registrados' : 'No se encontraron resultados'}</td></tr>
+                        <tr><td colspan="${colCount}" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.users.length === 0 ? 'No hay usuarios registrados' : 'No se encontraron resultados'}</td></tr>
                     ` : this.filteredUsers.map(u => {
                         const getDeptName = (deptId) => {
                             const dept = this.departments.find(d => d.id === deptId);
@@ -240,7 +311,7 @@ const UsersModule = {
                             </td>
                             <td>${u.email || '-'}</td>
                             <td>${roleBadge(u.role)}</td>
-                            ${this.users.some(u2 => u2.role === 'employee') ? `
+                            ${hasEmployees ? `
                                 <td>${u.role === 'employee' ? getDeptName(u.department) : '-'}</td>
                                 <td>${u.role === 'employee' ? (u.position || '-') : '-'}</td>
                             ` : ''}
@@ -332,6 +403,7 @@ const UsersModule = {
 
     bindEvents() {
         document.getElementById('newUserBtn')?.addEventListener('click', () => this.openForm());
+        document.getElementById('manageDepartmentsBtn')?.addEventListener('click', () => this.openDepartmentsManager());
         
         // Filtros en tiempo real
         document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
@@ -510,12 +582,50 @@ const UsersModule = {
                     data.createdAt = existing.createdAt;
                     Object.assign(existing, data);
                     await Store.saveUser(existing);
+                    
+                    // Si es empleado, también guardar en la colección de empleados
+                    if (data.role === 'employee') {
+                        const employeeData = {
+                            id: existing.id,
+                            name: existing.name,
+                            lastName: existing.lastName || '',
+                            email: existing.email,
+                            employeeNumber: existing.employeeNumber || '',
+                            department: existing.department || '',
+                            position: existing.position || '',
+                            phone: existing.phone || '',
+                            startDate: existing.startDate || '',
+                            notes: existing.notes || '',
+                            status: existing.status || 'active',
+                            createdAt: existing.createdAt
+                        };
+                        await Store.saveEmployee(employeeData);
+                    }
                 }
             } else {
                 delete data.id;
                 // Agregar fecha de creacion para nuevos usuarios
                 data.createdAt = new Date().toISOString();
-                await Store.saveUser(data);
+                const savedUser = await Store.saveUser(data);
+                
+                // Si es empleado, también guardar en la colección de empleados
+                if (data.role === 'employee') {
+                    const employeeData = {
+                        id: savedUser.id,
+                        name: savedUser.name,
+                        lastName: savedUser.lastName || '',
+                        email: savedUser.email,
+                        employeeNumber: savedUser.employeeNumber || '',
+                        department: savedUser.department || '',
+                        position: savedUser.position || '',
+                        phone: savedUser.phone || '',
+                        startDate: savedUser.startDate || '',
+                        notes: savedUser.notes || '',
+                        status: savedUser.status || 'active',
+                        createdAt: savedUser.createdAt
+                    };
+                    await Store.saveEmployee(employeeData);
+                }
             }
 
             document.getElementById('userModal').remove();
@@ -674,6 +784,16 @@ const UsersModule = {
         const confirmed = await Modal.confirmDelete(user?.name || 'este usuario', 'usuario');
         if (confirmed) {
             await Store.deleteUser(id);
+            
+            // Si es empleado, también eliminar de la colección de empleados
+            if (user?.role === 'employee') {
+                try {
+                    await Store.deleteEmployee(id);
+                } catch (e) {
+                    console.warn('No se pudo eliminar el empleado:', e);
+                }
+            }
+            
             await this.loadData();
             this.renderStats();
             this.renderTable();

@@ -111,6 +111,12 @@
                 Auth.init();
             }
             if (window.Auth) Auth.renderUserMenu(document.getElementById('userMenu'));
+            if (window.Sidebar) await Sidebar.init('sidebar');
+            
+            // Inicializar menu toggle
+            document.getElementById('menuToggle')?.addEventListener('click', () => {
+                if (window.Sidebar) Sidebar.toggle();
+            });
         });
     </script>
 </body>
