@@ -23,6 +23,7 @@ const elements = {
     passwordError: document.getElementById('passwordError'),
     passwordToggle: document.getElementById('passwordToggle'),
     submitBtn: document.getElementById('submitBtn'),
+    googleLoginBtn: document.getElementById('googleLoginBtn'),
     notification: document.getElementById('notification'),
     notificationText: document.getElementById('notificationText'),
     loginCard: document.querySelector('.login-card')
@@ -212,6 +213,7 @@ class LoginController {
     constructor() {
         this.themeManager = new ThemeManager();
         this.isLoading = false;
+        this.isGoogleLoading = false;
         this.bindEvents();
     }
 
@@ -225,6 +227,13 @@ class LoginController {
         elements.passwordToggle.addEventListener('click', () => {
             this.togglePasswordVisibility();
         });
+
+        // Boton de Google
+        if (elements.googleLoginBtn) {
+            elements.googleLoginBtn.addEventListener('click', () => {
+                this.handleGoogleLogin();
+            });
+        }
 
         // Validacion en tiempo real
         elements.emailInput.addEventListener('blur', () => {
@@ -362,6 +371,62 @@ class LoginController {
         elements.submitBtn.disabled = loading;
         elements.emailInput.disabled = loading;
         elements.passwordInput.disabled = loading;
+        if (elements.googleLoginBtn) {
+            elements.googleLoginBtn.disabled = loading;
+        }
+    }
+
+    setGoogleLoading(loading) {
+        this.isGoogleLoading = loading;
+        if (elements.googleLoginBtn) {
+            elements.googleLoginBtn.classList.toggle('loading', loading);
+            elements.googleLoginBtn.disabled = loading;
+        }
+        if (elements.submitBtn) {
+            elements.submitBtn.disabled = loading;
+        }
+        if (elements.emailInput) {
+            elements.emailInput.disabled = loading;
+        }
+        if (elements.passwordInput) {
+            elements.passwordInput.disabled = loading;
+        }
+    }
+
+    async handleGoogleLogin() {
+        if (this.isGoogleLoading || this.isLoading) return;
+
+        // Verificar que Auth este disponible
+        if (!window.Auth) {
+            NotificationManager.show('Error: Sistema de autenticacion no disponible', 'error');
+            return;
+        }
+
+        this.setGoogleLoading(true);
+
+        try {
+            const result = await Auth.loginWithGoogle();
+
+            if (result.success) {
+                NotificationManager.show(result.message, 'success');
+                
+                this.showSuccessState();
+                setTimeout(() => {
+                    window.location.href = './pages/dashboard.html';
+                }, 2000);
+            } else {
+                NotificationManager.show(result.message, 'error');
+                if (result.message !== 'Inicio de sesion cancelado') {
+                    this.shakeCard();
+                }
+            }
+        } catch (error) {
+            console.error('Error en Google Login:', error);
+            NotificationManager.show('Error al iniciar sesion con Google', 'error');
+            this.shakeCard();
+        } finally {
+            this.setGoogleLoading(false);
+        }
     }
 
     shakeCard() {
