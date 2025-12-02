@@ -369,11 +369,11 @@ const Auth = {
                         console.log('Usuario empleado creado automáticamente:', firebaseUser.email);
                     } else {
                         // No existe ni usuario ni empleado
-                        await auth.signOut();
-                        return { 
-                            success: false, 
-                            message: 'Tu cuenta no esta registrada en el sistema. Contacta al administrador.' 
-                        };
+                await auth.signOut();
+                return { 
+                    success: false, 
+                    message: 'Tu cuenta no esta registrada en el sistema. Contacta al administrador.' 
+                };
                     }
                 } catch (e) {
                     console.error('Error al verificar empleado:', e);

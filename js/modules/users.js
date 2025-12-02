@@ -5,6 +5,7 @@
 const UsersModule = {
     users: [],
     filteredUsers: [],
+    departments: [],
 
     async init() {
         if (!Auth.isAuthenticated()) {
@@ -35,6 +36,7 @@ const UsersModule = {
     async loadData() {
         try {
             this.users = await Store.getUsers() || [];
+            this.departments = await Store.getDepartments() || [];
             
             // Actualizar usuarios que no tienen fecha de creacion
             for (const user of this.users) {
@@ -50,6 +52,7 @@ const UsersModule = {
             console.error('Error cargando usuarios:', e);
             this.users = [];
             this.filteredUsers = [];
+            this.departments = [];
         }
     },
 
@@ -57,16 +60,24 @@ const UsersModule = {
         const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
         const roleFilter = document.getElementById('roleFilter')?.value || '';
         const statusFilter = document.getElementById('statusFilter')?.value || '';
+        const departmentFilter = document.getElementById('departmentFilter')?.value || '';
+        const positionFilter = document.getElementById('positionFilter')?.value || '';
 
         this.filteredUsers = this.users.filter(u => {
+            const fullName = `${u.name || ''} ${u.lastName || ''}`.toLowerCase();
             const matchesSearch = !searchTerm || 
+                fullName.includes(searchTerm) ||
                 (u.name || '').toLowerCase().includes(searchTerm) ||
-                (u.email || '').toLowerCase().includes(searchTerm);
+                (u.email || '').toLowerCase().includes(searchTerm) ||
+                (u.employeeNumber || '').toLowerCase().includes(searchTerm) ||
+                (u.position || '').toLowerCase().includes(searchTerm);
 
             const matchesRole = !roleFilter || u.role === roleFilter;
             const matchesStatus = !statusFilter || u.status === statusFilter;
+            const matchesDepartment = !departmentFilter || u.department === departmentFilter;
+            const matchesPosition = !positionFilter || (u.position || '').toLowerCase().includes(positionFilter.toLowerCase());
 
-            return matchesSearch && matchesRole && matchesStatus;
+            return matchesSearch && matchesRole && matchesStatus && matchesDepartment && matchesPosition;
         });
 
         this.renderTable();
@@ -148,6 +159,17 @@ const UsersModule = {
                     <option value="inactive">Inactivo</option>
                 </select>
             </div>
+            <div class="filter-group">
+                <label class="filter-label">Departamento:</label>
+                <select class="filter-select" id="departmentFilter">
+                    <option value="">Todos</option>
+                    ${this.departments.map(d => `<option value="${d.id}">${this.escapeHtml(d.name)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Puesto:</label>
+                <input type="text" class="filter-input" id="positionFilter" placeholder="Buscar por puesto...">
+            </div>
             <button class="filter-btn" id="clearFilters">Limpiar</button>
         `;
     },
@@ -188,6 +210,7 @@ const UsersModule = {
                         <th>Usuario</th>
                         <th>Correo</th>
                         <th>Rol</th>
+                        ${this.users.some(u => u.role === 'employee') ? '<th>Departamento</th><th>Puesto</th>' : ''}
                         <th>Estado</th>
                         <th>Creado</th>
                         <th>Ultimo Acceso</th>
@@ -196,23 +219,40 @@ const UsersModule = {
                 </thead>
                 <tbody>
                     ${this.filteredUsers.length === 0 ? `
-                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.users.length === 0 ? 'No hay usuarios registrados' : 'No se encontraron resultados'}</td></tr>
-                    ` : this.filteredUsers.map(u => `
+                        <tr><td colspan="${7 + (this.users.some(u => u.role === 'employee') ? 2 : 0)}" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.users.length === 0 ? 'No hay usuarios registrados' : 'No se encontraron resultados'}</td></tr>
+                    ` : this.filteredUsers.map(u => {
+                        const getDeptName = (deptId) => {
+                            const dept = this.departments.find(d => d.id === deptId);
+                            return dept ? dept.name : '-';
+                        };
+                        return `
                         <tr data-id="${u.id}">
                             <td>
                                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                                     <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.75rem;">
                                         ${(u.name || 'U')[0].toUpperCase()}
                                     </div>
-                                    <span>${this.escapeHtml(u.name || 'Usuario')}</span>
+                                    <div>
+                                        <div style="font-weight: 500;">${this.escapeHtml(u.name || 'Usuario')} ${u.lastName ? this.escapeHtml(u.lastName) : ''}</div>
+                                        ${u.employeeNumber ? `<div style="font-size: 0.75rem; color: var(--text-tertiary); font-family: monospace;">#${this.escapeHtml(u.employeeNumber)}</div>` : ''}
+                                    </div>
                                 </div>
                             </td>
                             <td>${u.email || '-'}</td>
                             <td>${roleBadge(u.role)}</td>
+                            ${this.users.some(u2 => u2.role === 'employee') ? `
+                                <td>${u.role === 'employee' ? getDeptName(u.department) : '-'}</td>
+                                <td>${u.role === 'employee' ? (u.position || '-') : '-'}</td>
+                            ` : ''}
                             <td>${statusBadge(u.status)}</td>
                             <td>${this.formatDate(u.createdAt)}</td>
                             <td>${u.lastLogin ? this.timeAgo(u.lastLogin) : 'Nunca'}</td>
                             <td>
+                                ${u.role === 'employee' ? `
+                                    <button class="btn-icon sm" onclick="window.location.href='user-detail.html?id=${u.id}'" title="Ver detalle">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    </button>
+                                ` : ''}
                                 <button class="btn-icon sm" onclick="UsersModule.editUser('${u.id}')" title="Editar">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                 </button>
@@ -297,12 +337,16 @@ const UsersModule = {
         document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
         document.getElementById('roleFilter')?.addEventListener('change', () => this.applyFilters());
         document.getElementById('statusFilter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('departmentFilter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('positionFilter')?.addEventListener('input', () => this.applyFilters());
 
         // Limpiar filtros
         document.getElementById('clearFilters')?.addEventListener('click', () => {
             document.getElementById('searchInput').value = '';
             document.getElementById('roleFilter').value = '';
             document.getElementById('statusFilter').value = '';
+            document.getElementById('departmentFilter').value = '';
+            document.getElementById('positionFilter').value = '';
             this.applyFilters();
         });
     },
@@ -336,7 +380,7 @@ const UsersModule = {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                             <div class="form-group">
                                 <label>Rol *</label>
-                                <select name="role" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                <select name="role" id="userRoleSelect" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
                                     <option value="user" ${user?.role === 'user' ? 'selected' : ''}>Usuario</option>
                                     <option value="employee" ${user?.role === 'employee' ? 'selected' : ''}>Empleado</option>
                                     <option value="admin" ${user?.role === 'admin' ? 'selected' : ''}>Administrador</option>
@@ -350,6 +394,53 @@ const UsersModule = {
                                 </select>
                             </div>
                         </div>
+                        
+                        <!-- Campos de Empleado (solo si el rol es employee) -->
+                        <div id="employeeFieldsSection" style="display: ${user?.role === 'employee' ? 'block' : 'none'}; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                            <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-primary);">Información de Empleado</h3>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div class="form-group">
+                                    <label>Número de Empleado</label>
+                                    <input type="text" name="employeeNumber" value="${user?.employeeNumber || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Apellidos</label>
+                                    <input type="text" name="lastName" value="${user?.lastName || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div class="form-group">
+                                    <label>Departamento</label>
+                                    <select name="department" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                        <option value="">Seleccionar departamento...</option>
+                                        ${this.departments.map(d => `<option value="${d.id}" ${user?.department === d.id ? 'selected' : ''}>${this.escapeHtml(d.name)}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Puesto</label>
+                                    <input type="text" name="position" value="${user?.position || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div class="form-group">
+                                    <label>Fecha de Inicio</label>
+                                    <input type="date" name="startDate" value="${user?.startDate ? user.startDate.split('T')[0] : ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Teléfono</label>
+                                    <input type="tel" name="phone" value="${user?.phone || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Notas</label>
+                                <textarea name="notes" rows="3" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); resize: vertical;">${user?.notes || ''}</textarea>
+                            </div>
+                        </div>
+                        
                         <input type="hidden" name="id" value="${user?.id || ''}">
                     </form>
                     <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
@@ -362,10 +453,41 @@ const UsersModule = {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
+        // Mostrar/ocultar campos de empleado según el rol seleccionado
+        const roleSelect = document.getElementById('userRoleSelect');
+        const employeeFieldsSection = document.getElementById('employeeFieldsSection');
+        
+        if (roleSelect && employeeFieldsSection) {
+            roleSelect.addEventListener('change', (e) => {
+                if (e.target.value === 'employee') {
+                    employeeFieldsSection.style.display = 'block';
+                } else {
+                    employeeFieldsSection.style.display = 'none';
+                    // Limpiar campos de empleado si se cambia el rol
+                    const employeeFields = employeeFieldsSection.querySelectorAll('input, select, textarea');
+                    employeeFields.forEach(field => {
+                        if (field.name !== 'phone') { // Mantener teléfono si se desea
+                            field.value = '';
+                        }
+                    });
+                }
+            });
+        }
+
         document.getElementById('userForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
+            
+            // Si el rol no es employee, limpiar campos de empleado
+            if (data.role !== 'employee') {
+                delete data.employeeNumber;
+                delete data.lastName;
+                delete data.department;
+                delete data.position;
+                delete data.startDate;
+                delete data.notes;
+            }
             
             // Verificar email unico
             if (!isEdit) {
@@ -559,10 +681,147 @@ const UsersModule = {
         }
     },
 
-    showToast(message) {
+    async openDepartmentsManager() {
+        const departments = await Store.getDepartments();
+
+        const modalHtml = `
+            <div class="modal-overlay active" id="departmentsModal">
+                <div class="modal" style="max-width: 700px;">
+                    <div class="modal-header">
+                        <h2>Gestionar Departamentos</h2>
+                        <button class="modal-close" onclick="document.getElementById('departmentsModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <div style="margin-bottom: 2rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <h3 style="margin: 0; color: var(--text-primary);">Departamentos</h3>
+                                <button type="button" class="btn btn-primary sm" onclick="UsersModule.addDepartment()">Agregar</button>
+                            </div>
+                            <div id="departmentsList" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                ${departments.map(d => `
+                                    <div style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                        <div style="width: 20px; height: 20px; border-radius: 4px; background: ${d.color || '#3b82f6'};"></div>
+                                        <input type="text" value="${this.escapeHtml(d.name)}" data-id="${d.id}" data-field="name" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-primary);" onchange="UsersModule.updateDepartment('${d.id}', 'name', this.value)">
+                                        <input type="color" value="${d.color || '#3b82f6'}" data-id="${d.id}" data-field="color" style="width: 50px; height: 38px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;" onchange="UsersModule.updateDepartment('${d.id}', 'color', this.value)">
+                                        <button type="button" class="btn-icon sm" onclick="UsersModule.deleteDepartment('${d.id}')" title="Eliminar">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('departmentsModal').remove()">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    async addDepartment() {
+        const modalHtml = `
+            <div class="modal-overlay active" id="addDepartmentModal">
+                <div class="modal" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2>Agregar Departamento</h2>
+                        <button class="modal-close" onclick="document.getElementById('addDepartmentModal').remove()">&times;</button>
+                    </div>
+                    <form id="addDepartmentForm" class="modal-body">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Nombre del Departamento *</label>
+                            <input type="text" name="name" required placeholder="Ej: Recursos Humanos" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                        </div>
+                        <div class="form-group">
+                            <label>Color</label>
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <input type="color" name="color" value="#3b82f6" style="width: 60px; height: 40px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer;">
+                                <input type="text" id="colorHex" value="#3b82f6" readonly style="flex: 1; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-family: monospace;">
+                            </div>
+                        </div>
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('addDepartmentModal').remove()">Cancelar</button>
+                        <button type="submit" form="addDepartmentForm" class="btn btn-primary">Agregar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Sincronizar color picker con input de texto
+        const colorInput = document.querySelector('#addDepartmentModal input[type="color"]');
+        const colorHex = document.getElementById('colorHex');
+        
+        if (colorInput && colorHex) {
+            colorInput.addEventListener('input', (e) => {
+                colorHex.value = e.target.value.toUpperCase();
+            });
+
+            colorHex.addEventListener('input', (e) => {
+                const value = e.target.value;
+                if (/^#[0-9A-F]{6}$/i.test(value)) {
+                    colorInput.value = value;
+                }
+            });
+        }
+
+        document.getElementById('addDepartmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const name = formData.get('name').trim();
+            const color = formData.get('color');
+
+            if (!name) {
+                this.showToast('El nombre es requerido', 'error');
+                return;
+            }
+
+            const department = {
+                name: name,
+                color: color
+            };
+
+            await Store.saveDepartment(department);
+            await this.loadData();
+            document.getElementById('addDepartmentModal').remove();
+            document.getElementById('departmentsModal').remove();
+            await this.openDepartmentsManager();
+            this.showToast('Departamento agregado');
+        });
+    },
+
+    async updateDepartment(id, field, value) {
+        const departments = await Store.getDepartments();
+        const department = departments.find(d => d.id === id);
+        if (department) {
+            department[field] = value;
+            await Store.saveDepartment(department);
+            await this.loadData();
+            document.getElementById('departmentsModal').remove();
+            await this.openDepartmentsManager();
+        }
+    },
+
+    async deleteDepartment(id) {
+        const confirmed = await Modal.confirmDelete('este departamento', 'departamento');
+        if (confirmed) {
+            await Store.deleteDepartment(id);
+            await this.loadData();
+            document.getElementById('departmentsModal').remove();
+            await this.openDepartmentsManager();
+            this.showToast('Departamento eliminado');
+        }
+    },
+
+    showToast(message, type = 'success') {
         const toast = document.createElement('div');
         toast.textContent = message;
-        toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #22c55e; color: white; padding: 1rem 1.5rem; border-radius: 8px; z-index: 9999;';
+        const bgColor = type === 'error' ? '#ef4444' : '#22c55e';
+        toast.style.cssText = `position: fixed; bottom: 20px; right: 20px; background: ${bgColor}; color: white; padding: 1rem 1.5rem; border-radius: 8px; z-index: 9999;`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     }
