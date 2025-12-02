@@ -153,51 +153,65 @@ const UsersModule = {
             employees: this.users.filter(u => u.role === 'employee').length
         };
 
+        const inactive = stats.total - stats.active;
+        const percentageActive = stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0;
+
         container.innerHTML = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                <div class="mini-stat" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)'">
-                    <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-                    </div>
-                    <div class="mini-stat-content" style="flex: 1; min-width: 0;">
-                        <span class="mini-stat-value" style="display: block; font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; margin-bottom: 0.25rem;">${stats.total}</span>
-                        <span class="mini-stat-label" style="display: block; font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">Total Usuarios</span>
-                    </div>
-                </div>
-                <div class="mini-stat" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)'">
-                    <div class="mini-stat-icon" style="background: rgba(34, 197, 94, 0.1); color: #22c55e; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </div>
-                    <div class="mini-stat-content" style="flex: 1; min-width: 0;">
-                        <span class="mini-stat-value" style="display: block; font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; margin-bottom: 0.25rem;">${stats.active}</span>
-                        <span class="mini-stat-label" style="display: block; font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">Activos</span>
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem;">
+                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(59, 130, 246, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(59, 130, 246, 0.2)'">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.total}</span>
+                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Total</span>
+                        </div>
                     </div>
                 </div>
-                <div class="mini-stat" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)'">
-                    <div class="mini-stat-icon" style="background: rgba(168, 85, 247, 0.1); color: #a855f7; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-                    </div>
-                    <div class="mini-stat-content" style="flex: 1; min-width: 0;">
-                        <span class="mini-stat-value" style="display: block; font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; margin-bottom: 0.25rem;">${stats.admins}</span>
-                        <span class="mini-stat-label" style="display: block; font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">Administradores</span>
-                    </div>
-                </div>
-                <div class="mini-stat" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)'">
-                    <div class="mini-stat-icon" style="background: rgba(249, 115, 22, 0.1); color: #f97316; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                    </div>
-                    <div class="mini-stat-content" style="flex: 1; min-width: 0;">
-                        <span class="mini-stat-value" style="display: block; font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; margin-bottom: 0.25rem;">${stats.users}</span>
-                        <span class="mini-stat-label" style="display: block; font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">Usuarios</span>
+                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(34, 197, 94, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(34, 197, 94, 0.2)'">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="mini-stat-icon" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.active}</span>
+                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Activos</span>
+                            <span style="display: block; font-size: 0.65rem; color: #22c55e; font-weight: 600; margin-top: 0.125rem;">${percentageActive}%</span>
+                        </div>
                     </div>
                 </div>
-                <div class="mini-stat" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)'">
-                    <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(168, 85, 247, 0.05)); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(168, 85, 247, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(168, 85, 247, 0.2)'">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="mini-stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #a855f7; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.admins}</span>
+                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Admins</span>
+                        </div>
                     </div>
-                    <div class="mini-stat-content" style="flex: 1; min-width: 0;">
-                        <span class="mini-stat-value" style="display: block; font-size: 1.75rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; margin-bottom: 0.25rem;">${stats.employees}</span>
-                        <span class="mini-stat-label" style="display: block; font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">Empleados</span>
+                </div>
+                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05)); border: 1px solid rgba(249, 115, 22, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(249, 115, 22, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(249, 115, 22, 0.2)'">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="mini-stat-icon" style="background: rgba(249, 115, 22, 0.15); color: #f97316; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.users}</span>
+                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Usuarios</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(59, 130, 246, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(59, 130, 246, 0.2)'">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.employees}</span>
+                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Empleados</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -209,63 +223,63 @@ const UsersModule = {
         if (!container) return;
 
         container.innerHTML = `
-            <div class="filters-wrapper" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="filters-wrapper" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3 style="margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="8"></circle>
                             <path d="M21 21l-4.35-4.35"></path>
                         </svg>
-                        Filtros de Búsqueda
+                        Filtros
                     </h3>
-                    <button class="filter-btn" id="clearFilters" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.25rem;">
+                    <button class="filter-btn" id="clearFilters" style="padding: 0.375rem 0.75rem; font-size: 0.75rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 0.25rem;" onmouseover="this.style.background='var(--border-color)'; this.style.color='var(--text-primary)'" onmouseout="this.style.background='var(--bg-tertiary)'; this.style.color='var(--text-secondary)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                         Limpiar
                     </button>
                 </div>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 1rem; align-items: end;">
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label class="filter-label" style="font-size: 0.75rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Búsqueda General</label>
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 0.75rem; align-items: end;">
+                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
+                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Búsqueda</label>
                         <div style="position: relative;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.625rem; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none;">
                                 <circle cx="11" cy="11" r="8"></circle>
                                 <path d="M21 21l-4.35-4.35"></path>
                             </svg>
-                            <input type="text" class="filter-input" id="searchInput" placeholder="Nombre, correo, número..." style="width: 100%; padding: 0.75rem 0.75rem 0.75rem 2.5rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--input-bg); color: var(--text-primary); font-size: 0.875rem; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                            <input type="text" class="filter-input" id="searchInput" placeholder="Nombre, correo..." style="width: 100%; padding: 0.625rem 0.625rem 0.625rem 2rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
                         </div>
                     </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label class="filter-label" style="font-size: 0.75rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Rol</label>
-                        <select class="filter-select" id="roleFilter" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--input-bg); color: var(--text-primary); font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
-                            <option value="">Todos los roles</option>
-                            <option value="admin">Administrador</option>
+                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
+                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Rol</label>
+                        <select class="filter-select" id="roleFilter" style="width: 100%; padding: 0.625rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                            <option value="">Todos</option>
+                            <option value="admin">Admin</option>
                             <option value="user">Usuario</option>
                             <option value="employee">Empleado</option>
                         </select>
                     </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label class="filter-label" style="font-size: 0.75rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Estado</label>
-                        <select class="filter-select" id="statusFilter" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--input-bg); color: var(--text-primary); font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
-                            <option value="">Todos los estados</option>
+                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
+                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Estado</label>
+                        <select class="filter-select" id="statusFilter" style="width: 100%; padding: 0.625rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                            <option value="">Todos</option>
                             ${(this.employeeOptions.status || [
                                 { value: 'active', label: 'Activo' },
                                 { value: 'inactive', label: 'Inactivo' }
                             ]).map(s => `<option value="${s.value}">${this.escapeHtml(s.label)}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label class="filter-label" style="font-size: 0.75rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Departamento</label>
-                        <select class="filter-select" id="departmentFilter" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--input-bg); color: var(--text-primary); font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
+                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Depto.</label>
+                        <select class="filter-select" id="departmentFilter" style="width: 100%; padding: 0.625rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
                             <option value="">Todos</option>
                             ${this.departments.map(d => `<option value="${d.id}">${this.escapeHtml(d.name)}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label class="filter-label" style="font-size: 0.75rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Puesto</label>
-                        <input type="text" class="filter-input" id="positionFilter" placeholder="Ej: Developer..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--input-bg); color: var(--text-primary); font-size: 0.875rem; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
+                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Puesto</label>
+                        <input type="text" class="filter-input" id="positionFilter" placeholder="Buscar..." style="width: 100%; padding: 0.625rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
                     </div>
                 </div>
             </div>
@@ -367,75 +381,73 @@ const UsersModule = {
                 };
                 return `
                         <tr data-id="${u.id}" style="transition: all 0.2s ease;">
-                            <td>
-                                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                    <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.875rem; flex-shrink: 0; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);">
+                            <td style="padding: 0.75rem 1rem;">
+                                <div style="display: flex; align-items: center; gap: 0.625rem;">
+                                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.8rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);">
                                         ${(u.name || 'U')[0].toUpperCase()}
                                     </div>
-                                    <div style="min-width: 0;">
-                                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${self.escapeHtml(u.name || 'Usuario')} ${u.lastName ? self.escapeHtml(u.lastName) : ''}</div>
-                                        ${u.employeeNumber ? `<div style="font-size: 0.7rem; color: var(--text-tertiary); font-family: 'Monaco', 'Menlo', monospace; background: var(--bg-tertiary); padding: 0.125rem 0.5rem; border-radius: 4px; display: inline-block;">#${self.escapeHtml(u.employeeNumber)}</div>` : ''}
+                                    <div style="min-width: 0; flex: 1;">
+                                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem;">${self.escapeHtml(u.name || 'Usuario')} ${u.lastName ? self.escapeHtml(u.lastName) : ''}</div>
+                                        ${u.employeeNumber ? `<div style="font-size: 0.65rem; color: var(--text-tertiary); font-family: 'Monaco', 'Menlo', monospace; background: var(--bg-tertiary); padding: 0.125rem 0.375rem; border-radius: 4px; display: inline-block;">#${self.escapeHtml(u.employeeNumber)}</div>` : ''}
                                     </div>
                                 </div>
                             </td>
-                            <td>
+                            <td style="padding: 0.75rem 1rem;">
                                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary); flex-shrink: 0;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary); flex-shrink: 0;">
                                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                                         <polyline points="22,6 12,13 2,6"></polyline>
                                     </svg>
-                                    <span style="color: var(--text-primary); word-break: break-word;">${u.email || '-'}</span>
+                                    <span style="color: var(--text-primary); word-break: break-word; font-size: 0.8rem;">${u.email || '-'}</span>
                                 </div>
                             </td>
-                            <td>${roleBadge(u.role)}</td>
+                            <td style="padding: 0.75rem 1rem;">${roleBadge(u.role)}</td>
                             ${hasEmployees ? `
-                                <td>
+                                <td style="padding: 0.75rem 1rem;">
                                     ${u.role === 'employee' && u.department ? `
-                                        <div style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.75rem; background: ${getDeptColor(u.department)}15; border: 1px solid ${getDeptColor(u.department)}40; border-radius: 8px; font-size: 0.8rem; font-weight: 500; color: ${getDeptColor(u.department)};">
-                                            <div style="width: 8px; height: 8px; border-radius: 50%; background: ${getDeptColor(u.department)};"></div>
+                                        <div style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.25rem 0.625rem; background: ${getDeptColor(u.department)}15; border: 1px solid ${getDeptColor(u.department)}40; border-radius: 6px; font-size: 0.75rem; font-weight: 500; color: ${getDeptColor(u.department)};">
+                                            <div style="width: 6px; height: 6px; border-radius: 50%; background: ${getDeptColor(u.department)};"></div>
                                             ${getDeptName(u.department)}
                                         </div>
-                                    ` : '<span style="color: var(--text-tertiary);">-</span>'}
+                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.8rem;">-</span>'}
                                 </td>
-                                <td>
+                                <td style="padding: 0.75rem 1rem;">
                                     ${u.role === 'employee' && u.position ? `
-                                        <span style="color: var(--text-primary); font-weight: 500;">${self.escapeHtml(u.position)}</span>
-                                    ` : '<span style="color: var(--text-tertiary);">-</span>'}
+                                        <span style="color: var(--text-primary); font-weight: 500; font-size: 0.8rem;">${self.escapeHtml(u.position)}</span>
+                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.8rem;">-</span>'}
                                 </td>
                             ` : ''}
-                            <td>${statusBadge(u.status)}</td>
-                            <td>
-                                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                                    <span style="color: var(--text-primary); font-size: 0.875rem;">${self.formatDate(u.createdAt)}</span>
-                                </div>
+                            <td style="padding: 0.75rem 1rem;">${statusBadge(u.status)}</td>
+                            <td style="padding: 0.75rem 1rem;">
+                                <span style="color: var(--text-primary); font-size: 0.8rem;">${self.formatDate(u.createdAt)}</span>
                             </td>
-                            <td>
-                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <td style="padding: 0.75rem 1rem;">
+                                <div style="display: flex; align-items: center; gap: 0.375rem;">
                                     ${u.lastLogin ? `
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary);">
                                             <circle cx="12" cy="12" r="10"></circle>
                                             <polyline points="12 6 12 12 16 14"></polyline>
                                         </svg>
-                                        <span style="color: var(--text-secondary); font-size: 0.8rem;">${self.timeAgo(u.lastLogin)}</span>
-                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.8rem; font-style: italic;">Nunca</span>'}
+                                        <span style="color: var(--text-secondary); font-size: 0.75rem;">${self.timeAgo(u.lastLogin)}</span>
+                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.75rem; font-style: italic;">Nunca</span>'}
                                 </div>
                             </td>
-                            <td>
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                            <td style="padding: 0.75rem 1rem;">
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.375rem;">
                                     ${u.role === 'employee' ? `
-                                        <button class="btn-icon sm" onclick="window.location.href='user-detail.html?id=${u.id}'" title="Ver detalle" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'; this.style.transform='scale(1)'">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        <button class="btn-icon sm" onclick="window.location.href='user-detail.html?id=${u.id}'" title="Ver detalle" style="width: 28px; height: 28px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'; this.style.transform='scale(1)'">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     ` : ''}
-                                    <button class="btn-icon sm" onclick="UsersModule.editUser('${u.id}')" title="Editar" style="background: rgba(34, 197, 94, 0.1); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.2); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(34, 197, 94, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(34, 197, 94, 0.1)'; this.style.transform='scale(1)'">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    <button class="btn-icon sm" onclick="UsersModule.editUser('${u.id}')" title="Editar" style="width: 28px; height: 28px; background: rgba(34, 197, 94, 0.1); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(34, 197, 94, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(34, 197, 94, 0.1)'; this.style.transform='scale(1)'">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                     </button>
-                                    <button class="btn-icon sm" onclick="UsersModule.openPasswordForm('${u.id}')" title="Cambiar contraseña" style="background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(168, 85, 247, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(168, 85, 247, 0.1)'; this.style.transform='scale(1)'">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                    <button class="btn-icon sm" onclick="UsersModule.openPasswordForm('${u.id}')" title="Cambiar contraseña" style="width: 28px; height: 28px; background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(168, 85, 247, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(168, 85, 247, 0.1)'; this.style.transform='scale(1)'">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                                     </button>
                                     ${u.email !== currentUser?.email ? `
-                                        <button class="btn-icon sm" onclick="UsersModule.deleteUser('${u.id}')" title="Eliminar" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='scale(1)'">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        <button class="btn-icon sm" onclick="UsersModule.deleteUser('${u.id}')" title="Eliminar" style="width: 28px; height: 28px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='scale(1)'">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                         </button>
                                     ` : ''}
                                 </div>
@@ -446,18 +458,18 @@ const UsersModule = {
         }
 
         tableContainer.innerHTML = `
-            <div style="overflow-x: auto;">
+            <div style="overflow-x: auto; max-height: calc(100vh - 450px); overflow-y: auto;">
                 <table class="data-table" style="min-width: 100%;">
-                    <thead>
+                    <thead style="position: sticky; top: 0; z-index: 10; background: var(--bg-tertiary);">
                         <tr>
-                            <th style="min-width: 200px;">Usuario</th>
-                            <th style="min-width: 180px;">Correo</th>
-                            <th style="min-width: 120px;">Rol</th>
-                            ${hasEmployees ? '<th style="min-width: 140px;">Departamento</th><th style="min-width: 160px;">Puesto</th>' : ''}
-                            <th style="min-width: 100px;">Estado</th>
-                            <th style="min-width: 110px;">Creado</th>
-                            <th style="min-width: 130px;">Último Acceso</th>
-                            <th style="min-width: 120px; text-align: center;">Acciones</th>
+                            <th style="min-width: 180px; padding: 0.75rem 1rem; font-size: 0.7rem;">Usuario</th>
+                            <th style="min-width: 160px; padding: 0.75rem 1rem; font-size: 0.7rem;">Correo</th>
+                            <th style="min-width: 100px; padding: 0.75rem 1rem; font-size: 0.7rem;">Rol</th>
+                            ${hasEmployees ? '<th style="min-width: 120px; padding: 0.75rem 1rem; font-size: 0.7rem;">Departamento</th><th style="min-width: 140px; padding: 0.75rem 1rem; font-size: 0.7rem;">Puesto</th>' : ''}
+                            <th style="min-width: 90px; padding: 0.75rem 1rem; font-size: 0.7rem;">Estado</th>
+                            <th style="min-width: 100px; padding: 0.75rem 1rem; font-size: 0.7rem;">Creado</th>
+                            <th style="min-width: 120px; padding: 0.75rem 1rem; font-size: 0.7rem;">Último Acceso</th>
+                            <th style="min-width: 100px; padding: 0.75rem 1rem; font-size: 0.7rem; text-align: center;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
