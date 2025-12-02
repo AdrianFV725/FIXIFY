@@ -691,22 +691,43 @@ const Store = {
     },
 
     async unassignLicense(licenseId, employeeId) {
+        console.log('Store.unassignLicense llamado con:', { licenseId, employeeId });
+        
         const assignments = await this.getLicenseAssignments();
         const assignment = assignments.find(
             a => a.licenseId === licenseId && a.employeeId === employeeId && !a.endDate
         );
         
+        console.log('Asignacion encontrada:', assignment);
+        
         if (assignment) {
             assignment.endDate = new Date().toISOString();
+            assignment.unassignedBy = Auth?.getCurrentUser()?.name || 'Admin';
+            
+            // Guardar en Firestore si esta disponible
+            if (this.useFirestore && window.FirestoreService) {
+                try {
+                    await FirestoreService.saveLicenseAssignment(assignment);
+                    console.log('Asignacion actualizada en Firestore');
+                } catch (e) {
+                    console.warn('Error guardando en Firestore, usando localStorage:', e);
+                }
+            }
+            
+            // Siempre guardar en localStorage como respaldo
             this.setLocal(this.KEYS.ASSIGNMENTS_LICENSES, assignments);
+            console.log('Asignacion actualizada en localStorage');
             
             const license = await this.getLicenseById(licenseId);
             if (license) {
                 license.assignedCount = Math.max(0, (license.assignedCount || 1) - 1);
                 await this.saveLicense(license);
+                console.log('Contador de licencia actualizado:', license.assignedCount);
             }
             
             await this.logActivity('license_unassigned', { licenseId, employeeId });
+        } else {
+            console.warn('No se encontro asignacion activa para desasignar');
         }
         
         return assignment;

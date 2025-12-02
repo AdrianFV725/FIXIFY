@@ -748,8 +748,13 @@ const AssignmentsModule = {
     },
 
     confirmUnassignLicense(licenseId, employeeId) {
+        console.log('confirmUnassignLicense llamado con:', { licenseId, employeeId });
+        
         const license = this.licenses.find(l => l.id === licenseId);
         const employee = this.employees.find(e => e.id === employeeId);
+
+        // Guardar los IDs para usarlos en el handler del boton
+        this._pendingUnassign = { licenseId, employeeId };
 
         const modalHtml = `
             <div class="modal-overlay active" id="confirmModal">
@@ -767,15 +772,15 @@ const AssignmentsModule = {
                             </svg>
                             <p>Estas a punto de desasignar:</p>
                             <div class="confirm-details">
-                                <strong>${license?.software || 'Licencia'}</strong>
+                                <strong>${this.escapeHtml(license?.software || 'Licencia')}</strong>
                                 <span>de</span>
-                                <strong>${employee ? `${employee.name} ${employee.lastName || ''}` : 'empleado'}</strong>
+                                <strong>${employee ? this.escapeHtml(`${employee.name} ${employee.lastName || ''}`) : 'empleado'}</strong>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary" onclick="document.getElementById('confirmModal').remove()">Cancelar</button>
-                        <button class="btn btn-danger" onclick="AssignmentsModule.executeUnassignLicense('${licenseId}', '${employeeId}')">
+                        <button class="btn btn-danger" id="confirmUnassignLicenseBtn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -788,18 +793,40 @@ const AssignmentsModule = {
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Agregar el event listener al boton de confirmar
+        document.getElementById('confirmUnassignLicenseBtn')?.addEventListener('click', () => {
+            const { licenseId, employeeId } = this._pendingUnassign || {};
+            if (licenseId && employeeId) {
+                this.executeUnassignLicense(licenseId, employeeId);
+            }
+        });
     },
 
     async executeUnassignLicense(licenseId, employeeId) {
+        console.log('executeUnassignLicense llamado con:', { licenseId, employeeId });
+        
         try {
-            await Store.unassignLicense(licenseId, employeeId);
+            // Verificar que los IDs existan
+            if (!licenseId || !employeeId) {
+                throw new Error('Faltan datos para desasignar la licencia');
+            }
+
+            const result = await Store.unassignLicense(licenseId, employeeId);
+            console.log('Resultado de unassignLicense:', result);
+            
+            if (!result) {
+                throw new Error('No se encontro la asignacion a desasignar');
+            }
+            
             document.getElementById('confirmModal')?.remove();
             await this.loadData();
             this.renderContent();
             this.bindEvents();
             this.showToast('Licencia desasignada correctamente', 'success');
         } catch (e) {
-            this.showToast(e.message || 'Error al desasignar', 'error');
+            console.error('Error en executeUnassignLicense:', e);
+            this.showToast(e.message || 'Error al desasignar la licencia', 'error');
         }
     },
 
