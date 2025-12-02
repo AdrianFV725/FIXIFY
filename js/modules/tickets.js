@@ -19,6 +19,15 @@ const TicketsModule = {
             return;
         }
 
+        // Ocultar botón de categorías si es empleado
+        const currentUser = Auth.getCurrentUser();
+        if (currentUser && currentUser.role === 'employee') {
+            const categoriesBtn = document.getElementById('manageCategoriesBtn');
+            if (categoriesBtn) {
+                categoriesBtn.style.display = 'none';
+            }
+        }
+
         // Cargar la preferencia de vista guardada
         this.loadViewPreference();
 

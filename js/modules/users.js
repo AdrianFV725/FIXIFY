@@ -137,6 +137,7 @@ const UsersModule = {
                     <option value="">Todos</option>
                     <option value="admin">Administrador</option>
                     <option value="user">Usuario</option>
+                    <option value="employee">Empleado</option>
                 </select>
             </div>
             <div class="filter-group">
@@ -169,9 +170,13 @@ const UsersModule = {
         };
 
         const roleBadge = (role) => {
-            return role === 'admin'
-                ? '<span class="badge badge-open">Administrador</span>'
-                : '<span class="badge badge-resolved">Usuario</span>';
+            if (role === 'admin') {
+                return '<span class="badge badge-open">Administrador</span>';
+            } else if (role === 'employee') {
+                return '<span class="badge badge-in-progress">Empleado</span>';
+            } else {
+                return '<span class="badge badge-resolved">Usuario</span>';
+            }
         };
 
         const currentUser = Auth.getCurrentUser();
