@@ -223,8 +223,10 @@ const UsersModule = {
                 <label class="filter-label">Estado:</label>
                 <select class="filter-select" id="statusFilter">
                     <option value="">Todos</option>
-                    <option value="active">Activo</option>
-                    <option value="inactive">Inactivo</option>
+                    ${(this.employeeOptions.status || [
+                        { value: 'active', label: 'Activo' },
+                        { value: 'inactive', label: 'Inactivo' }
+                    ]).map(s => `<option value="${s.value}">${this.escapeHtml(s.label)}</option>`).join('')}
                 </select>
             </div>
             <div class="filter-group">
@@ -254,6 +256,19 @@ const UsersModule = {
         }
 
         const statusBadge = (status) => {
+            const statusOptions = this.employeeOptions.status || [];
+            const statusOption = statusOptions.find(s => s.value === status);
+            
+            if (statusOption) {
+                const classMap = {
+                    active: 'badge-active',
+                    inactive: 'badge-inactive'
+                };
+                const badgeClass = classMap[status] || 'badge';
+                return `<span class="badge ${badgeClass}">${this.escapeHtml(statusOption.label)}</span>`;
+            }
+            
+            // Fallback para estados estándar
             return status === 'active' 
                 ? '<span class="badge badge-active">Activo</span>'
                 : '<span class="badge badge-inactive">Inactivo</span>';
@@ -404,6 +419,7 @@ const UsersModule = {
     bindEvents() {
         document.getElementById('newUserBtn')?.addEventListener('click', () => this.openForm());
         document.getElementById('manageDepartmentsBtn')?.addEventListener('click', () => this.openDepartmentsManager());
+        document.getElementById('optionsBtn')?.addEventListener('click', () => this.openOptionsManager());
         
         // Filtros en tiempo real
         document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
@@ -461,8 +477,10 @@ const UsersModule = {
                             <div class="form-group">
                                 <label>Estado *</label>
                                 <select name="status" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
-                                    <option value="active" ${user?.status === 'active' ? 'selected' : ''}>Activo</option>
-                                    <option value="inactive" ${user?.status === 'inactive' ? 'selected' : ''}>Inactivo</option>
+                                    ${(this.employeeOptions.status || [
+                                        { value: 'active', label: 'Activo' },
+                                        { value: 'inactive', label: 'Inactivo' }
+                                    ]).map(s => `<option value="${s.value}" ${user?.status === s.value ? 'selected' : ''}>${this.escapeHtml(s.label)}</option>`).join('')}
                                 </select>
                             </div>
                         </div>
@@ -934,6 +952,197 @@ const UsersModule = {
             document.getElementById('departmentsModal').remove();
             await this.openDepartmentsManager();
             this.showToast('Departamento eliminado');
+        }
+    },
+
+    async openOptionsManager() {
+        const departments = await Store.getDepartments();
+        const options = await Store.getEmployeeOptions();
+        const statusOptions = options.status || [];
+
+        const modalHtml = `
+            <div class="modal-overlay active" id="optionsModal">
+                <div class="modal" style="max-width: 700px;">
+                    <div class="modal-header">
+                        <h2>Gestionar Opciones de Empleados</h2>
+                        <button class="modal-close" onclick="document.getElementById('optionsModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <!-- Departamentos -->
+                        <div style="margin-bottom: 2rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <h3 style="margin: 0; color: var(--text-primary);">Departamentos</h3>
+                                <button type="button" class="btn btn-primary sm" onclick="UsersModule.addDepartment()">Agregar</button>
+                            </div>
+                            <div id="departmentsList" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                ${departments.map(d => `
+                                    <div style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                        <div style="width: 20px; height: 20px; border-radius: 4px; background: ${d.color || '#3b82f6'};"></div>
+                                        <input type="text" value="${this.escapeHtml(d.name)}" data-id="${d.id}" data-field="name" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-primary);" onchange="UsersModule.updateDepartment('${d.id}', 'name', this.value)">
+                                        <input type="color" value="${d.color || '#3b82f6'}" data-id="${d.id}" data-field="color" style="width: 50px; height: 38px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;" onchange="UsersModule.updateDepartment('${d.id}', 'color', this.value)">
+                                        <button type="button" class="btn-icon sm" onclick="UsersModule.deleteDepartment('${d.id}')" title="Eliminar">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Estados -->
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <h3 style="margin: 0; color: var(--text-primary);">Estados</h3>
+                                <button type="button" class="btn btn-primary sm" onclick="UsersModule.addStatusOption()">Agregar</button>
+                            </div>
+                            <div id="statusList" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                ${statusOptions.map(s => `
+                                    <div style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
+                                        <input type="text" value="${this.escapeHtml(s.value)}" data-value="${s.value}" data-field="value" placeholder="Valor (ej: active)" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-primary);" onchange="UsersModule.updateStatusOption('${s.value}', 'value', this.value)">
+                                        <input type="text" value="${this.escapeHtml(s.label)}" data-value="${s.value}" data-field="label" placeholder="Etiqueta (ej: Activo)" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-primary);" onchange="UsersModule.updateStatusOption('${s.value}', 'label', this.value)">
+                                        <button type="button" class="btn-icon sm" onclick="UsersModule.deleteStatusOption('${s.value}')" title="Eliminar">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        </button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('optionsModal').remove()">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    async addStatusOption() {
+        const modalHtml = `
+            <div class="modal-overlay active" id="addStatusModal">
+                <div class="modal" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2>Agregar Estado</h2>
+                        <button class="modal-close" onclick="document.getElementById('addStatusModal').remove()">&times;</button>
+                    </div>
+                    <form id="addStatusForm" class="modal-body">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label>Valor del Estado *</label>
+                            <input type="text" name="value" required placeholder="Ej: active, inactive, suspended" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);" pattern="[a-z_]+" title="Solo letras minúsculas y guiones bajos">
+                            <small style="color: var(--text-tertiary); margin-top: 0.25rem; display: block;">Solo letras minúsculas y guiones bajos (ej: active, inactive)</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Etiqueta *</label>
+                            <input type="text" name="label" required placeholder="Ej: Activo, Inactivo, Suspendido" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            <small style="color: var(--text-tertiary); margin-top: 0.25rem; display: block;">Nombre que se mostrará en la interfaz</small>
+                        </div>
+                    </form>
+                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('addStatusModal').remove()">Cancelar</button>
+                        <button type="submit" form="addStatusForm" class="btn btn-primary">Agregar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('addStatusForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const value = formData.get('value').trim().toLowerCase();
+            const label = formData.get('label').trim();
+
+            if (!value || !label) {
+                this.showToast('Todos los campos son requeridos', 'error');
+                return;
+            }
+
+            // Validar formato del valor
+            if (!/^[a-z_]+$/.test(value)) {
+                this.showToast('El valor solo puede contener letras minúsculas y guiones bajos', 'error');
+                return;
+            }
+
+            // Verificar si ya existe
+            const options = await Store.getEmployeeOptions();
+            const exists = (options.status || []).find(s => s.value === value);
+            if (exists) {
+                this.showToast('Ya existe un estado con ese valor', 'error');
+                return;
+            }
+
+            const option = {
+                value: value,
+                label: label
+            };
+
+            await Store.addEmployeeOption('status', option);
+            await this.loadData();
+            document.getElementById('addStatusModal').remove();
+            document.getElementById('optionsModal').remove();
+            await this.openOptionsManager();
+            this.showToast('Estado agregado');
+        });
+    },
+
+    async updateStatusOption(oldValue, field, newValue) {
+        const options = await Store.getEmployeeOptions();
+        const statusOptions = options.status || [];
+        const option = statusOptions.find(o => o.value === oldValue);
+        
+        if (option) {
+            if (field === 'value') {
+                // Si cambia el valor, necesitamos actualizar todos los usuarios que usan el valor anterior
+                const newOption = { ...option, value: newValue.trim().toLowerCase() };
+                await Store.updateEmployeeOption('status', oldValue, newOption);
+                
+                // Actualizar usuarios que usan este estado
+                const users = await Store.getUsers();
+                for (const user of users) {
+                    if (user.status === oldValue) {
+                        user.status = newOption.value;
+                        await Store.saveUser(user);
+                    }
+                }
+                
+                // Actualizar empleados que usan este estado
+                const employees = await Store.getEmployees();
+                for (const emp of employees) {
+                    if (emp.status === oldValue) {
+                        emp.status = newOption.value;
+                        await Store.saveEmployee(emp);
+                    }
+                }
+            } else {
+                option[field] = newValue.trim();
+                await Store.updateEmployeeOption('status', oldValue, option);
+            }
+            
+            await this.loadData();
+            document.getElementById('optionsModal').remove();
+            await this.openOptionsManager();
+        }
+    },
+
+    async deleteStatusOption(value) {
+        // Verificar si hay usuarios usando este estado
+        const users = await Store.getUsers();
+        const employees = await Store.getEmployees();
+        const usingStatus = [...users, ...employees].filter(u => u.status === value);
+        
+        if (usingStatus.length > 0) {
+            this.showToast(`No se puede eliminar: ${usingStatus.length} usuario(s) usan este estado`, 'error');
+            return;
+        }
+
+        const confirmed = await Modal.confirmDelete('este estado', 'estado');
+        if (confirmed) {
+            await Store.removeEmployeeOption('status', value);
+            await this.loadData();
+            document.getElementById('optionsModal').remove();
+            await this.openOptionsManager();
+            this.showToast('Estado eliminado');
         }
     },
 

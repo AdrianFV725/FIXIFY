@@ -398,10 +398,16 @@ const EmployeeDetailModule = {
     },
 
     async editEmployee() {
-        if (window.EmployeesModule) {
-            window.location.href = `employees.html?edit=${this.employeeId}`;
+        if (window.UsersModule) {
+            window.location.href = `users.html`;
+            // Después de cargar, abrir el formulario de edición
+            setTimeout(() => {
+                if (window.UsersModule) {
+                    UsersModule.editUser(this.employeeId);
+                }
+            }, 500);
         } else {
-            window.location.href = `employees.html`;
+            window.location.href = `users.html`;
         }
     },
 
@@ -480,7 +486,7 @@ const EmployeeDetailModule = {
                         <line x1="9" y1="9" x2="15" y2="15"></line>
                     </svg>
                     <p>${this.escapeHtml(message)}</p>
-                    <button class="btn btn-primary" onclick="window.location.href='employees.html'" style="margin-top: 1rem;">
+                    <button class="btn btn-primary" onclick="window.location.href='users.html'" style="margin-top: 1rem;">
                         Volver a Empleados
                     </button>
                 </div>
