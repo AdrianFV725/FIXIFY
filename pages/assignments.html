@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FIXIFY - Asignaciones</title>
+    <title>FIXIFY - Centro de Asignaciones</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
@@ -12,6 +12,660 @@
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/components.css">
     <script>(function(){const t=localStorage.getItem('fixify-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+    
+    <style>
+        /* ========================================
+           ESTILOS ESPECIFICOS PARA ASIGNACIONES
+           ======================================== */
+        
+        /* Tabs principales */
+        .assignment-tabs {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+        }
+
+        .assignment-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1.5rem;
+            background: transparent;
+            border: none;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .assignment-tab:hover {
+            color: var(--text-primary);
+            background: var(--card-bg);
+        }
+
+        .assignment-tab.active {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .tab-badge {
+            padding: 0.25rem 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+        }
+
+        .assignment-tab.active .tab-badge {
+            background: var(--accent-light);
+            color: var(--accent-primary);
+        }
+
+        /* Grid de asignaciones */
+        .assignment-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .assignment-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Columnas */
+        .assignment-column {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            max-height: 600px;
+        }
+
+        .column-header {
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .column-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+        }
+
+        .column-title.assigned {
+            color: #22c55e;
+        }
+
+        .column-search {
+            width: 100%;
+            padding: 0.625rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid transparent;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .column-search:focus {
+            border-color: var(--accent-primary);
+            background: var(--input-bg);
+        }
+
+        .column-search::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .column-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem;
+        }
+
+        /* Items de recursos */
+        .resource-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .resource-item:hover {
+            border-color: var(--accent-primary);
+            background: var(--card-bg);
+        }
+
+        .resource-item.selected {
+            border-color: var(--accent-primary);
+            background: var(--accent-light);
+        }
+
+        .resource-item.assigned {
+            border-left: 3px solid #22c55e;
+        }
+
+        .resource-item.depleted {
+            opacity: 0.6;
+        }
+
+        .resource-icon {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .resource-icon.available {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+
+        .resource-icon.assigned {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+
+        .resource-icon.license {
+            background: rgba(168, 85, 247, 0.1);
+            color: #a855f7;
+        }
+
+        .resource-icon.license.assigned {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+
+        .resource-icon.expired {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .resource-icon.depleted {
+            background: rgba(107, 114, 128, 0.1);
+            color: #6b7280;
+        }
+
+        .resource-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .resource-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .resource-detail {
+            font-size: 0.8rem;
+            color: var(--text-tertiary);
+            margin-top: 0.125rem;
+        }
+
+        .resource-meta {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-top: 0.25rem;
+        }
+
+        .resource-assignee {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.8rem;
+            color: #22c55e;
+            margin-top: 0.375rem;
+        }
+
+        .resource-date {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-top: 0.25rem;
+        }
+
+        .resource-notes {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            font-style: italic;
+            margin-top: 0.25rem;
+        }
+
+        .resource-expiry {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-top: 0.25rem;
+        }
+
+        .resource-expiry.expired {
+            color: #ef4444;
+        }
+
+        /* Barra de disponibilidad de licencias */
+        .license-availability {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .availability-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .availability-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #a855f7);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .availability-text {
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+            white-space: nowrap;
+        }
+
+        /* Botones de accion en recursos */
+        .resource-action-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .resource-action-btn.assign-btn {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+
+        .resource-action-btn.assign-btn:hover:not(:disabled) {
+            background: #22c55e;
+            color: white;
+        }
+
+        .resource-action-btn.unassign-btn {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .resource-action-btn.unassign-btn:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        .resource-action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Estado vacio */
+        .empty-list {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 1rem;
+            color: var(--text-tertiary);
+            text-align: center;
+        }
+
+        .empty-list svg {
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-list p {
+            font-size: 0.9rem;
+        }
+
+        /* ========================================
+           PANEL DE HISTORIAL
+           ======================================== */
+        
+        .history-container {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+        }
+
+        .history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .history-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .history-filters {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .history-filter-select {
+            padding: 0.5rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            outline: none;
+        }
+
+        .history-filter-select:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .history-list {
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 0.75rem;
+        }
+
+        .history-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .history-item:hover {
+            background: var(--card-bg);
+        }
+
+        .history-item.active {
+            border-left: 3px solid #22c55e;
+        }
+
+        .history-item.ended {
+            border-left: 3px solid #6b7280;
+            opacity: 0.8;
+        }
+
+        .history-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            flex-shrink: 0;
+        }
+
+        .history-icon.machine {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+
+        .history-icon.license {
+            background: rgba(168, 85, 247, 0.1);
+            color: #a855f7;
+        }
+
+        .history-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .history-resource {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .history-employee {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.375rem;
+        }
+
+        .history-notes {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            font-style: italic;
+            margin-top: 0.375rem;
+        }
+
+        .history-by {
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+            margin-top: 0.25rem;
+        }
+
+        .history-dates {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            text-align: right;
+        }
+
+        .history-date {
+            font-size: 0.75rem;
+        }
+
+        .history-date .date-label {
+            color: var(--text-tertiary);
+        }
+
+        .history-date .date-value {
+            color: var(--text-secondary);
+        }
+
+        .history-date.start .date-value {
+            color: #22c55e;
+        }
+
+        .history-date.end .date-value {
+            color: #6b7280;
+        }
+
+        .history-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .history-status.active {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+        }
+
+        .history-status.ended {
+            background: rgba(107, 114, 128, 0.1);
+            color: #6b7280;
+        }
+
+        /* ========================================
+           MODAL DE ASIGNACION
+           ======================================== */
+        
+        .assign-resource-preview {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+        }
+
+        .preview-icon {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+        }
+
+        .preview-icon.machine {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        .preview-icon.license {
+            background: rgba(168, 85, 247, 0.15);
+            color: #a855f7;
+        }
+
+        .preview-info {
+            flex: 1;
+        }
+
+        .preview-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .preview-detail {
+            font-size: 0.8rem;
+            color: var(--text-tertiary);
+            margin-top: 0.25rem;
+        }
+
+        /* Modal de confirmacion */
+        .confirm-message {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .confirm-message svg {
+            margin-bottom: 1rem;
+        }
+
+        .confirm-message p {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .confirm-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .confirm-details strong {
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .confirm-details span {
+            color: var(--text-tertiary);
+            font-size: 0.85rem;
+        }
+
+        /* ========================================
+           RESPONSIVE
+           ======================================== */
+        
+        @media (max-width: 768px) {
+            .assignment-tabs {
+                flex-wrap: wrap;
+            }
+
+            .assignment-tab {
+                flex: 1;
+                min-width: 140px;
+                justify-content: center;
+            }
+
+            .assignment-tab span:not(.tab-badge) {
+                display: none;
+            }
+
+            .history-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .history-filters {
+                width: 100%;
+            }
+
+            .history-filter-select {
+                flex: 1;
+            }
+
+            .history-item {
+                flex-wrap: wrap;
+            }
+
+            .history-dates {
+                width: 100%;
+                flex-direction: row;
+                justify-content: space-between;
+                margin-top: 0.5rem;
+                padding-top: 0.5rem;
+                border-top: 1px solid var(--border-color);
+            }
+        }
+    </style>
 </head>
 <body class="dashboard-body">
     <aside class="sidebar" id="sidebar"></aside>
@@ -38,167 +692,12 @@
         </header>
 
         <div class="page-content">
-            <!-- Tabs para tipo de asignacion -->
-            <section class="tabs-container" id="assignmentTabs">
-                <button class="tab active" data-tab="machines">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                        <line x1="8" y1="21" x2="16" y2="21"></line>
-                        <line x1="12" y1="17" x2="12" y2="21"></line>
-                    </svg>
-                    Asignacion de Maquinas
-                </button>
-                <button class="tab" data-tab="licenses">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                        <polyline points="16 17 21 12 16 7"></polyline>
-                        <line x1="21" y1="12" x2="9" y2="12"></line>
-                    </svg>
-                    Asignacion de Licencias
-                </button>
-            </section>
-
-            <!-- Panel de asignacion de maquinas -->
-            <section class="assignment-panel" id="machinesPanel">
-                <div class="assignment-grid">
-                    <!-- Columna izquierda: Empleados -->
-                    <div class="assignment-column">
-                        <h3 class="column-title">Seleccionar Empleado</h3>
-                        <div class="search-box">
-                            <input type="text" placeholder="Buscar empleado..." id="searchEmployee">
-                        </div>
-                        <div class="selection-list" id="employeesList">
-                            <!--
-                                Lista de empleados disponibles
-                                - Foto/Avatar
-                                - Nombre
-                                - Departamento
-                                - Maquinas actuales asignadas
-                            -->
-                        </div>
-                    </div>
-
-                    <!-- Columna central: Acciones -->
-                    <div class="assignment-actions">
-                        <button class="btn btn-primary" id="assignMachineBtn" disabled>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                                <polyline points="12 5 19 12 12 19"></polyline>
-                            </svg>
-                            Asignar
-                        </button>
-                        <button class="btn btn-secondary" id="unassignMachineBtn" disabled>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="19" y1="12" x2="5" y2="12"></line>
-                                <polyline points="12 19 5 12 12 5"></polyline>
-                            </svg>
-                            Desasignar
-                        </button>
-                    </div>
-
-                    <!-- Columna derecha: Maquinas disponibles -->
-                    <div class="assignment-column">
-                        <h3 class="column-title">Maquinas Disponibles</h3>
-                        <div class="search-box">
-                            <input type="text" placeholder="Buscar maquina..." id="searchMachine">
-                        </div>
-                        <div class="selection-list" id="machinesList">
-                            <!--
-                                Lista de maquinas disponibles
-                                - Icono tipo
-                                - Nombre/Serie
-                                - Tipo
-                                - Specs resumidos
-                            -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Resumen de asignacion seleccionada -->
-                <div class="assignment-summary" id="machineSummary">
-                    <!--
-                        Muestra preview de la asignacion:
-                        - Empleado seleccionado
-                        - Maquina seleccionada
-                        - Formulario de notas/razon
-                        - Boton confirmar
-                    -->
-                </div>
-            </section>
-
-            <!-- Panel de asignacion de licencias (similar estructura) -->
-            <section class="assignment-panel hidden" id="licensesPanel">
-                <div class="assignment-grid">
-                    <div class="assignment-column">
-                        <h3 class="column-title">Seleccionar Empleado</h3>
-                        <div class="search-box">
-                            <input type="text" placeholder="Buscar empleado..." id="searchEmployeeLic">
-                        </div>
-                        <div class="selection-list" id="employeesListLic">
-                        </div>
-                    </div>
-
-                    <div class="assignment-actions">
-                        <button class="btn btn-primary" id="assignLicenseBtn" disabled>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                                <polyline points="12 5 19 12 12 19"></polyline>
-                            </svg>
-                            Asignar
-                        </button>
-                        <button class="btn btn-secondary" id="unassignLicenseBtn" disabled>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="19" y1="12" x2="5" y2="12"></line>
-                                <polyline points="12 19 5 12 12 5"></polyline>
-                            </svg>
-                            Desasignar
-                        </button>
-                    </div>
-
-                    <div class="assignment-column">
-                        <h3 class="column-title">Licencias Disponibles</h3>
-                        <div class="search-box">
-                            <input type="text" placeholder="Buscar licencia..." id="searchLicense">
-                        </div>
-                        <div class="selection-list" id="licensesList">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="assignment-summary" id="licenseSummary">
-                </div>
-            </section>
-
-            <!-- Historial de asignaciones recientes -->
-            <section class="recent-assignments">
-                <h3 class="section-title">Historial de Asignaciones Recientes</h3>
-                <table class="data-table" id="assignmentsHistoryTable">
-                    <!--
-                        Columnas:
-                        - Fecha
-                        - Tipo (maquina/licencia)
-                        - Recurso
-                        - Empleado
-                        - Accion (asignacion/desasignacion)
-                        - Realizado por
-                        - Notas
-                    -->
-                </table>
-            </section>
+            <!-- El contenido se carga dinamicamente por el modulo -->
+            <div style="display: flex; align-items: center; justify-content: center; height: 400px;">
+                <div class="loading-spinner"></div>
+            </div>
         </div>
     </main>
-
-    <!-- Modal confirmacion de asignacion -->
-    <div class="modal-overlay" id="confirmModalOverlay">
-        <div class="modal" id="confirmModal">
-            <!--
-                Confirmacion:
-                - Resumen de la asignacion
-                - Campo de notas/razon
-                - Botones confirmar/cancelar
-            -->
-        </div>
-    </div>
 
     <div class="toast-container" id="toastContainer"></div>
 
@@ -235,4 +734,3 @@
     </script>
 </body>
 </html>
-
