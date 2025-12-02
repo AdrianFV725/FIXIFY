@@ -821,10 +821,18 @@ class LoginController {
             }
 
             if (result.success) {
-                // Mostrar mensaje de redireccion y redirigir al dashboard
+                // Obtener el rol del usuario para redirigir correctamente
+                const userJson = localStorage.getItem('fixify-user') || sessionStorage.getItem('fixify-user');
+                const user = userJson ? JSON.parse(userJson) : null;
+                const userRole = user?.role || result.user?.role || 'user';
+                
+                // Mostrar mensaje de redireccion y redirigir al dashboard correcto
                 this.showSuccessState();
                 setTimeout(() => {
-                    window.location.href = './pages/dashboard.html';
+                    const dashboardUrl = userRole === 'employee' 
+                        ? './pages/employee-dashboard.html' 
+                        : './pages/dashboard.html';
+                    window.location.href = dashboardUrl;
                 }, 4000);
             } else {
                 NotificationManager.show(result.message, 'error');
@@ -882,9 +890,17 @@ class LoginController {
             const result = await Auth.loginWithGoogle();
 
             if (result.success) {
+                // Obtener el rol del usuario para redirigir correctamente
+                const userJson = localStorage.getItem('fixify-user') || sessionStorage.getItem('fixify-user');
+                const user = userJson ? JSON.parse(userJson) : null;
+                const userRole = user?.role || result.user?.role || 'user';
+                
                 this.showSuccessState();
                 setTimeout(() => {
-                    window.location.href = './pages/dashboard.html';
+                    const dashboardUrl = userRole === 'employee' 
+                        ? './pages/employee-dashboard.html' 
+                        : './pages/dashboard.html';
+                    window.location.href = dashboardUrl;
                 }, 4000);
             } else {
                 NotificationManager.show(result.message, 'error');

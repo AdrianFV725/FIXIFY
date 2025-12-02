@@ -15,6 +15,13 @@ const DashboardModule = {
             return;
         }
 
+        // Si es empleado, redirigir a su dashboard
+        const currentUser = Auth.getCurrentUser();
+        if (currentUser && currentUser.role === 'employee') {
+            window.location.href = 'employee-dashboard.html';
+            return;
+        }
+
         // Cargar datos de demo si es primera vez
         try {
             await Store.seedDemoData();
