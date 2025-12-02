@@ -352,7 +352,7 @@ class LoginController {
                 this.showSuccessState();
                 setTimeout(() => {
                     window.location.href = './pages/dashboard.html';
-                }, 2000);
+                }, 4000);
             } else {
                 NotificationManager.show(result.message, 'error');
                 this.shakeCard();
@@ -413,7 +413,7 @@ class LoginController {
                 this.showSuccessState();
                 setTimeout(() => {
                     window.location.href = './pages/dashboard.html';
-                }, 2000);
+                }, 4000);
             } else {
                 NotificationManager.show(result.message, 'error');
                 if (result.message !== 'Inicio de sesion cancelado') {
@@ -437,68 +437,155 @@ class LoginController {
     }
 
     showSuccessState() {
-        // Cambiar la UI para mostrar que el login fue exitoso
+        // Obtener nombre del usuario
+        const userJson = localStorage.getItem('fixify-user') || sessionStorage.getItem('fixify-user');
+        const user = userJson ? JSON.parse(userJson) : null;
+        const userName = user?.name || 'Usuario';
+        const userInitials = userName.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 2);
+
+        // Crear estructura de la pantalla de exito
         elements.loginCard.innerHTML = `
-            <div class="success-state" style="text-align: center; padding: 2rem 0;">
-                <div style="
-                    width: 80px;
-                    height: 80px;
-                    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin: 0 auto 1.5rem;
-                    animation: scaleIn 0.5s ease forwards;
-                ">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
+            <div class="success-screen">
+                <!-- Fondo con efecto glow -->
+                <div class="success-bg-glow"></div>
+                
+                <!-- Contenedor de particulas -->
+                <div class="success-particles" id="successParticles"></div>
+                
+                <!-- Contenedor de confetti -->
+                <div class="confetti-container" id="confettiContainer"></div>
+                
+                <!-- Lineas de celebracion -->
+                <div class="celebration-lines" id="celebrationLines"></div>
+                
+                <!-- Icono de exito animado -->
+                <div class="success-icon-container">
+                    <div class="success-ring"></div>
+                    <div class="success-circle">
+                        <svg class="success-checkmark" viewBox="0 0 24 24">
+                            <path class="checkmark-path" d="M20 6L9 17L4 12"></path>
+                        </svg>
+                    </div>
                 </div>
-                <h2 style="
-                    font-family: 'Playfair Display', serif;
-                    font-size: 1.75rem;
-                    color: var(--text-primary);
-                    margin-bottom: 0.5rem;
-                ">Bienvenido!</h2>
-                <p style="
-                    color: var(--text-secondary);
-                    font-size: 0.95rem;
-                ">Redirigiendo al Dashboard...</p>
-                <div style="
-                    margin-top: 1.5rem;
-                ">
-                    <div class="spinner" style="
-                        width: 24px;
-                        height: 24px;
-                        border: 3px solid var(--border-color);
-                        border-top-color: var(--accent-primary);
-                        border-radius: 50%;
-                        animation: spin 0.8s linear infinite;
-                        margin: 0 auto;
-                    "></div>
+                
+                <!-- Contenido textual -->
+                <div class="success-content">
+                    <h2 class="success-title">Bienvenido!</h2>
+                    <p class="success-subtitle">Inicio de sesion exitoso</p>
+                    <p class="success-redirect-text">Preparando tu espacio de trabajo...</p>
+                    
+                    <!-- Badge del usuario -->
+                    <div class="success-user-greeting">
+                        <div class="success-user-avatar">${userInitials}</div>
+                        <span class="success-user-name">${this.escapeHtml(userName)}</span>
+                    </div>
+                    
+                    <!-- Barra de progreso -->
+                    <div class="success-progress-container">
+                        <div class="success-progress-bar">
+                            <div class="success-progress-fill"></div>
+                        </div>
+                        <div class="success-dots">
+                            <div class="success-dot"></div>
+                            <div class="success-dot"></div>
+                            <div class="success-dot"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
 
-        // Agregar estilos de animacion
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes scaleIn {
-                from {
-                    transform: scale(0);
-                    opacity: 0;
-                }
-                to {
-                    transform: scale(1);
-                    opacity: 1;
-                }
-            }
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-        `;
-        document.head.appendChild(style);
+        // Generar particulas flotantes
+        this.generateParticles();
+        
+        // Generar confetti con explosion
+        setTimeout(() => this.generateConfetti(), 600);
+        
+        // Generar lineas de celebracion
+        setTimeout(() => this.generateCelebrationLines(), 400);
+
+        // Agregar transicion de salida antes de redirigir
+        setTimeout(() => {
+            elements.loginCard.classList.add('transitioning-out');
+        }, 3500);
+    }
+
+    generateParticles() {
+        const container = document.getElementById('successParticles');
+        if (!container) return;
+
+        const particleCount = 20;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            
+            // Posicion aleatoria en la parte inferior
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.bottom = `${Math.random() * 30}%`;
+            
+            // Delay aleatorio para escalonar la animacion
+            particle.style.animationDelay = `${Math.random() * 2}s`;
+            particle.style.animationDuration = `${2 + Math.random() * 2}s`;
+            
+            container.appendChild(particle);
+        }
+    }
+
+    generateConfetti() {
+        const container = document.getElementById('confettiContainer');
+        if (!container) return;
+
+        const confettiCount = 30;
+        
+        for (let i = 0; i < confettiCount; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            
+            // Direccion aleatoria de explosion
+            const angle = (Math.PI * 2 / confettiCount) * i + (Math.random() - 0.5);
+            const distance = 80 + Math.random() * 120;
+            const endDistance = 150 + Math.random() * 100;
+            
+            const x = Math.cos(angle) * distance;
+            const y = Math.sin(angle) * distance;
+            const xEnd = Math.cos(angle) * endDistance;
+            const yEnd = Math.sin(angle) * endDistance + 100; // Caida por gravedad
+            const rotation = Math.random() * 720 - 360;
+            
+            confetti.style.setProperty('--x', `${x}px`);
+            confetti.style.setProperty('--y', `${y}px`);
+            confetti.style.setProperty('--x-end', `${xEnd}px`);
+            confetti.style.setProperty('--y-end', `${yEnd}px`);
+            confetti.style.setProperty('--rotation', `${rotation}deg`);
+            confetti.style.animationDelay = `${Math.random() * 0.2}s`;
+            
+            container.appendChild(confetti);
+        }
+    }
+
+    generateCelebrationLines() {
+        const container = document.getElementById('celebrationLines');
+        if (!container) return;
+
+        const lineCount = 12;
+        
+        for (let i = 0; i < lineCount; i++) {
+            const line = document.createElement('div');
+            line.className = 'celebration-line';
+            
+            const angle = (360 / lineCount) * i;
+            line.style.setProperty('--angle', `${angle}deg`);
+            line.style.animationDelay = `${i * 0.05}s`;
+            
+            container.appendChild(line);
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
