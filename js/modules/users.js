@@ -7,6 +7,7 @@ const UsersModule = {
     filteredUsers: [],
     departments: [],
     employeeOptions: {},
+    currentView: 'table', // Vista actual: 'table' o 'cards'
 
     async init() {
         if (!Auth.isAuthenticated()) {
@@ -28,9 +29,10 @@ const UsersModule = {
         }
 
         await this.loadData();
+        this.loadViewPreference();
         this.renderStats();
         this.renderFilters();
-        this.renderTable();
+        this.setView(this.currentView);
         this.bindEvents();
     },
 
@@ -138,7 +140,7 @@ const UsersModule = {
             return matchesSearch && matchesRole && matchesStatus && matchesDepartment && matchesPosition;
         });
 
-        this.renderTable();
+        this.renderView();
     },
 
     renderStats() {
@@ -287,15 +289,8 @@ const UsersModule = {
     },
 
     renderTable() {
-        const container = document.getElementById('usersTableContainer') || document.querySelector('.page-content');
+        const container = document.getElementById('tableView');
         if (!container) return;
-
-        let tableContainer = document.getElementById('usersTableContainer');
-        if (!tableContainer) {
-            tableContainer = document.createElement('div');
-            tableContainer.id = 'usersTableContainer';
-            container.appendChild(tableContainer);
-        }
 
         // Capturar this para usar en funciones internas
         const self = this;
@@ -457,19 +452,19 @@ const UsersModule = {
             }).join('');
         }
 
-        tableContainer.innerHTML = `
-            <div style="overflow-x: auto; max-height: calc(100vh - 450px); overflow-y: auto;">
-                <table class="data-table" style="min-width: 100%;">
-                    <thead style="position: sticky; top: 0; z-index: 10; background: var(--bg-tertiary);">
+        container.innerHTML = `
+            <div style="overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 480px);">
+                <table class="data-table" style="min-width: 100%; width: 100%;">
+                    <thead style="position: sticky; top: 0; z-index: 10; background: var(--card-bg);">
                         <tr>
-                            <th style="min-width: 180px; padding: 0.75rem 1rem; font-size: 0.7rem;">Usuario</th>
-                            <th style="min-width: 160px; padding: 0.75rem 1rem; font-size: 0.7rem;">Correo</th>
-                            <th style="min-width: 100px; padding: 0.75rem 1rem; font-size: 0.7rem;">Rol</th>
-                            ${hasEmployees ? '<th style="min-width: 120px; padding: 0.75rem 1rem; font-size: 0.7rem;">Departamento</th><th style="min-width: 140px; padding: 0.75rem 1rem; font-size: 0.7rem;">Puesto</th>' : ''}
-                            <th style="min-width: 90px; padding: 0.75rem 1rem; font-size: 0.7rem;">Estado</th>
-                            <th style="min-width: 100px; padding: 0.75rem 1rem; font-size: 0.7rem;">Creado</th>
-                            <th style="min-width: 120px; padding: 0.75rem 1rem; font-size: 0.7rem;">Último Acceso</th>
-                            <th style="min-width: 100px; padding: 0.75rem 1rem; font-size: 0.7rem; text-align: center;">Acciones</th>
+                            <th style="min-width: 180px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Usuario</th>
+                            <th style="min-width: 160px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Correo</th>
+                            <th style="min-width: 100px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Rol</th>
+                            ${hasEmployees ? '<th style="min-width: 120px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Departamento</th><th style="min-width: 140px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Puesto</th>' : ''}
+                            <th style="min-width: 90px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Estado</th>
+                            <th style="min-width: 100px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Creado</th>
+                            <th style="min-width: 120px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Último Acceso</th>
+                            <th style="min-width: 120px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color); text-align: center;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -538,10 +533,239 @@ const UsersModule = {
         return `Hace ${days}d`;
     },
 
+    // ========================================
+    // VISTA DE TARJETAS
+    // ========================================
+
+    renderCards() {
+        const container = document.getElementById('cardsView');
+        if (!container) return;
+
+        if (this.filteredUsers.length === 0) {
+            container.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 2rem;">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                        <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-tertiary);">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <line x1="23" y1="11" x2="17" y2="11"></line>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0 0 0.5rem 0; font-size: 1.125rem; font-weight: 600; color: var(--text-primary);">
+                                ${this.users.length === 0 ? 'No hay usuarios registrados' : 'No se encontraron resultados'}
+                            </h3>
+                            <p style="margin: 0; font-size: 0.875rem; color: var(--text-secondary);">
+                                ${this.users.length === 0 ? 'Comienza agregando tu primer usuario' : 'Intenta ajustar los filtros de búsqueda'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const self = this;
+        const currentUser = Auth.getCurrentUser();
+
+        const statusBadge = (status) => {
+            const statusOptions = self.employeeOptions.status || [];
+            const statusOption = statusOptions.find(s => s.value === status);
+            
+            if (statusOption) {
+                const classMap = {
+                    active: 'badge-active',
+                    inactive: 'badge-inactive'
+                };
+                const badgeClass = classMap[status] || 'badge';
+                return `<span class="badge ${badgeClass}">${self.escapeHtml(statusOption.label)}</span>`;
+            }
+            
+            return status === 'active' 
+                ? '<span class="badge badge-active">Activo</span>'
+                : '<span class="badge badge-inactive">Inactivo</span>';
+        };
+
+        const roleBadge = (role) => {
+            if (role === 'admin') {
+                return '<span class="badge badge-open">Administrador</span>';
+            } else if (role === 'employee') {
+                return '<span class="badge badge-in-progress">Empleado</span>';
+            } else {
+                return '<span class="badge badge-resolved">Usuario</span>';
+            }
+        };
+
+        const getDeptName = (deptId) => {
+            const dept = self.departments.find(d => d.id === deptId);
+            return dept ? dept.name : '-';
+        };
+
+        const getDeptColor = (deptId) => {
+            const dept = self.departments.find(d => d.id === deptId);
+            return dept?.color || '#3b82f6';
+        };
+
+        container.innerHTML = this.filteredUsers.map(u => `
+            <div class="card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; transition: all 0.2s ease; border-left: 4px solid ${u.role === 'admin' ? '#3b82f6' : u.role === 'employee' ? '#a855f7' : '#f97316'};">
+                <div class="card-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.875rem; flex: 1; min-width: 0;">
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 1.1rem; flex-shrink: 0; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+                            ${(u.name || 'U')[0].toUpperCase()}
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                ${self.escapeHtml(u.name || 'Usuario')} ${u.lastName ? self.escapeHtml(u.lastName) : ''}
+                            </div>
+                            ${u.employeeNumber ? `<div style="font-size: 0.7rem; color: var(--text-tertiary); font-family: 'Monaco', 'Menlo', monospace;">#${self.escapeHtml(u.employeeNumber)}</div>` : ''}
+                        </div>
+                    </div>
+                    ${roleBadge(u.role)}
+                </div>
+                <div class="card-body" style="flex: 1;">
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary); flex-shrink: 0;">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                            <span style="color: var(--text-primary); font-size: 0.875rem; word-break: break-word;">${u.email || '-'}</span>
+                        </div>
+                        ${u.role === 'employee' && u.department ? `
+                            <div style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; background: ${getDeptColor(u.department)}15; border: 1px solid ${getDeptColor(u.department)}40; border-radius: 8px; font-size: 0.75rem; font-weight: 500; color: ${getDeptColor(u.department)}; width: fit-content;">
+                                <div style="width: 6px; height: 6px; border-radius: 50%; background: ${getDeptColor(u.department)};"></div>
+                                ${getDeptName(u.department)}
+                            </div>
+                        ` : ''}
+                        ${u.role === 'employee' && u.position ? `
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary); flex-shrink: 0;">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                                <span style="color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">${self.escapeHtml(u.position)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
+                            <span style="color: var(--text-tertiary);">Estado:</span>
+                            ${statusBadge(u.status)}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
+                            <span style="color: var(--text-tertiary);">Creado:</span>
+                            <span style="color: var(--text-primary);">${self.formatDate(u.createdAt)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem;">
+                            <span style="color: var(--text-tertiary);">Último acceso:</span>
+                            ${u.lastLogin ? `
+                                <span style="color: var(--text-secondary);">${self.timeAgo(u.lastLogin)}</span>
+                            ` : '<span style="color: var(--text-tertiary); font-style: italic;">Nunca</span>'}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    ${u.role === 'employee' ? `
+                        <button class="btn-icon sm" onclick="window.location.href='user-detail.html?id=${u.id}'" title="Ver detalle" style="width: 32px; height: 32px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'" onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                    ` : ''}
+                    <button class="btn-icon sm" onclick="UsersModule.editUser('${u.id}')" title="Editar" style="width: 32px; height: 32px; background: rgba(34, 197, 94, 0.1); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(34, 197, 94, 0.2)'" onmouseout="this.style.background='rgba(34, 197, 94, 0.1)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <button class="btn-icon sm" onclick="UsersModule.openPasswordForm('${u.id}')" title="Cambiar contraseña" style="width: 32px; height: 32px; background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(168, 85, 247, 0.2)'" onmouseout="this.style.background='rgba(168, 85, 247, 0.1)'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </button>
+                    ${u.email !== currentUser?.email ? `
+                        <button class="btn-icon sm" onclick="UsersModule.deleteUser('${u.id}')" title="Eliminar" style="width: 32px; height: 32px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+    },
+
+    // ========================================
+    // TOGGLE DE VISTAS
+    // ========================================
+
+    loadViewPreference() {
+        const saved = localStorage.getItem('fixify-users-view');
+        if (saved === 'table' || saved === 'cards') {
+            this.currentView = saved;
+        }
+    },
+
+    saveViewPreference() {
+        localStorage.setItem('fixify-users-view', this.currentView);
+    },
+
+    setView(view) {
+        this.currentView = view;
+        this.saveViewPreference();
+        this.updateViewVisibility();
+        this.updateViewToggleButtons();
+        this.renderView();
+    },
+
+    updateViewVisibility() {
+        const tableView = document.getElementById('tableView');
+        const cardsView = document.getElementById('cardsView');
+
+        if (tableView && cardsView) {
+            if (this.currentView === 'table') {
+                tableView.classList.remove('hidden');
+                cardsView.classList.add('hidden');
+            } else {
+                tableView.classList.add('hidden');
+                cardsView.classList.remove('hidden');
+            }
+        }
+    },
+
+    updateViewToggleButtons() {
+        const viewToggle = document.getElementById('viewToggle');
+        if (!viewToggle) return;
+
+        const buttons = viewToggle.querySelectorAll('.view-btn');
+        buttons.forEach(btn => {
+            const view = btn.getAttribute('data-view');
+            if (view === this.currentView) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    },
+
+    renderView() {
+        if (this.currentView === 'cards') {
+            this.renderCards();
+        } else {
+            this.renderTable();
+        }
+    },
+
     bindEvents() {
         document.getElementById('newUserBtn')?.addEventListener('click', () => this.openForm());
         document.getElementById('manageDepartmentsBtn')?.addEventListener('click', () => this.openDepartmentsManager());
         document.getElementById('optionsBtn')?.addEventListener('click', () => this.openOptionsManager());
+        
+        // Toggle de vistas
+        const viewToggle = document.getElementById('viewToggle');
+        if (viewToggle) {
+            viewToggle.addEventListener('click', (e) => {
+                const btn = e.target.closest('.view-btn');
+                if (btn) {
+                    const view = btn.getAttribute('data-view');
+                    if (view) {
+                        this.setView(view);
+                    }
+                }
+            });
+        }
         
         // Filtros en tiempo real
         document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
@@ -771,7 +995,7 @@ const UsersModule = {
             document.getElementById('userModal').remove();
             await this.loadData();
             this.renderStats();
-            this.renderTable();
+            this.renderView();
             this.showToast(isEdit ? 'Usuario actualizado' : 'Usuario creado');
         });
     },
@@ -936,7 +1160,7 @@ const UsersModule = {
             
             await this.loadData();
             this.renderStats();
-            this.renderTable();
+            this.renderView();
             this.showToast('Usuario eliminado');
         }
     },
