@@ -49,7 +49,28 @@ const UsersModule = {
             
             // Unificar usuarios y empleados
             // Primero, agregar todos los usuarios existentes
-            this.users = [...users];
+            this.users = [];
+            
+            // Asegurarnos de que todos los usuarios se agreguen correctamente
+            if (users && Array.isArray(users) && users.length > 0) {
+                users.forEach(user => {
+                    if (user && (user.id || user.email)) {
+                        // Asegurar que tenga un ID si no lo tiene
+                        if (!user.id) {
+                            user.id = Store.generateId('USR');
+                        }
+                        // Asegurar que tenga un rol
+                        if (!user.role) {
+                            user.role = 'user';
+                        }
+                        // Asegurar que tenga estado
+                        if (!user.status) {
+                            user.status = 'active';
+                        }
+                        this.users.push(user);
+                    }
+                });
+            }
             
             // Luego, convertir empleados en usuarios si no existen ya
             for (const employee of employees) {
@@ -105,6 +126,21 @@ const UsersModule = {
                     await Store.saveUser(user);
                 }
             }
+            
+            // Asegurar que todos los usuarios tengan un rol válido
+            this.users = this.users.map(user => {
+                if (!user.role) {
+                    user.role = 'user'; // Rol por defecto si no tiene
+                }
+                return user;
+            });
+            
+            // Ordenar usuarios por fecha de creación (más recientes primero)
+            this.users.sort((a, b) => {
+                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                return dateB - dateA;
+            });
             
             this.filteredUsers = [...this.users];
         } catch (e) {
@@ -968,9 +1004,24 @@ const UsersModule = {
                 }
             } else {
                 delete data.id;
+                // Asegurar que el usuario tenga los campos necesarios
+                if (!data.role) data.role = 'user';
+                if (!data.status) data.status = 'active';
+                
                 // Agregar fecha de creacion para nuevos usuarios
                 data.createdAt = new Date().toISOString();
+                
                 const savedUser = await Store.saveUser(data);
+                
+                // Verificar que el usuario se haya guardado correctamente
+                if (!savedUser || !savedUser.id) {
+                    Modal.alert({
+                        title: 'Error',
+                        message: 'No se pudo guardar el usuario correctamente',
+                        type: 'error'
+                    });
+                    return;
+                }
                 
                 // Si es empleado, también guardar en la colección de empleados
                 if (data.role === 'employee') {
@@ -993,7 +1044,32 @@ const UsersModule = {
             }
 
             document.getElementById('userModal').remove();
+            
+            // Limpiar filtros después de crear/editar para que se vea el usuario nuevo
+            if (!isEdit) {
+                if (document.getElementById('searchInput')) document.getElementById('searchInput').value = '';
+                if (document.getElementById('roleFilter')) document.getElementById('roleFilter').value = '';
+                if (document.getElementById('statusFilter')) document.getElementById('statusFilter').value = '';
+                if (document.getElementById('departmentFilter')) document.getElementById('departmentFilter').value = '';
+                if (document.getElementById('positionFilter')) document.getElementById('positionFilter').value = '';
+            }
+            
+            // Pequeño delay para asegurar que los datos se hayan guardado completamente
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // Recargar todos los datos
             await this.loadData();
+            
+            // Asegurar que filteredUsers esté actualizado después de cargar datos
+            // Si es edición, aplicar filtros actuales; si es creación, mostrar todos
+            if (isEdit) {
+                this.applyFilters();
+            } else {
+                // Después de crear, mostrar todos los usuarios sin filtros
+                this.filteredUsers = [...this.users];
+            }
+            
+            // Actualizar la vista
             this.renderStats();
             this.renderView();
             this.showToast(isEdit ? 'Usuario actualizado' : 'Usuario creado');
