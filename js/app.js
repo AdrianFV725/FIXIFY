@@ -10,32 +10,36 @@ const CONFIG = {
 };
 
 // ========================================
-// ELEMENTOS DEL DOM
+// ELEMENTOS DEL DOM (se inicializan despues)
 // ========================================
 
-const elements = {
-    html: document.documentElement,
-    themeToggle: document.getElementById('themeToggle'),
-    loginForm: document.getElementById('loginForm'),
-    emailInput: document.getElementById('email'),
-    passwordInput: document.getElementById('password'),
-    emailError: document.getElementById('emailError'),
-    passwordError: document.getElementById('passwordError'),
-    passwordToggle: document.getElementById('passwordToggle'),
-    submitBtn: document.getElementById('submitBtn'),
-    notification: document.getElementById('notification'),
-    notificationText: document.getElementById('notificationText'),
-    loginCard: document.querySelector('.login-card'),
-    forgotLink: document.querySelector('.forgot-link'),
-    // Modal de recuperacion
-    resetModal: document.getElementById('resetPasswordModal'),
-    resetForm: document.getElementById('resetPasswordForm'),
-    resetEmailInput: document.getElementById('resetEmail'),
-    resetEmailError: document.getElementById('resetEmailError'),
-    resetSubmitBtn: document.getElementById('resetSubmitBtn'),
-    closeModalBtn: document.getElementById('closeResetModal'),
-    backToLoginBtn: document.getElementById('backToLogin')
-};
+let elements = {};
+
+function initElements() {
+    elements = {
+        html: document.documentElement,
+        themeToggle: document.getElementById('themeToggle'),
+        loginForm: document.getElementById('loginForm'),
+        emailInput: document.getElementById('email'),
+        passwordInput: document.getElementById('password'),
+        emailError: document.getElementById('emailError'),
+        passwordError: document.getElementById('passwordError'),
+        passwordToggle: document.getElementById('passwordToggle'),
+        submitBtn: document.getElementById('submitBtn'),
+        notification: document.getElementById('notification'),
+        notificationText: document.getElementById('notificationText'),
+        loginCard: document.querySelector('.login-card'),
+        forgotLink: document.querySelector('.forgot-link'),
+        // Modal de recuperacion
+        resetModal: document.getElementById('resetPasswordModal'),
+        resetForm: document.getElementById('resetPasswordForm'),
+        resetEmailInput: document.getElementById('resetEmail'),
+        resetEmailError: document.getElementById('resetEmailError'),
+        resetSubmitBtn: document.getElementById('resetSubmitBtn'),
+        closeModalBtn: document.getElementById('closeResetModal'),
+        backToLoginBtn: document.getElementById('backToLogin')
+    };
+}
 
 // ========================================
 // GESTION DEL TEMA
@@ -108,14 +112,18 @@ class FormValidator {
     }
 
     static showError(inputElement, errorElement, message) {
-        inputElement.classList.add('error');
-        errorElement.textContent = message;
-        errorElement.classList.add('visible');
+        if (inputElement && errorElement) {
+            inputElement.classList.add('error');
+            errorElement.textContent = message;
+            errorElement.classList.add('visible');
+        }
     }
 
     static hideError(inputElement, errorElement) {
-        inputElement.classList.remove('error');
-        errorElement.classList.remove('visible');
+        if (inputElement && errorElement) {
+            inputElement.classList.remove('error');
+            errorElement.classList.remove('visible');
+        }
     }
 }
 
@@ -125,6 +133,8 @@ class FormValidator {
 
 class NotificationManager {
     static show(message, type = 'success') {
+        if (!elements.notification || !elements.notificationText) return;
+        
         elements.notification.className = 'notification';
         elements.notificationText.textContent = message;
         elements.notification.classList.add(type, 'show');
@@ -135,7 +145,9 @@ class NotificationManager {
     }
 
     static hide() {
-        elements.notification.classList.remove('show');
+        if (elements.notification) {
+            elements.notification.classList.remove('show');
+        }
     }
 }
 
@@ -244,21 +256,28 @@ class ResetPasswordController {
     bindEvents() {
         // Abrir modal
         if (elements.forgotLink) {
+            console.log('Enlace de recuperacion encontrado, agregando evento...');
             elements.forgotLink.addEventListener('click', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
+                console.log('Clic en olvidaste tu contrasena');
                 this.openModal();
             });
+        } else {
+            console.error('No se encontro el enlace de recuperacion de contrasena');
         }
 
         // Cerrar modal
         if (elements.closeModalBtn) {
-            elements.closeModalBtn.addEventListener('click', () => {
+            elements.closeModalBtn.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.closeModal();
             });
         }
 
         if (elements.backToLoginBtn) {
-            elements.backToLoginBtn.addEventListener('click', () => {
+            elements.backToLoginBtn.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.closeModal();
             });
         }
@@ -296,6 +315,7 @@ class ResetPasswordController {
     }
 
     openModal() {
+        console.log('Abriendo modal de recuperacion...');
         if (elements.resetModal) {
             // Mostrar el modal
             elements.resetModal.style.display = 'flex';
@@ -305,7 +325,9 @@ class ResetPasswordController {
             elements.resetModal.classList.add('show');
             // Focus en el input
             setTimeout(() => {
-                elements.resetEmailInput?.focus();
+                if (elements.resetEmailInput) {
+                    elements.resetEmailInput.focus();
+                }
             }, 100);
             // Pre-llenar con el email del login si existe
             if (elements.emailInput?.value && elements.resetEmailInput) {
@@ -313,6 +335,9 @@ class ResetPasswordController {
             }
             // Prevenir scroll del body
             document.body.style.overflow = 'hidden';
+            console.log('Modal abierto');
+        } else {
+            console.error('No se encontro el modal de recuperacion');
         }
     }
 
@@ -321,7 +346,9 @@ class ResetPasswordController {
             elements.resetModal.classList.remove('show');
             // Esperar a que termine la animacion antes de ocultar
             setTimeout(() => {
-                elements.resetModal.style.display = 'none';
+                if (elements.resetModal) {
+                    elements.resetModal.style.display = 'none';
+                }
             }, 300);
             // Limpiar formulario
             if (elements.resetForm) {
@@ -429,49 +456,58 @@ class LoginController {
 
     bindEvents() {
         // Toggle de tema
-        elements.themeToggle?.addEventListener('click', () => {
-            this.themeManager.toggle();
-        });
+        if (elements.themeToggle) {
+            elements.themeToggle.addEventListener('click', () => {
+                this.themeManager.toggle();
+            });
+        }
 
         // Toggle de password
-        elements.passwordToggle?.addEventListener('click', () => {
-            this.togglePasswordVisibility();
-        });
+        if (elements.passwordToggle) {
+            elements.passwordToggle.addEventListener('click', () => {
+                this.togglePasswordVisibility();
+            });
+        }
 
         // Validacion en tiempo real
-        elements.emailInput?.addEventListener('blur', () => {
-            this.validateEmailField();
-        });
+        if (elements.emailInput) {
+            elements.emailInput.addEventListener('blur', () => {
+                this.validateEmailField();
+            });
+            elements.emailInput.addEventListener('input', () => {
+                FormValidator.hideError(elements.emailInput, elements.emailError);
+            });
+        }
 
-        elements.passwordInput?.addEventListener('blur', () => {
-            this.validatePasswordField();
-        });
-
-        // Limpiar errores al escribir
-        elements.emailInput?.addEventListener('input', () => {
-            FormValidator.hideError(elements.emailInput, elements.emailError);
-        });
-
-        elements.passwordInput?.addEventListener('input', () => {
-            FormValidator.hideError(elements.passwordInput, elements.passwordError);
-        });
+        if (elements.passwordInput) {
+            elements.passwordInput.addEventListener('blur', () => {
+                this.validatePasswordField();
+            });
+            elements.passwordInput.addEventListener('input', () => {
+                FormValidator.hideError(elements.passwordInput, elements.passwordError);
+            });
+        }
 
         // Submit del formulario
-        elements.loginForm?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleSubmit();
-        });
-
-        // Permitir submit con Enter
-        elements.loginForm?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !this.isLoading) {
+        if (elements.loginForm) {
+            elements.loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.handleSubmit();
-            }
-        });
+            });
+
+            // Permitir submit con Enter
+            elements.loginForm.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !this.isLoading) {
+                    e.preventDefault();
+                    this.handleSubmit();
+                }
+            });
+        }
     }
 
     togglePasswordVisibility() {
+        if (!elements.passwordInput || !elements.passwordToggle) return;
+        
         const type = elements.passwordInput.getAttribute('type');
         
         if (type === 'password') {
@@ -484,6 +520,8 @@ class LoginController {
     }
 
     validateEmailField() {
+        if (!elements.emailInput) return false;
+        
         const result = FormValidator.validateEmail(elements.emailInput.value);
         
         if (!result.valid) {
@@ -494,6 +532,8 @@ class LoginController {
     }
 
     validatePasswordField() {
+        if (!elements.passwordInput) return false;
+        
         const result = FormValidator.validatePassword(elements.passwordInput.value);
         
         if (!result.valid) {
@@ -525,7 +565,7 @@ class LoginController {
             if (result.success) {
                 NotificationManager.show(result.message, 'success');
                 
-                const rememberMe = document.getElementById('remember').checked;
+                const rememberMe = document.getElementById('remember')?.checked || false;
                 const storage = rememberMe ? localStorage : sessionStorage;
                 
                 let userData = result.user;
@@ -564,20 +604,30 @@ class LoginController {
 
     setLoading(loading) {
         this.isLoading = loading;
-        elements.submitBtn.classList.toggle('loading', loading);
-        elements.submitBtn.disabled = loading;
-        elements.emailInput.disabled = loading;
-        elements.passwordInput.disabled = loading;
+        if (elements.submitBtn) {
+            elements.submitBtn.classList.toggle('loading', loading);
+            elements.submitBtn.disabled = loading;
+        }
+        if (elements.emailInput) {
+            elements.emailInput.disabled = loading;
+        }
+        if (elements.passwordInput) {
+            elements.passwordInput.disabled = loading;
+        }
     }
 
     shakeCard() {
-        elements.loginCard.classList.add('shake');
-        setTimeout(() => {
-            elements.loginCard.classList.remove('shake');
-        }, 500);
+        if (elements.loginCard) {
+            elements.loginCard.classList.add('shake');
+            setTimeout(() => {
+                elements.loginCard.classList.remove('shake');
+            }, 500);
+        }
     }
 
     showSuccessState() {
+        if (!elements.loginCard) return;
+        
         elements.loginCard.innerHTML = `
             <div class="success-state" style="text-align: center; padding: 2rem 0;">
                 <div style="
@@ -646,6 +696,18 @@ class LoginController {
 // ========================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM cargado, inicializando app...');
+    
+    // Inicializar elementos del DOM
+    initElements();
+    
+    // Debug: verificar elementos
+    console.log('Elementos inicializados:', {
+        forgotLink: elements.forgotLink ? 'OK' : 'NO ENCONTRADO',
+        resetModal: elements.resetModal ? 'OK' : 'NO ENCONTRADO',
+        loginForm: elements.loginForm ? 'OK' : 'NO ENCONTRADO'
+    });
+    
     // Verificar sesion existente y redirigir al dashboard
     const hasSession = localStorage.getItem('fixify-session') || sessionStorage.getItem('fixify-session');
     if (hasSession) {
@@ -655,6 +717,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Inicializar controlador solo si no hay sesion
     new LoginController();
+    
+    console.log('App inicializada correctamente');
 });
 
 // ========================================
