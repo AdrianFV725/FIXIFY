@@ -3,6 +3,9 @@
    ======================================== */
 
 :root {
+    /* Color scheme para elementos nativos del navegador */
+    color-scheme: light;
+    
     /* Colores del tema claro */
     --bg-primary: #faf8f5;
     --bg-secondary: #ffffff;
@@ -33,6 +36,9 @@
 }
 
 [data-theme="dark"] {
+    /* Color scheme para elementos nativos del navegador */
+    color-scheme: dark;
+    
     --bg-primary: #0f0f0f;
     --bg-secondary: #1a1a1a;
     --bg-tertiary: #252525;
@@ -1611,4 +1617,46 @@ body {
     }
 }
 
+/* ========================================
+   ESTILOS GLOBALES PARA SELECT Y OPTIONS
+   Compatibilidad con temas claro/oscuro
+   ======================================== */
+
+/* Estilos base para todos los selects */
+select {
+    font-family: inherit;
+    color-scheme: light dark;
+}
+
+/* Estilos para las opciones del dropdown */
+select option {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    padding: 8px 12px;
+}
+
+/* Tema oscuro: forzar colores del dropdown */
+[data-theme="dark"] select,
+[data-theme="dark"] select option {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] select option:checked,
+[data-theme="dark"] select option:hover {
+    background-color: var(--accent-light);
+    color: var(--accent-primary);
+}
+
+/* Tema claro */
+[data-theme="light"] select option {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+}
+
+[data-theme="light"] select option:checked,
+[data-theme="light"] select option:hover {
+    background-color: var(--accent-light);
+    color: var(--accent-primary);
+}
 

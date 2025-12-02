@@ -143,34 +143,35 @@ const TicketsModule = {
 
         container.innerHTML = `
             <div class="filter-search">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
                 <input type="text" id="searchInput" placeholder="Buscar...">
             </div>
+            <div class="filter-divider"></div>
             <div class="filter-selects">
-                <select class="filter-select-compact" id="tipoFilter">
+                <select class="filter-select-compact" id="tipoFilter" data-default="true">
                     <option value="">Tipo</option>
                     <option value="incidencia">Incidencia</option>
                     <option value="requerimiento">Requerimiento</option>
                 </select>
-                <select class="filter-select-compact" id="statusFilter">
+                <select class="filter-select-compact" id="statusFilter" data-default="true">
                     <option value="">Estado</option>
                     <option value="open">Abierto</option>
                     <option value="in_progress">En Progreso</option>
                     <option value="resolved">Resuelto</option>
                     <option value="closed">Cerrado</option>
                 </select>
-                <select class="filter-select-compact" id="temaFilter">
+                <select class="filter-select-compact" id="temaFilter" data-default="true">
                     <option value="">Tema</option>
                     ${temas.map(t => `<option value="${this.escapeHtml(t)}">${this.escapeHtml(t)}</option>`).join('')}
                 </select>
-                <select class="filter-select-compact" id="servicioFilter">
+                <select class="filter-select-compact" id="servicioFilter" data-default="true">
                     <option value="">Servicio</option>
                     <option value="hardware">Hardware</option>
                     <option value="software">Software</option>
                     <option value="network">Red</option>
                     <option value="other">Otro</option>
                 </select>
-                <select class="filter-select-compact" id="priorityFilter">
+                <select class="filter-select-compact" id="priorityFilter" data-default="true">
                     <option value="">Prioridad</option>
                     <option value="low">Baja</option>
                     <option value="medium">Media</option>
@@ -179,9 +180,20 @@ const TicketsModule = {
                 </select>
             </div>
             <button class="filter-clear-btn" id="clearFilters" title="Limpiar filtros">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
             </button>
         `;
+        
+        // Agregar listener para resaltar filtros activos
+        container.querySelectorAll('.filter-select-compact').forEach(select => {
+            select.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    e.target.removeAttribute('data-default');
+                } else {
+                    e.target.setAttribute('data-default', 'true');
+                }
+            });
+        });
     },
 
     applyFilters() {

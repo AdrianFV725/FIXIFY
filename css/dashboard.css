@@ -1598,6 +1598,24 @@ body.dashboard-body {
     color: var(--text-primary);
 }
 
+/* Estilo para las opciones del dropdown */
+.filter-select-compact option {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+.filter-select-compact option:first-child {
+    color: var(--text-tertiary);
+}
+
+.filter-select-compact option:hover,
+.filter-select-compact option:checked {
+    background-color: var(--accent-light);
+    color: var(--accent-primary);
+}
+
 /* Cuando el select tiene un valor seleccionado */
 .filter-select-compact.has-value,
 .filter-select-compact:not([data-default="true"]) {
@@ -1708,17 +1726,23 @@ body.dashboard-body {
 @media (max-width: 900px) {
     .filters-bar {
         flex-wrap: wrap;
+        gap: 0.5rem;
     }
     
     .filter-search {
         flex: 1;
-        min-width: 140px;
+        min-width: 120px;
         max-width: none;
+    }
+    
+    .filter-divider {
+        display: none;
     }
     
     .filter-selects {
         width: 100%;
         order: 1;
+        flex-wrap: wrap;
     }
     
     .filter-clear-btn {
@@ -1727,13 +1751,21 @@ body.dashboard-body {
 }
 
 @media (max-width: 480px) {
+    .filters-bar {
+        padding: 0.4rem;
+    }
+    
     .filter-selects {
         gap: 0.25rem;
     }
     
     .filter-select-compact {
-        padding: 0.35rem 1.3rem 0.35rem 0.5rem;
-        font-size: 0.7rem;
+        padding: 0.25rem 1.2rem 0.25rem 0.4rem;
+        font-size: 0.65rem;
+    }
+    
+    .filter-search input {
+        font-size: 0.75rem;
     }
 }
 
