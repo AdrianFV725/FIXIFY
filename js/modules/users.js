@@ -255,8 +255,11 @@ const UsersModule = {
             container.appendChild(tableContainer);
         }
 
+        // Capturar this para usar en funciones internas
+        const self = this;
+
         const statusBadge = (status) => {
-            const statusOptions = this.employeeOptions.status || [];
+            const statusOptions = self.employeeOptions.status || [];
             const statusOption = statusOptions.find(s => s.value === status);
             
             if (statusOption) {
@@ -265,7 +268,7 @@ const UsersModule = {
                     inactive: 'badge-inactive'
                 };
                 const badgeClass = classMap[status] || 'badge';
-                return `<span class="badge ${badgeClass}">${this.escapeHtml(statusOption.label)}</span>`;
+                return `<span class="badge ${badgeClass}">${self.escapeHtml(statusOption.label)}</span>`;
             }
             
             // Fallback para estados estándar
@@ -289,29 +292,17 @@ const UsersModule = {
         const hasEmployees = this.users.some(u => u.role === 'employee');
         const colCount = hasEmployees ? 9 : 7;
 
-        tableContainer.innerHTML = `
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Usuario</th>
-                        <th>Correo</th>
-                        <th>Rol</th>
-                        ${hasEmployees ? '<th>Departamento</th><th>Puesto</th>' : ''}
-                        <th>Estado</th>
-                        <th>Creado</th>
-                        <th>Ultimo Acceso</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${this.filteredUsers.length === 0 ? `
-                        <tr><td colspan="${colCount}" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.users.length === 0 ? 'No hay usuarios registrados' : 'No se encontraron resultados'}</td></tr>
-                    ` : this.filteredUsers.map(u => {
-                        const getDeptName = (deptId) => {
-                            const dept = this.departments.find(d => d.id === deptId);
-                            return dept ? dept.name : '-';
-                        };
-                        return `
+        // Generar filas de la tabla
+        let tableRows = '';
+        if (this.filteredUsers.length === 0) {
+            tableRows = `<tr><td colspan="${colCount}" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.users.length === 0 ? 'No hay usuarios registrados' : 'No se encontraron resultados'}</td></tr>`;
+        } else {
+            tableRows = this.filteredUsers.map(u => {
+                const getDeptName = (deptId) => {
+                    const dept = self.departments.find(d => d.id === deptId);
+                    return dept ? dept.name : '-';
+                };
+                return `
                         <tr data-id="${u.id}">
                             <td>
                                 <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -319,8 +310,8 @@ const UsersModule = {
                                         ${(u.name || 'U')[0].toUpperCase()}
                                     </div>
                                     <div>
-                                        <div style="font-weight: 500;">${this.escapeHtml(u.name || 'Usuario')} ${u.lastName ? this.escapeHtml(u.lastName) : ''}</div>
-                                        ${u.employeeNumber ? `<div style="font-size: 0.75rem; color: var(--text-tertiary); font-family: monospace;">#${this.escapeHtml(u.employeeNumber)}</div>` : ''}
+                                        <div style="font-weight: 500;">${self.escapeHtml(u.name || 'Usuario')} ${u.lastName ? self.escapeHtml(u.lastName) : ''}</div>
+                                        ${u.employeeNumber ? `<div style="font-size: 0.75rem; color: var(--text-tertiary); font-family: monospace;">#${self.escapeHtml(u.employeeNumber)}</div>` : ''}
                                     </div>
                                 </div>
                             </td>
@@ -331,8 +322,8 @@ const UsersModule = {
                                 <td>${u.role === 'employee' ? (u.position || '-') : '-'}</td>
                             ` : ''}
                             <td>${statusBadge(u.status)}</td>
-                            <td>${this.formatDate(u.createdAt)}</td>
-                            <td>${u.lastLogin ? this.timeAgo(u.lastLogin) : 'Nunca'}</td>
+                            <td>${self.formatDate(u.createdAt)}</td>
+                            <td>${u.lastLogin ? self.timeAgo(u.lastLogin) : 'Nunca'}</td>
                             <td>
                                 ${u.role === 'employee' ? `
                                     <button class="btn-icon sm" onclick="window.location.href='user-detail.html?id=${u.id}'" title="Ver detalle">
@@ -352,7 +343,26 @@ const UsersModule = {
                                 ` : ''}
                             </td>
                         </tr>
-                    `).join('')}
+                    `;
+            }).join('');
+        }
+
+        tableContainer.innerHTML = `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Correo</th>
+                        <th>Rol</th>
+                        ${hasEmployees ? '<th>Departamento</th><th>Puesto</th>' : ''}
+                        <th>Estado</th>
+                        <th>Creado</th>
+                        <th>Ultimo Acceso</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
                 </tbody>
             </table>
         `;
