@@ -4,6 +4,7 @@
 
 const EmployeesModule = {
     employees: [],
+    filteredEmployees: [],
     departments: [],
 
     async init() {
@@ -23,11 +24,35 @@ const EmployeesModule = {
         try {
             this.employees = await Store.getEmployees() || [];
             this.departments = await Store.getDepartments() || [];
+            this.filteredEmployees = [...this.employees];
         } catch (e) {
             console.error('Error cargando empleados:', e);
             this.employees = [];
+            this.filteredEmployees = [];
             this.departments = [];
         }
+    },
+
+    applyFilters() {
+        const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+        const departmentFilter = document.getElementById('departmentFilter')?.value || '';
+        const statusFilter = document.getElementById('statusFilter')?.value || '';
+
+        this.filteredEmployees = this.employees.filter(e => {
+            const fullName = `${e.name || ''} ${e.lastName || ''}`.toLowerCase();
+            const matchesSearch = !searchTerm || 
+                fullName.includes(searchTerm) ||
+                (e.email || '').toLowerCase().includes(searchTerm) ||
+                (e.employeeNumber || '').toLowerCase().includes(searchTerm) ||
+                (e.position || '').toLowerCase().includes(searchTerm);
+
+            const matchesDepartment = !departmentFilter || e.department === departmentFilter;
+            const matchesStatus = !statusFilter || e.status === statusFilter;
+
+            return matchesSearch && matchesDepartment && matchesStatus;
+        });
+
+        this.renderTable();
     },
 
     renderStats() {
@@ -137,9 +162,9 @@ const EmployeesModule = {
                     </tr>
                 </thead>
                 <tbody>
-                    ${this.employees.length === 0 ? `
-                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">No hay empleados registrados</td></tr>
-                    ` : this.employees.map(e => `
+                    ${this.filteredEmployees.length === 0 ? `
+                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.employees.length === 0 ? 'No hay empleados registrados' : 'No se encontraron resultados'}</td></tr>
+                    ` : this.filteredEmployees.map(e => `
                         <tr data-id="${e.id}">
                             <td style="font-family: monospace;">${e.employeeNumber || '-'}</td>
                             <td>${this.escapeHtml(e.name || '')} ${this.escapeHtml(e.lastName || '')}</td>
@@ -185,12 +210,17 @@ const EmployeesModule = {
     bindEvents() {
         document.getElementById('newEmployeeBtn')?.addEventListener('click', () => this.openForm());
         
-        document.getElementById('clearFilters')?.addEventListener('click', async () => {
+        // Filtros en tiempo real
+        document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
+        document.getElementById('departmentFilter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('statusFilter')?.addEventListener('change', () => this.applyFilters());
+
+        // Limpiar filtros
+        document.getElementById('clearFilters')?.addEventListener('click', () => {
             document.getElementById('searchInput').value = '';
             document.getElementById('departmentFilter').value = '';
             document.getElementById('statusFilter').value = '';
-            await this.loadData();
-            this.renderTable();
+            this.applyFilters();
         });
     },
 

@@ -4,6 +4,7 @@
 
 const UsersModule = {
     users: [],
+    filteredUsers: [],
 
     async init() {
         if (!Auth.isAuthenticated()) {
@@ -29,10 +30,31 @@ const UsersModule = {
     async loadData() {
         try {
             this.users = await Store.getUsers() || [];
+            this.filteredUsers = [...this.users];
         } catch (e) {
             console.error('Error cargando usuarios:', e);
             this.users = [];
+            this.filteredUsers = [];
         }
+    },
+
+    applyFilters() {
+        const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+        const roleFilter = document.getElementById('roleFilter')?.value || '';
+        const statusFilter = document.getElementById('statusFilter')?.value || '';
+
+        this.filteredUsers = this.users.filter(u => {
+            const matchesSearch = !searchTerm || 
+                (u.name || '').toLowerCase().includes(searchTerm) ||
+                (u.email || '').toLowerCase().includes(searchTerm);
+
+            const matchesRole = !roleFilter || u.role === roleFilter;
+            const matchesStatus = !statusFilter || u.status === statusFilter;
+
+            return matchesSearch && matchesRole && matchesStatus;
+        });
+
+        this.renderTable();
     },
 
     renderStats() {
@@ -153,9 +175,9 @@ const UsersModule = {
                     </tr>
                 </thead>
                 <tbody>
-                    ${this.users.length === 0 ? `
-                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">No hay usuarios registrados</td></tr>
-                    ` : this.users.map(u => `
+                    ${this.filteredUsers.length === 0 ? `
+                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.users.length === 0 ? 'No hay usuarios registrados' : 'No se encontraron resultados'}</td></tr>
+                    ` : this.filteredUsers.map(u => `
                         <tr data-id="${u.id}">
                             <td>
                                 <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -230,12 +252,17 @@ const UsersModule = {
     bindEvents() {
         document.getElementById('newUserBtn')?.addEventListener('click', () => this.openForm());
         
-        document.getElementById('clearFilters')?.addEventListener('click', async () => {
+        // Filtros en tiempo real
+        document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
+        document.getElementById('roleFilter')?.addEventListener('change', () => this.applyFilters());
+        document.getElementById('statusFilter')?.addEventListener('change', () => this.applyFilters());
+
+        // Limpiar filtros
+        document.getElementById('clearFilters')?.addEventListener('click', () => {
             document.getElementById('searchInput').value = '';
             document.getElementById('roleFilter').value = '';
             document.getElementById('statusFilter').value = '';
-            await this.loadData();
-            this.renderTable();
+            this.applyFilters();
         });
     },
 

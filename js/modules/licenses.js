@@ -4,6 +4,7 @@
 
 const LicensesModule = {
     licenses: [],
+    filteredLicenses: [],
 
     async init() {
         if (!Auth.isAuthenticated()) {
@@ -22,10 +23,29 @@ const LicensesModule = {
     async loadData() {
         try {
             this.licenses = await Store.getLicenses() || [];
+            this.filteredLicenses = [...this.licenses];
         } catch (e) {
             console.error('Error cargando licencias:', e);
             this.licenses = [];
+            this.filteredLicenses = [];
         }
+    },
+
+    applyFilters() {
+        const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+        const typeFilter = document.getElementById('typeFilter')?.value || '';
+
+        this.filteredLicenses = this.licenses.filter(l => {
+            const matchesSearch = !searchTerm || 
+                (l.software || '').toLowerCase().includes(searchTerm) ||
+                (l.key || '').toLowerCase().includes(searchTerm);
+
+            const matchesType = !typeFilter || l.type === typeFilter;
+
+            return matchesSearch && matchesType;
+        });
+
+        this.renderTable();
     },
 
     renderStats() {
@@ -186,9 +206,9 @@ const LicensesModule = {
                     </tr>
                 </thead>
                 <tbody>
-                    ${this.licenses.length === 0 ? `
-                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">No hay licencias registradas</td></tr>
-                    ` : this.licenses.map(l => `
+                    ${this.filteredLicenses.length === 0 ? `
+                        <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.licenses.length === 0 ? 'No hay licencias registradas' : 'No se encontraron resultados'}</td></tr>
+                    ` : this.filteredLicenses.map(l => `
                         <tr data-id="${l.id}">
                             <td>${this.escapeHtml(l.software || '')}</td>
                             <td>${l.type || '-'}</td>
@@ -234,11 +254,15 @@ const LicensesModule = {
     bindEvents() {
         document.getElementById('newLicenseBtn')?.addEventListener('click', () => this.openForm());
         
-        document.getElementById('clearFilters')?.addEventListener('click', async () => {
+        // Filtros en tiempo real
+        document.getElementById('searchInput')?.addEventListener('input', () => this.applyFilters());
+        document.getElementById('typeFilter')?.addEventListener('change', () => this.applyFilters());
+
+        // Limpiar filtros
+        document.getElementById('clearFilters')?.addEventListener('click', () => {
             document.getElementById('searchInput').value = '';
             document.getElementById('typeFilter').value = '';
-            await this.loadData();
-            this.renderTable();
+            this.applyFilters();
         });
     },
 
