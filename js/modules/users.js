@@ -453,9 +453,9 @@ const UsersModule = {
         }
 
         container.innerHTML = `
-            <div style="overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 480px);">
-                <table class="data-table" style="min-width: 100%; width: 100%;">
-                    <thead style="position: sticky; top: 0; z-index: 10; background: var(--card-bg);">
+            <div style="overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 480px); width: 100%; position: relative; -webkit-overflow-scrolling: touch; scrollbar-width: thin;">
+                <table class="data-table" style="width: max-content; min-width: 100%;">
+                    <thead style="position: sticky; top: 0; z-index: 10; background: var(--card-bg); backdrop-filter: blur(10px);">
                         <tr>
                             <th style="min-width: 180px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Usuario</th>
                             <th style="min-width: 160px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Correo</th>

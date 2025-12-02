@@ -487,6 +487,8 @@ body.dashboard-body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
+    width: calc(100% - 260px);
 }
 
 .main-content.expanded {
@@ -735,6 +737,9 @@ body.dashboard-body {
 .page-content {
     flex: 1;
     padding: 2rem;
+    overflow-x: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* ========================================

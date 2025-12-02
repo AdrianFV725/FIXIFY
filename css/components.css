@@ -97,12 +97,75 @@
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 16px;
-    overflow: hidden;
+    overflow: visible;
+    width: 100%;
+    position: relative;
+    max-width: 100%;
+}
+
+/* Contenedor interno con scroll */
+.data-table-container > div {
+    overflow-x: auto;
+    overflow-y: auto;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    border-radius: 16px;
+}
+
+.data-table-container > div::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+}
+
+.data-table-container > div::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+.data-table-container > div::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+    border: 2px solid var(--bg-tertiary);
+}
+
+.data-table-container > div::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+/* Scrollbar horizontal más visible */
+.data-table-container > div::-webkit-scrollbar:horizontal {
+    height: 12px;
+}
+
+/* Scrollbar vertical más visible */
+.data-table-container > div::-webkit-scrollbar:vertical {
+    width: 12px;
 }
 
 .data-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: auto;
+    white-space: nowrap;
+}
+
+/* Permitir que las celdas se ajusten al contenido pero respetando min-width */
+/* Asegurar que las celdas respeten los anchos mínimos pero permitan scroll */
+.data-table th {
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.data-table td {
+    white-space: nowrap;
+    overflow: visible;
+}
+
+/* Las celdas deben mantener su ancho mínimo definido */
+.data-table th,
+.data-table td {
+    min-width: fit-content;
 }
 
 .data-table thead {
