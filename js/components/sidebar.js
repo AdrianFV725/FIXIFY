@@ -286,17 +286,29 @@ const Sidebar = {
         if (window.innerWidth <= 768) return;
         
         this.isCollapsed = true;
+        this.container.classList.add('animating');
         this.container.classList.add('collapsed');
         document.querySelector('.main-content')?.classList.add('sidebar-collapsed');
         localStorage.setItem('sidebar-collapsed', 'true');
+        
+        // Quitar clase de animacion despues de completarse
+        setTimeout(() => {
+            this.container.classList.remove('animating');
+        }, 300);
     },
 
     // Expandir sidebar
     expand() {
         this.isCollapsed = false;
+        this.container.classList.add('animating');
         this.container.classList.remove('collapsed');
         document.querySelector('.main-content')?.classList.remove('sidebar-collapsed');
         localStorage.setItem('sidebar-collapsed', 'false');
+        
+        // Quitar clase de animacion despues de completarse
+        setTimeout(() => {
+            this.container.classList.remove('animating');
+        }, 300);
     },
 
     // Toggle colapsar/expandir
