@@ -207,6 +207,7 @@ const TicketsModule = {
         this.filteredTickets = this.tickets.filter(t => {
             const matchesSearch = !searchTerm || 
                 (t.folio || '').toLowerCase().includes(searchTerm) ||
+                (t.title || '').toLowerCase().includes(searchTerm) ||
                 (t.description || '').toLowerCase().includes(searchTerm) ||
                 (t.categoriaElemento || '').toLowerCase().includes(searchTerm) ||
                 (t.categoriaClave || '').toLowerCase().includes(searchTerm) ||
@@ -360,7 +361,7 @@ const TicketsModule = {
                             <div style="max-width: 220px;">
                                 <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                     ${t.categoriaClave ? `<span style="font-family: monospace; font-size: 0.75rem; background: var(--bg-tertiary); padding: 0.1rem 0.3rem; border-radius: 3px; margin-right: 0.25rem;">${this.escapeHtml(t.categoriaClave)}</span>` : ''}
-                                    ${this.escapeHtml(t.categoriaElemento || t.title || '')}
+                                    ${this.escapeHtml(t.title || t.categoriaElemento || '')}
                                 </div>
                                 <div style="font-size: 0.75rem; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(t.description || '').substring(0, 40)}${(t.description || '').length > 40 ? '...' : ''}</div>
                             </div>
@@ -440,7 +441,7 @@ const TicketsModule = {
                         <span style="font-family: monospace; font-size: 0.7rem; color: var(--text-tertiary);">${t.folio || '-'}</span>
                         ${t.categoriaClave ? `<span style="font-family: monospace; font-size: 0.7rem; background: var(--bg-tertiary); padding: 0.15rem 0.4rem; border-radius: 4px;">${this.escapeHtml(t.categoriaClave)}</span>` : ''}
                     </div>
-                    <h3 class="card-title">${this.escapeHtml(t.categoriaElemento || t.title || 'Sin titulo')}</h3>
+                    <h3 class="card-title">${this.escapeHtml(t.title || t.categoriaElemento || 'Sin titulo')}</h3>
                     <p class="card-subtitle" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${this.escapeHtml(t.description || 'Sin descripcion')}</p>
                     <div class="card-details" style="margin-top: 1rem;">
                         <div class="card-detail">
@@ -616,7 +617,7 @@ const TicketsModule = {
                     <div class="modal-body">
                         <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
                             <div style="font-family: monospace; font-size: 0.75rem; color: var(--text-tertiary);">${ticket.folio}</div>
-                            <div style="font-weight: 600; margin-top: 0.25rem;">${this.escapeHtml(ticket.title)}</div>
+                            <div style="font-weight: 600; margin-top: 0.25rem;">${this.escapeHtml(ticket.title || ticket.categoriaElemento || 'Sin titulo')}</div>
                         </div>
                         <form id="resolveForm" class="form">
                             <div class="form-group">
@@ -753,6 +754,12 @@ const TicketsModule = {
                                         <span>Requerimiento</span>
                                     </label>
                                 </div>
+                            </div>
+
+                            <!-- Titulo -->
+                            <div class="form-group">
+                                <label class="form-label">Titulo <span class="required">*</span></label>
+                                <input type="text" name="title" class="form-input" required value="${this.escapeHtml(ticket?.title || '')}" placeholder="Escribe un titulo descriptivo para el ticket...">
                             </div>
 
                             <!-- Categoria: Tema > Servicio > Elemento -->
