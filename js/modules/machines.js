@@ -17,7 +17,7 @@ const MachinesModule = {
         await this.loadData();
         this.filteredMachines = [...this.machines];
         this.renderStats();
-        this.renderFilters();
+        await this.renderFilters();
         this.renderTable();
         this.renderCards();
         this.bindEvents();
@@ -119,9 +119,14 @@ const MachinesModule = {
         `;
     },
 
-    renderFilters() {
+    async renderFilters() {
         const container = document.getElementById('filtersBar');
         if (!container) return;
+
+        // Obtener opciones dinamicas
+        const options = await Store.getMachineOptions();
+        const osOptions = options.operatingSystem || [];
+        const statusOptions = options.status || [];
 
         container.innerHTML = `
             <div class="filter-group">
@@ -131,21 +136,14 @@ const MachinesModule = {
                 <label class="filter-label">SO:</label>
                 <select class="filter-select" id="osFilter">
                     <option value="">Todos</option>
-                    <option value="macos">macOS</option>
-                    <option value="windows">Windows</option>
-                    <option value="linux">Linux</option>
-                    <option value="chromeos">ChromeOS</option>
-                    <option value="other">Otro</option>
+                    ${osOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
                 </select>
             </div>
             <div class="filter-group">
                 <label class="filter-label">Estado:</label>
                 <select class="filter-select" id="statusFilter">
                     <option value="">Todos</option>
-                    <option value="available">Disponible</option>
-                    <option value="assigned">Asignada</option>
-                    <option value="maintenance">Mantenimiento</option>
-                    <option value="retired">Dada de baja</option>
+                    ${statusOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
                 </select>
             </div>
             <button class="filter-btn" id="clearFilters">Limpiar</button>
@@ -157,14 +155,19 @@ const MachinesModule = {
     // ========================================
 
     getStatusBadge(status) {
-        const config = {
-            available: { label: 'Disponible', class: 'badge-active' },
-            assigned: { label: 'Asignada', class: 'badge-open' },
-            maintenance: { label: 'Mantenimiento', class: 'badge-maintenance' },
-            retired: { label: 'Baja', class: 'badge-inactive' }
+        // Obtener etiqueta dinamica
+        const label = this.getStatusLabel(status);
+        
+        // Clases predefinidas para los estados base
+        const classMap = {
+            available: 'badge-active',
+            assigned: 'badge-open',
+            maintenance: 'badge-maintenance',
+            retired: 'badge-inactive'
         };
-        const c = config[status] || { label: status || '-', class: 'badge' };
-        return `<span class="badge ${c.class}">${c.label}</span>`;
+        const badgeClass = classMap[status] || 'badge';
+        
+        return `<span class="badge ${badgeClass}">${label}</span>`;
     },
 
     getTypeLabel(type) {
@@ -173,6 +176,13 @@ const MachinesModule = {
     },
 
     getOSLabel(os) {
+        // Buscar en opciones guardadas
+        const options = Store.getLocal(Store.KEYS.MACHINE_OPTIONS);
+        if (options?.operatingSystem) {
+            const opt = options.operatingSystem.find(o => o.value === os);
+            if (opt) return opt.label;
+        }
+        // Fallback a valores por defecto
         const labels = { 
             macos: 'macOS', 
             windows: 'Windows', 
@@ -184,11 +194,25 @@ const MachinesModule = {
     },
 
     getDiskTypeLabel(diskType) {
+        // Buscar en opciones guardadas
+        const options = Store.getLocal(Store.KEYS.MACHINE_OPTIONS);
+        if (options?.diskType) {
+            const opt = options.diskType.find(o => o.value === diskType);
+            if (opt) return opt.label;
+        }
+        // Fallback a valores por defecto
         const labels = { ssd: 'SSD', hdd: 'HDD', nvme: 'NVMe', hybrid: 'Hibrido' };
         return labels[diskType] || diskType || '-';
     },
 
     getRamTypeLabel(ramType) {
+        // Buscar en opciones guardadas
+        const options = Store.getLocal(Store.KEYS.MACHINE_OPTIONS);
+        if (options?.ramType) {
+            const opt = options.ramType.find(o => o.value === ramType);
+            if (opt) return opt.label;
+        }
+        // Fallback a valores por defecto
         const labels = { 
             ddr3: 'DDR3', 
             ddr4: 'DDR4', 
@@ -558,6 +582,33 @@ const MachinesModule = {
 
     async openForm(machine = null) {
         const isEdit = !!machine;
+        
+        // Obtener opciones dinamicas
+        const options = await Store.getMachineOptions();
+
+        const renderSelectOptions = (category, selectedValue) => {
+            const opts = options[category] || [];
+            return opts.map(o => 
+                `<option value="${o.value}" ${selectedValue === o.value ? 'selected' : ''}>${o.label}</option>`
+            ).join('');
+        };
+
+        const createSelectWithManage = (name, label, category, selectedValue, required = false) => {
+            return `
+                <div class="form-group">
+                    <label class="form-label">${label}${required ? ' <span class="required">*</span>' : ''}</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select name="${name}" ${required ? 'required' : ''} class="form-select" style="flex: 1;">
+                            <option value="">Seleccionar</option>
+                            ${renderSelectOptions(category, selectedValue)}
+                        </select>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="MachinesModule.openOptionsManager('${category}', '${label}')" title="Administrar opciones" style="padding: 0.5rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+        };
 
         const modalHtml = `
             <div class="modal-overlay active" id="machineModal">
@@ -585,15 +636,7 @@ const MachinesModule = {
                                     <label class="form-label">Año</label>
                                     <input type="number" name="year" value="${machine?.year || ''}" class="form-input" placeholder="Ej: 2023" min="1990" max="2099">
                                 </div>
-                                <div class="form-group">
-                                    <label class="form-label">Estado <span class="required">*</span></label>
-                                    <select name="status" required class="form-select">
-                                        <option value="available" ${machine?.status === 'available' || !machine ? 'selected' : ''}>Disponible</option>
-                                        <option value="assigned" ${machine?.status === 'assigned' ? 'selected' : ''}>Asignada</option>
-                                        <option value="maintenance" ${machine?.status === 'maintenance' ? 'selected' : ''}>Mantenimiento</option>
-                                        <option value="retired" ${machine?.status === 'retired' ? 'selected' : ''}>Dada de Baja</option>
-                                    </select>
-                                </div>
+                                ${createSelectWithManage('status', 'Estado', 'status', machine?.status || 'available', true)}
                                 <div class="form-group">
                                     <label class="form-label">Costo</label>
                                     <input type="number" name="cost" value="${machine?.cost || ''}" class="form-input" placeholder="Ej: 15000" step="0.01" min="0">
@@ -608,16 +651,7 @@ const MachinesModule = {
                             </div>
                             <!-- Fila 4: Tipo de Disco y Disco -->
                             <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Tipo de Disco</label>
-                                    <select name="diskType" class="form-select">
-                                        <option value="">Seleccionar</option>
-                                        <option value="ssd" ${machine?.diskType === 'ssd' ? 'selected' : ''}>SSD</option>
-                                        <option value="hdd" ${machine?.diskType === 'hdd' ? 'selected' : ''}>HDD</option>
-                                        <option value="nvme" ${machine?.diskType === 'nvme' ? 'selected' : ''}>NVMe</option>
-                                        <option value="hybrid" ${machine?.diskType === 'hybrid' ? 'selected' : ''}>Hibrido</option>
-                                    </select>
-                                </div>
+                                ${createSelectWithManage('diskType', 'Tipo de Disco', 'diskType', machine?.diskType)}
                                 <div class="form-group">
                                     <label class="form-label">Capacidad de Disco</label>
                                     <input type="text" name="disk" value="${this.escapeHtml(machine?.disk || '')}" class="form-input" placeholder="Ej: 512GB, 1TB">
@@ -625,18 +659,7 @@ const MachinesModule = {
                             </div>
                             <!-- Fila 5: Tipo de RAM y RAM -->
                             <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Tipo de RAM</label>
-                                    <select name="ramType" class="form-select">
-                                        <option value="">Seleccionar</option>
-                                        <option value="ddr3" ${machine?.ramType === 'ddr3' ? 'selected' : ''}>DDR3</option>
-                                        <option value="ddr4" ${machine?.ramType === 'ddr4' ? 'selected' : ''}>DDR4</option>
-                                        <option value="ddr5" ${machine?.ramType === 'ddr5' ? 'selected' : ''}>DDR5</option>
-                                        <option value="lpddr4" ${machine?.ramType === 'lpddr4' ? 'selected' : ''}>LPDDR4</option>
-                                        <option value="lpddr5" ${machine?.ramType === 'lpddr5' ? 'selected' : ''}>LPDDR5</option>
-                                        <option value="unified" ${machine?.ramType === 'unified' ? 'selected' : ''}>Memoria Unificada</option>
-                                    </select>
-                                </div>
+                                ${createSelectWithManage('ramType', 'Tipo de RAM', 'ramType', machine?.ramType)}
                                 <div class="form-group">
                                     <label class="form-label">Capacidad de RAM</label>
                                     <input type="text" name="ram" value="${this.escapeHtml(machine?.ram || '')}" class="form-input" placeholder="Ej: 8GB, 16GB, 32GB">
@@ -644,17 +667,7 @@ const MachinesModule = {
                             </div>
                             <!-- Fila 6: Sistema Operativo y Versión -->
                             <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Sistema Operativo</label>
-                                    <select name="operatingSystem" class="form-select">
-                                        <option value="">Seleccionar</option>
-                                        <option value="macos" ${machine?.operatingSystem === 'macos' ? 'selected' : ''}>macOS</option>
-                                        <option value="windows" ${machine?.operatingSystem === 'windows' ? 'selected' : ''}>Windows</option>
-                                        <option value="linux" ${machine?.operatingSystem === 'linux' ? 'selected' : ''}>Linux</option>
-                                        <option value="chromeos" ${machine?.operatingSystem === 'chromeos' ? 'selected' : ''}>ChromeOS</option>
-                                        <option value="other" ${machine?.operatingSystem === 'other' ? 'selected' : ''}>Otro</option>
-                                    </select>
-                                </div>
+                                ${createSelectWithManage('operatingSystem', 'Sistema Operativo', 'operatingSystem', machine?.operatingSystem)}
                                 <div class="form-group">
                                     <label class="form-label">Version del SO</label>
                                     <input type="text" name="osVersion" value="${this.escapeHtml(machine?.osVersion || '')}" class="form-input" placeholder="Ej: Sonoma 14.2, Windows 11 Pro">
@@ -717,6 +730,180 @@ const MachinesModule = {
             } catch (error) {
                 console.error('Error guardando maquina:', error);
                 this.showToast('Error al guardar la maquina', 'error');
+            }
+        });
+    },
+
+    // ========================================
+    // ADMINISTRADOR DE OPCIONES
+    // ========================================
+
+    async openOptionsManager(category, label) {
+        const options = await Store.getMachineOptions();
+        const categoryOptions = options[category] || [];
+
+        const getCategoryTitle = () => {
+            const titles = {
+                diskType: 'Tipos de Disco',
+                ramType: 'Tipos de RAM',
+                operatingSystem: 'Sistemas Operativos',
+                status: 'Estados'
+            };
+            return titles[category] || label;
+        };
+
+        const renderOptionsList = () => {
+            if (categoryOptions.length === 0) {
+                return '<p style="color: var(--text-tertiary); text-align: center; padding: 1rem;">No hay opciones configuradas</p>';
+            }
+            return categoryOptions.map((opt, index) => `
+                <div class="option-item" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 0.5rem;">
+                    <div style="flex: 1;">
+                        <span style="font-weight: 500;">${opt.label}</span>
+                        <span style="color: var(--text-tertiary); font-size: 0.8rem; margin-left: 0.5rem;">(${opt.value})</span>
+                    </div>
+                    <button type="button" class="btn-icon btn-ghost sm" onclick="MachinesModule.editOption('${category}', '${opt.value}')" title="Editar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <button type="button" class="btn-icon btn-ghost sm" onclick="MachinesModule.deleteOption('${category}', '${opt.value}')" title="Eliminar" style="color: #ef4444;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                </div>
+            `).join('');
+        };
+
+        const modalHtml = `
+            <div class="modal-overlay active" id="optionsManagerModal" style="z-index: 10001;">
+                <div class="modal" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Administrar ${getCategoryTitle()}</h2>
+                        <button class="modal-close" onclick="document.getElementById('optionsManagerModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Formulario agregar nueva opcion -->
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+                            <input type="text" id="newOptionValue" class="form-input" placeholder="Valor (ej: ddr6)" style="flex: 1;">
+                            <input type="text" id="newOptionLabel" class="form-input" placeholder="Etiqueta (ej: DDR6)" style="flex: 1;">
+                            <button type="button" class="btn btn-primary" onclick="MachinesModule.addNewOption('${category}')" style="white-space: nowrap;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Agregar
+                            </button>
+                        </div>
+                        
+                        <!-- Lista de opciones -->
+                        <div id="optionsList" style="max-height: 300px; overflow-y: auto;">
+                            ${renderOptionsList()}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('optionsManagerModal').remove()">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    async addNewOption(category) {
+        const valueInput = document.getElementById('newOptionValue');
+        const labelInput = document.getElementById('newOptionLabel');
+        
+        const value = valueInput.value.trim().toLowerCase().replace(/\s+/g, '_');
+        const label = labelInput.value.trim();
+
+        if (!value || !label) {
+            this.showToast('Ingresa valor y etiqueta', 'warning');
+            return;
+        }
+
+        try {
+            await Store.addMachineOption(category, { value, label });
+            this.showToast('Opcion agregada correctamente', 'success');
+            
+            // Cerrar y reabrir el modal para actualizar
+            document.getElementById('optionsManagerModal').remove();
+            await this.openOptionsManager(category, '');
+            
+            // Actualizar el select en el formulario de maquina si esta abierto
+            await this.refreshFormSelects();
+        } catch (error) {
+            console.error('Error agregando opcion:', error);
+            this.showToast('Error al agregar opcion', 'error');
+        }
+    },
+
+    async editOption(category, oldValue) {
+        const options = await Store.getMachineOptions();
+        const opt = options[category]?.find(o => o.value === oldValue);
+        
+        if (!opt) return;
+
+        const newLabel = prompt('Nueva etiqueta:', opt.label);
+        if (newLabel && newLabel.trim()) {
+            try {
+                await Store.updateMachineOption(category, oldValue, { 
+                    value: oldValue, 
+                    label: newLabel.trim() 
+                });
+                this.showToast('Opcion actualizada', 'success');
+                document.getElementById('optionsManagerModal').remove();
+                await this.openOptionsManager(category, '');
+                await this.refreshFormSelects();
+            } catch (error) {
+                console.error('Error actualizando opcion:', error);
+                this.showToast('Error al actualizar opcion', 'error');
+            }
+        }
+    },
+
+    async deleteOption(category, value) {
+        // Verificar si esta en uso
+        const inUse = this.machines.some(m => {
+            if (category === 'diskType') return m.diskType === value;
+            if (category === 'ramType') return m.ramType === value;
+            if (category === 'operatingSystem') return m.operatingSystem === value;
+            if (category === 'status') return m.status === value;
+            return false;
+        });
+
+        if (inUse) {
+            this.showToast('No se puede eliminar: esta opcion esta en uso', 'warning');
+            return;
+        }
+
+        if (confirm('¿Eliminar esta opcion?')) {
+            try {
+                await Store.removeMachineOption(category, value);
+                this.showToast('Opcion eliminada', 'success');
+                document.getElementById('optionsManagerModal').remove();
+                await this.openOptionsManager(category, '');
+                await this.refreshFormSelects();
+            } catch (error) {
+                console.error('Error eliminando opcion:', error);
+                this.showToast('Error al eliminar opcion', 'error');
+            }
+        }
+    },
+
+    async refreshFormSelects() {
+        const machineModal = document.getElementById('machineModal');
+        if (!machineModal) return;
+
+        const options = await Store.getMachineOptions();
+        
+        const categories = ['diskType', 'ramType', 'operatingSystem', 'status'];
+        
+        categories.forEach(category => {
+            const select = machineModal.querySelector(`select[name="${category}"]`);
+            if (select) {
+                const currentValue = select.value;
+                const opts = options[category] || [];
+                
+                select.innerHTML = '<option value="">Seleccionar</option>' + 
+                    opts.map(o => 
+                        `<option value="${o.value}" ${currentValue === o.value ? 'selected' : ''}>${o.label}</option>`
+                    ).join('');
             }
         });
     },
@@ -806,6 +993,13 @@ const MachinesModule = {
     },
 
     getStatusLabel(status) {
+        // Buscar en opciones guardadas
+        const options = Store.getLocal(Store.KEYS.MACHINE_OPTIONS);
+        if (options?.status) {
+            const opt = options.status.find(o => o.value === status);
+            if (opt) return opt.label;
+        }
+        // Fallback a valores por defecto
         const labels = {
             available: 'Disponible',
             assigned: 'Asignada',

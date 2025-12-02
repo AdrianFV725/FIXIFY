@@ -26,7 +26,8 @@ const Store = {
         ASSIGNMENTS_LICENSES: 'assignments_licenses',
         DEPARTMENTS: 'departments',
         SETTINGS: 'settings',
-        ACTIVITY_LOG: 'activity_log'
+        ACTIVITY_LOG: 'activity_log',
+        MACHINE_OPTIONS: 'machine_options'
     },
 
     // ========================================
@@ -372,6 +373,93 @@ const Store = {
         }
         const machines = (await this.getMachines()).filter(m => m.id !== id);
         this.setLocal(this.KEYS.MACHINES, machines);
+    },
+
+    // ========================================
+    // METODOS PARA OPCIONES DE MAQUINAS
+    // ========================================
+
+    getDefaultMachineOptions() {
+        return {
+            diskType: [
+                { value: 'ssd', label: 'SSD' },
+                { value: 'hdd', label: 'HDD' },
+                { value: 'nvme', label: 'NVMe' },
+                { value: 'hybrid', label: 'Hibrido' }
+            ],
+            ramType: [
+                { value: 'ddr3', label: 'DDR3' },
+                { value: 'ddr4', label: 'DDR4' },
+                { value: 'ddr5', label: 'DDR5' },
+                { value: 'lpddr4', label: 'LPDDR4' },
+                { value: 'lpddr5', label: 'LPDDR5' },
+                { value: 'unified', label: 'Memoria Unificada' }
+            ],
+            operatingSystem: [
+                { value: 'macos', label: 'macOS' },
+                { value: 'windows', label: 'Windows' },
+                { value: 'linux', label: 'Linux' },
+                { value: 'chromeos', label: 'ChromeOS' },
+                { value: 'other', label: 'Otro' }
+            ],
+            status: [
+                { value: 'available', label: 'Disponible' },
+                { value: 'assigned', label: 'Asignada' },
+                { value: 'maintenance', label: 'Mantenimiento' },
+                { value: 'retired', label: 'Dada de Baja' }
+            ]
+        };
+    },
+
+    async getMachineOptions() {
+        const saved = this.getLocal(this.KEYS.MACHINE_OPTIONS);
+        if (saved) return saved;
+        
+        // Devolver opciones por defecto si no hay guardadas
+        const defaults = this.getDefaultMachineOptions();
+        this.setLocal(this.KEYS.MACHINE_OPTIONS, defaults);
+        return defaults;
+    },
+
+    async saveMachineOptions(options) {
+        this.setLocal(this.KEYS.MACHINE_OPTIONS, options);
+        return options;
+    },
+
+    async addMachineOption(category, option) {
+        const options = await this.getMachineOptions();
+        if (!options[category]) {
+            options[category] = [];
+        }
+        
+        // Verificar si ya existe
+        const exists = options[category].find(o => o.value === option.value);
+        if (!exists) {
+            options[category].push(option);
+            await this.saveMachineOptions(options);
+        }
+        return options;
+    },
+
+    async removeMachineOption(category, value) {
+        const options = await this.getMachineOptions();
+        if (options[category]) {
+            options[category] = options[category].filter(o => o.value !== value);
+            await this.saveMachineOptions(options);
+        }
+        return options;
+    },
+
+    async updateMachineOption(category, oldValue, newOption) {
+        const options = await this.getMachineOptions();
+        if (options[category]) {
+            const index = options[category].findIndex(o => o.value === oldValue);
+            if (index >= 0) {
+                options[category][index] = newOption;
+                await this.saveMachineOptions(options);
+            }
+        }
+        return options;
     },
 
     // ========================================
