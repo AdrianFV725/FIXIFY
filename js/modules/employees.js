@@ -188,6 +188,11 @@ const EmployeesModule = {
                                 <button class="btn-icon sm" onclick="EmployeesModule.editEmployee('${e.id}')" title="Editar">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                 </button>
+                                ${e.email ? `
+                                    <button class="btn-icon sm" onclick="EmployeesModule.registerAsUser('${e.id}')" title="Registrar como Usuario" style="color: #3b82f6;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                                    </button>
+                                ` : ''}
                                 <button class="btn-icon sm" onclick="EmployeesModule.deleteEmployee('${e.id}')" title="Eliminar">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                 </button>
@@ -598,6 +603,50 @@ const EmployeesModule = {
             this.renderStats();
             this.renderTable();
             this.showToast('Empleado eliminado');
+        }
+    },
+
+    async registerAsUser(employeeId) {
+        const employee = this.getById(employeeId);
+        if (!employee) {
+            this.showToast('Error: Empleado no encontrado', 'error');
+            return;
+        }
+
+        if (!employee.email) {
+            this.showToast('Error: El empleado debe tener un correo electrónico', 'error');
+            return;
+        }
+
+        // Verificar si ya existe un usuario con ese email
+        const existingUser = await Store.getUserByEmail(employee.email);
+        if (existingUser) {
+            this.showToast('Ya existe un usuario con ese correo electrónico', 'warning');
+            return;
+        }
+
+        const confirmed = await Modal.confirm({
+            title: 'Registrar como Usuario',
+            message: `¿Deseas registrar a ${employee.name} ${employee.lastName} como usuario del sistema con rol "Empleado"? Podrá iniciar sesión con Google usando su correo: ${employee.email}`,
+            type: 'info'
+        });
+
+        if (!confirmed) return;
+
+        try {
+            const userData = {
+                email: employee.email.toLowerCase(),
+                name: `${employee.name || ''} ${employee.lastName || ''}`.trim(),
+                role: 'employee',
+                status: 'active',
+                createdAt: new Date().toISOString()
+            };
+
+            await Store.saveUser(userData);
+            this.showToast('Empleado registrado como usuario exitosamente', 'success');
+        } catch (error) {
+            console.error('Error al registrar empleado como usuario:', error);
+            this.showToast('Error al registrar el empleado como usuario', 'error');
         }
     },
 

@@ -336,16 +336,53 @@ const Auth = {
             const result = await auth.signInWithPopup(provider);
             const firebaseUser = result.user;
             
-            // RESTRICCION: Verificar si el usuario ya existe en Firestore
-            const userData = await FirestoreService.getUserByEmail(firebaseUser.email);
+            // Verificar si el usuario ya existe en Firestore
+            let userData = await FirestoreService.getUserByEmail(firebaseUser.email);
             
+            // Si no existe usuario, verificar si existe un empleado con el mismo email
             if (!userData) {
-                // El usuario NO esta registrado en el sistema
-                await auth.signOut();
-                return { 
-                    success: false, 
-                    message: 'Tu cuenta no esta registrada en el sistema. Contacta al administrador.' 
-                };
+                try {
+                    const employees = await Store.getEmployees();
+                    const matchingEmployee = employees.find(e => 
+                        e.email && e.email.toLowerCase() === firebaseUser.email.toLowerCase()
+                    );
+                    
+                    if (matchingEmployee) {
+                        // Crear usuario automáticamente con rol employee
+                        const newUserData = {
+                            email: firebaseUser.email.toLowerCase(),
+                            name: `${matchingEmployee.name || ''} ${matchingEmployee.lastName || ''}`.trim() || firebaseUser.displayName || 'Empleado',
+                            role: 'employee',
+                            status: 'active',
+                            firebaseUid: firebaseUser.uid,
+                            provider: 'google',
+                            createdAt: new Date().toISOString(),
+                            lastLogin: new Date().toISOString()
+                        };
+                        
+                        const savedUser = await FirestoreService.save(
+                            FirestoreService.COLLECTIONS.USERS,
+                            newUserData
+                        );
+                        
+                        userData = savedUser;
+                        console.log('Usuario empleado creado automáticamente:', firebaseUser.email);
+                    } else {
+                        // No existe ni usuario ni empleado
+                        await auth.signOut();
+                        return { 
+                            success: false, 
+                            message: 'Tu cuenta no esta registrada en el sistema. Contacta al administrador.' 
+                        };
+                    }
+                } catch (e) {
+                    console.error('Error al verificar empleado:', e);
+                    await auth.signOut();
+                    return { 
+                        success: false, 
+                        message: 'Error al verificar tu cuenta. Contacta al administrador.' 
+                    };
+                }
             }
             
             if (userData.status === 'inactive') {
@@ -974,7 +1011,8 @@ const Auth = {
         const rolePermissions = {
             admin: ['*'],
             manager: ['view', 'create', 'edit'],
-            user: ['view']
+            user: ['view'],
+            employee: ['view', 'create'] // Empleados pueden ver y crear tickets
         };
 
         const permissions = rolePermissions[user.role] || [];
@@ -992,7 +1030,9 @@ const Auth = {
 
     redirectIfAuthenticated() {
         if (this.isAuthenticated()) {
-            const redirect = sessionStorage.getItem('fixify-redirect') || './pages/dashboard.html';
+            const currentUser = this.getCurrentUser();
+            const redirect = sessionStorage.getItem('fixify-redirect') || 
+                (currentUser?.role === 'employee' ? './pages/employee-dashboard.html' : './pages/dashboard.html');
             sessionStorage.removeItem('fixify-redirect');
             window.location.href = redirect;
             return true;
@@ -1092,7 +1132,8 @@ const Auth = {
         const roleNames = {
             admin: 'Administrador',
             manager: 'Manager',
-            user: 'Usuario'
+            user: 'Usuario',
+            employee: 'Empleado'
         };
         return roleNames[role] || role;
     }

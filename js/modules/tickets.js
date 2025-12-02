@@ -62,7 +62,16 @@ const TicketsModule = {
 
     async loadData() {
         try {
-            this.tickets = await Store.getTickets() || [];
+            const currentUser = Auth.getCurrentUser();
+            
+            // Si es empleado, solo cargar sus tickets
+            if (currentUser && currentUser.role === 'employee') {
+                this.tickets = await Store.getTicketsByEmployeeEmail(currentUser.email) || [];
+            } else {
+                // Usuarios y admin ven todos los tickets
+                this.tickets = await Store.getTickets() || [];
+            }
+            
             this.filteredTickets = [...this.tickets];
         } catch (e) {
             console.error('Error al obtener tickets:', e);
@@ -374,18 +383,42 @@ const TicketsModule = {
                         <td>${this.getStatusBadge(t.status)}</td>
                         <td style="font-size: 0.8rem;">${this.formatTimeAgo(t.createdAt)}</td>
                         <td class="cell-actions">
-                            ${canResolve(t.status) ? `
-                                <button class="btn btn-sm" style="background: #22c55e; color: white; padding: 0.35rem 0.6rem; font-size: 0.75rem;" onclick="TicketsModule.resolveTicket('${t.id}')" title="Resolver">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                    Resolver
-                                </button>
-                            ` : ''}
-                            <button class="btn-icon btn-ghost sm" onclick="TicketsModule.editTicket('${t.id}')" title="Editar">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            </button>
-                            <button class="btn-icon btn-ghost sm" onclick="TicketsModule.deleteTicket('${t.id}')" title="Eliminar">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                            </button>
+                            ${(() => {
+                                const currentUser = Auth?.getCurrentUser();
+                                const isEmployee = currentUser?.role === 'employee';
+                                const isAssigned = t.asignadoId === currentUser?.id;
+                                const canTake = !isEmployee && !t.asignadoId && (t.status === 'open' || t.status === 'in_progress');
+                                
+                                let actions = '';
+                                
+                                // Botón "Tomar Ticket" para usuarios/admin
+                                if (canTake) {
+                                    actions += `<button class="btn btn-sm" style="background: #3b82f6; color: white; padding: 0.35rem 0.6rem; font-size: 0.75rem; margin-right: 0.25rem;" onclick="TicketsModule.takeTicket('${t.id}')" title="Tomar Ticket">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                                        Tomar
+                                    </button>`;
+                                }
+                                
+                                // Botón "Resolver" solo para usuarios/admin y si está asignado o es admin
+                                if (!isEmployee && canResolve(t.status) && (isAssigned || currentUser?.role === 'admin')) {
+                                    actions += `<button class="btn btn-sm" style="background: #22c55e; color: white; padding: 0.35rem 0.6rem; font-size: 0.75rem; margin-right: 0.25rem;" onclick="TicketsModule.resolveTicket('${t.id}')" title="Resolver">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                        Resolver
+                                    </button>`;
+                                }
+                                
+                                // Botones de editar y eliminar solo para usuarios/admin
+                                if (!isEmployee) {
+                                    actions += `<button class="btn-icon btn-ghost sm" onclick="TicketsModule.editTicket('${t.id}')" title="Editar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    </button>
+                                    <button class="btn-icon btn-ghost sm" onclick="TicketsModule.deleteTicket('${t.id}')" title="Eliminar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    </button>`;
+                                }
+                                
+                                return actions;
+                            })()}
                         </td>
                     </tr>
                 `).join('')}
@@ -473,20 +506,44 @@ const TicketsModule = {
                     </div>
                 </div>
                 <div class="card-footer" style="flex-wrap: wrap;">
-                    ${canResolve(t.status) ? `
-                        <button class="btn btn-sm" style="background: #22c55e; color: white;" onclick="TicketsModule.resolveTicket('${t.id}')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                            Resolver
-                        </button>
-                    ` : ''}
-                    <button class="btn btn-ghost btn-sm" onclick="TicketsModule.editTicket('${t.id}')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                        Editar
-                    </button>
-                    <button class="btn btn-ghost btn-sm" onclick="TicketsModule.deleteTicket('${t.id}')" style="color: #ef4444;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        Eliminar
-                    </button>
+                    ${(() => {
+                        const currentUser = Auth?.getCurrentUser();
+                        const isEmployee = currentUser?.role === 'employee';
+                        const isAssigned = t.asignadoId === currentUser?.id;
+                        const canTake = !isEmployee && !t.asignadoId && (t.status === 'open' || t.status === 'in_progress');
+                        
+                        let actions = '';
+                        
+                        // Botón "Tomar Ticket" para usuarios/admin
+                        if (canTake) {
+                            actions += `<button class="btn btn-sm" style="background: #3b82f6; color: white;" onclick="TicketsModule.takeTicket('${t.id}')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                                Tomar Ticket
+                            </button>`;
+                        }
+                        
+                        // Botón "Resolver" solo para usuarios/admin y si está asignado o es admin
+                        if (!isEmployee && canResolve(t.status) && (isAssigned || currentUser?.role === 'admin')) {
+                            actions += `<button class="btn btn-sm" style="background: #22c55e; color: white;" onclick="TicketsModule.resolveTicket('${t.id}')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                Resolver
+                            </button>`;
+                        }
+                        
+                        // Botones de editar y eliminar solo para usuarios/admin
+                        if (!isEmployee) {
+                            actions += `<button class="btn btn-ghost btn-sm" onclick="TicketsModule.editTicket('${t.id}')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                Editar
+                            </button>
+                            <button class="btn btn-ghost btn-sm" onclick="TicketsModule.deleteTicket('${t.id}')" style="color: #ef4444;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Eliminar
+                            </button>`;
+                        }
+                        
+                        return actions;
+                    })()}
                 </div>
             </div>
         `).join('');
@@ -679,6 +736,64 @@ const TicketsModule = {
         });
     },
 
+    async takeTicket(id) {
+        const ticket = this.getTicketById(id);
+        if (!ticket) {
+            this.showToast('Error: Ticket no encontrado', 'error');
+            return;
+        }
+
+        const currentUser = Auth.getCurrentUser();
+        if (!currentUser) {
+            this.showToast('Error: No hay sesión activa', 'error');
+            return;
+        }
+
+        if (currentUser.role === 'employee') {
+            this.showToast('Los empleados no pueden tomar tickets', 'error');
+            return;
+        }
+
+        if (ticket.asignadoId && ticket.asignadoId !== currentUser.id) {
+            this.showToast('Este ticket ya está asignado a otro usuario', 'error');
+            return;
+        }
+
+        try {
+            // Obtener nombre del usuario actual
+            const users = await Store.getUsers();
+            const user = users.find(u => u.id === currentUser.id || u.email === currentUser.email);
+            const userName = user?.name || currentUser.name || 'Usuario';
+
+            ticket.asignadoId = currentUser.id;
+            ticket.asignadoNombre = userName;
+            
+            // Si el ticket está abierto, cambiarlo a en proceso
+            if (ticket.status === 'open') {
+                ticket.status = 'in_progress';
+            }
+
+            // Agregar al historial
+            ticket.history = ticket.history || [];
+            ticket.history.push({
+                action: 'taken',
+                timestamp: new Date().toISOString(),
+                user: userName,
+                note: `Ticket tomado por ${userName}`
+            });
+
+            await Store.saveTicket(ticket);
+            await this.loadData();
+            this.filteredTickets = [...this.tickets];
+            this.renderStats();
+            this.applyFilters();
+            this.showToast('Ticket tomado correctamente', 'success');
+        } catch (error) {
+            console.error('Error al tomar ticket:', error);
+            this.showToast('Error al tomar el ticket', 'error');
+        }
+    },
+
     async deleteTicket(id) {
         const ticket = this.getTicketById(id);
         const name = ticket?.folio ? `${ticket.folio} - ${ticket.title || 'Sin titulo'}` : 'este ticket';
@@ -705,6 +820,15 @@ const TicketsModule = {
 
     async openTicketForm(ticket = null) {
         const isEdit = !!ticket;
+        const currentUser = Auth?.getCurrentUser();
+        const isEmployee = currentUser?.role === 'employee';
+        
+        // Los empleados solo pueden crear tickets, no editarlos
+        if (isEmployee && isEdit) {
+            this.showToast('Los empleados solo pueden crear tickets, no editarlos', 'error');
+            return;
+        }
+        
         let employees = [], users = [], categories = [], machines = [], machineAssignments = [];
         
         try {
@@ -723,7 +847,6 @@ const TicketsModule = {
         let defaultContactoId = ticket?.contactoId || '';
         let defaultContactoNombre = ticket?.contactoNombre || '';
         if (!isEdit && Auth && Auth.getCurrentUser) {
-            const currentUser = Auth.getCurrentUser();
             if (currentUser && currentUser.email) {
                 // Buscar empleado con el mismo email
                 const matchingEmployee = employees.find(e => 
@@ -734,6 +857,11 @@ const TicketsModule = {
                     defaultContactoNombre = `${matchingEmployee.name || ''} ${matchingEmployee.lastName || ''}`.trim();
                 }
             }
+        }
+        
+        // Si es empleado, mostrar formulario simplificado
+        if (isEmployee && !isEdit) {
+            return this.openSimpleTicketForm(defaultContactoId, defaultContactoNombre, employees, machines, machineAssignments);
         }
 
         // Obtener temas unicos de las categorias
@@ -1018,6 +1146,12 @@ const TicketsModule = {
             // Obtener servicio del select (para guardar como category tambien por compatibilidad)
             data.category = data.servicio;
             
+            // Agregar campo createdBy si es un nuevo ticket
+            if (!data.id) {
+                const currentUser = Auth.getCurrentUser();
+                data.createdBy = currentUser?.email || '';
+            }
+            
             try {
                 if (data.id) {
                     const existing = this.getTicketById(data.id);
@@ -1039,6 +1173,86 @@ const TicketsModule = {
             } catch (error) {
                 console.error('Error al guardar ticket:', error);
                 this.showToast('Error al guardar el ticket', 'error');
+            }
+        });
+    },
+
+    // Formulario simplificado para empleados
+    async openSimpleTicketForm(contactoId, contactoNombre, employees, machines, machineAssignments) {
+        const modalHtml = `
+            <div class="modal-overlay active" id="ticketModal">
+                <div class="modal" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Solicitar Ayuda</h2>
+                        <button class="modal-close" onclick="document.getElementById('ticketModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="ticketForm" class="form">
+                            <div class="form-group">
+                                <label class="form-label">Título del problema <span class="required">*</span></label>
+                                <input type="text" name="title" class="form-input" required placeholder="Ej: Mi computadora no enciende">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Descripción del problema <span class="required">*</span></label>
+                                <textarea name="description" class="form-textarea" required rows="5" placeholder="Describe detalladamente el problema que estás experimentando..."></textarea>
+                            </div>
+                            
+                            <input type="hidden" name="contactoId" value="${contactoId}">
+                            <input type="hidden" name="contactoNombre" value="${this.escapeHtml(contactoNombre || '')}">
+                            <input type="hidden" name="tipo" value="incidencia">
+                            <input type="hidden" name="priority" value="medium">
+                            <input type="hidden" name="status" value="open">
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('ticketModal').remove()">Cancelar</button>
+                        <button type="submit" form="ticketForm" class="btn btn-primary">Enviar Solicitud</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Submit del formulario
+        document.getElementById('ticketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                // Obtener máquina asignada al empleado si existe
+                if (contactoId) {
+                    const activeAssignment = machineAssignments.find(a => 
+                        a.employeeId === contactoId && !a.endDate
+                    );
+                    
+                    if (activeAssignment) {
+                        const machine = machines.find(m => m.id === activeAssignment.machineId);
+                        if (machine) {
+                            data.machineId = machine.id;
+                            data.machineSerial = machine.serialNumber || '';
+                        }
+                    }
+                }
+                
+                // Agregar campo createdBy
+                const currentUser = Auth.getCurrentUser();
+                data.createdBy = currentUser?.email || '';
+                
+                delete data.id;
+                await Store.saveTicket(data);
+
+                document.getElementById('ticketModal').remove();
+                await this.loadData();
+                this.filteredTickets = [...this.tickets];
+                this.renderStats();
+                this.applyFilters();
+                this.showToast('Solicitud enviada correctamente. Un técnico se pondrá en contacto contigo.', 'success');
+            } catch (error) {
+                console.error('Error al guardar ticket:', error);
+                this.showToast('Error al enviar la solicitud', 'error');
             }
         });
     },

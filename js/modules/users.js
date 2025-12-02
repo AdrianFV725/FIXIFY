@@ -333,6 +333,7 @@ const UsersModule = {
                                 <label>Rol *</label>
                                 <select name="role" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
                                     <option value="user" ${user?.role === 'user' ? 'selected' : ''}>Usuario</option>
+                                    <option value="employee" ${user?.role === 'employee' ? 'selected' : ''}>Empleado</option>
                                     <option value="admin" ${user?.role === 'admin' ? 'selected' : ''}>Administrador</option>
                                 </select>
                             </div>

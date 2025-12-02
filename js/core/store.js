@@ -643,6 +643,32 @@ const Store = {
         }
     },
 
+    // Obtener tickets creados por un empleado (por email)
+    async getTicketsByEmployeeEmail(employeeEmail) {
+        const tickets = await this.getTickets();
+        const employees = await this.getEmployees();
+        const employee = employees.find(e => e.email && e.email.toLowerCase() === employeeEmail.toLowerCase());
+        
+        if (!employee) {
+            // Si no encontramos el empleado, buscar por email directamente en tickets
+            return tickets.filter(t => {
+                const contactoEmail = t.contactoEmail || '';
+                const contactoNombre = t.contactoNombre || '';
+                return contactoEmail.toLowerCase() === employeeEmail.toLowerCase() ||
+                       contactoNombre.toLowerCase().includes(employeeEmail.toLowerCase());
+            });
+        }
+        
+        // Buscar por contactoId del empleado
+        return tickets.filter(t => t.contactoId === employee.id);
+    },
+
+    // Obtener tickets por empleado (versión simplificada usando contactoId)
+    async getTicketsByEmployeeId(employeeId) {
+        const tickets = await this.getTickets();
+        return tickets.filter(t => t.contactoId === employeeId);
+    },
+
     // ========================================
     // METODOS PARA CATEGORIAS DE TICKETS
     // ========================================
