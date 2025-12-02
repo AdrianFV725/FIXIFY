@@ -438,6 +438,94 @@ const Auth = {
     },
 
     // ========================================
+    // LOGIN CON GOOGLE
+    // ========================================
+
+    /**
+     * Inicia sesion con Google (solo usuarios pre-registrados)
+     */
+    async loginWithGoogle() {
+        try {
+            if (!this.useFirebase) {
+                return { success: false, message: 'Google Sign-In requiere Firebase' };
+            }
+
+            const auth = getFirebaseAuth();
+            const provider = new firebase.auth.GoogleAuthProvider();
+            
+            // Forzar seleccion de cuenta
+            provider.setCustomParameters({ prompt: 'select_account' });
+            
+            const result = await auth.signInWithPopup(provider);
+            const firebaseUser = result.user;
+            
+            // RESTRICCION: Verificar si el usuario ya existe en Firestore
+            const userData = await FirestoreService.getUserByEmail(firebaseUser.email);
+            
+            if (!userData) {
+                // El usuario NO esta registrado en el sistema
+                await auth.signOut();
+                return { 
+                    success: false, 
+                    message: 'Tu cuenta no esta registrada en el sistema. Contacta al administrador.' 
+                };
+            }
+            
+            if (userData.status === 'inactive') {
+                await auth.signOut();
+                return { success: false, message: 'Usuario inactivo. Contacta al administrador.' };
+            }
+            
+            // Actualizar el firebaseUid si no lo tiene (primera vez con Google)
+            if (!userData.firebaseUid) {
+                try {
+                    await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
+                        firebaseUid: firebaseUser.uid,
+                        provider: 'google',
+                        lastLogin: new Date().toISOString()
+                    }, userData.id);
+                } catch (e) {
+                    console.warn('No se pudo actualizar firebaseUid');
+                }
+            }
+            
+            const sessionUser = {
+                id: firebaseUser.uid,
+                email: firebaseUser.email,
+                name: userData.name || firebaseUser.displayName || 'Usuario',
+                role: userData.role || 'user',
+                loginAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem(this.SESSION_KEY, 'active');
+            localStorage.setItem(this.USER_KEY, JSON.stringify(sessionUser));
+            
+            // Registrar actividad
+            try {
+                await FirestoreService.updateUserLastLogin(firebaseUser.email);
+                await FirestoreService.logActivity('user_login_google', { email: firebaseUser.email });
+            } catch (e) {
+                console.warn('No se pudo registrar actividad');
+            }
+            
+            return { success: true, message: 'Inicio de sesion exitoso', user: sessionUser };
+            
+        } catch (error) {
+            console.error('Error en Google Sign-In:', error);
+            
+            if (error.code === 'auth/popup-closed-by-user') {
+                return { success: false, message: 'Inicio de sesion cancelado' };
+            }
+            
+            if (error.code === 'auth/popup-blocked') {
+                return { success: false, message: 'El navegador bloqueo la ventana emergente. Permite las ventanas emergentes e intenta de nuevo.' };
+            }
+            
+            return { success: false, message: 'Error al iniciar sesion con Google' };
+        }
+    },
+
+    // ========================================
     // CERRAR SESION
     // ========================================
 

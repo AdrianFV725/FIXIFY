@@ -628,6 +628,119 @@ body {
 }
 
 /* ========================================
+   DIVIDER Y BOTON DE GOOGLE
+   ======================================== */
+
+.login-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0.5rem 0;
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+}
+
+.login-divider span {
+    white-space: nowrap;
+}
+
+.google-btn {
+    position: relative;
+    width: 100%;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0 1.25rem;
+    border: 1.5px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--input-bg);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+    overflow: hidden;
+}
+
+.google-btn:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-tertiary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--shadow-color);
+}
+
+.google-btn:active {
+    transform: translateY(0);
+}
+
+.google-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.google-icon {
+    flex-shrink: 0;
+    transition: transform var(--transition-fast);
+}
+
+.google-btn:hover .google-icon {
+    transform: scale(1.1);
+}
+
+.google-btn-text,
+.google-btn-loader {
+    transition: all var(--transition-fast);
+}
+
+.google-btn-loader {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+}
+
+.google-btn-loader .spinner .path {
+    stroke: var(--accent-primary);
+}
+
+.google-btn.loading .google-btn-text,
+.google-btn.loading .google-icon {
+    opacity: 0;
+}
+
+.google-btn.loading .google-btn-loader {
+    opacity: 1;
+}
+
+/* Animacion de entrada para el boton de Google */
+.login-divider {
+    animation: fadeInUp 0.6s ease forwards;
+    animation-delay: 0.55s;
+    opacity: 0;
+}
+
+.google-btn {
+    animation: fadeInUp 0.6s ease forwards;
+    animation-delay: 0.6s;
+    opacity: 0;
+}
+
+/* ========================================
    FOOTER DEL LOGIN
    ======================================== */
 
