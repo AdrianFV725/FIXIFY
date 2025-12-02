@@ -773,6 +773,15 @@ const Store = {
         
         if (assignment) {
             assignment.endDate = new Date().toISOString();
+            assignment.unassignedBy = Auth?.getCurrentUser()?.name || 'Admin';
+            
+            // Guardar en Firestore si está disponible
+            if (this.useFirestore && window.FirestoreService) {
+                try {
+                    await FirestoreService.saveMachineAssignment(assignment);
+                } catch (e) {}
+            }
+            
             this.setLocal(this.KEYS.ASSIGNMENTS_MACHINES, assignments);
             
             const machine = await this.getMachineById(machineId);
