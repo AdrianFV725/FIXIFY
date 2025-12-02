@@ -53,38 +53,35 @@
         </header>
 
         <div class="page-content">
-            <!-- Filtros y busqueda -->
-            <section class="filters-bar" id="filtersBar">
-                <!--
-                    Filtros disponibles:
-                    - Busqueda por texto (folio, descripcion)
-                    - Estado (abierto, en progreso, resuelto, cerrado)
-                    - Prioridad (baja, media, alta, critica)
-                    - Categoria (hardware, software, red, otro)
-                    - Fecha (rango)
-                    - Asignado a (empleado)
-                -->
+            <!-- Stats rapidos de tickets -->
+            <section class="mini-stats" id="ticketStats">
+                <!-- Mini KPIs renderizados por JS -->
             </section>
 
+            <!-- Filtros y busqueda -->
+            <section class="filters-bar" id="filtersBar">
+                <!-- Filtros renderizados por JS -->
+            </section>
+
+            <!-- Vista de tickets (tabla o cards) -->
+            <div class="view-toggle" id="viewToggle">
+                <button class="view-btn active" data-view="table">Tabla</button>
+                <button class="view-btn" data-view="cards">Tarjetas</button>
+            </div>
+
             <!-- Tabla de tickets -->
-            <section class="data-table-container">
+            <section class="data-table-container" id="tableView">
                 <table class="data-table" id="ticketsTable">
-                    <!--
-                        Columnas:
-                        - Folio
-                        - Titulo
-                        - Solicitante
-                        - Categoria
-                        - Prioridad
-                        - Estado
-                        - Asignado a
-                        - Fecha creacion
-                        - Acciones (ver, editar, eliminar)
-                    -->
+                    <!-- Tabla renderizada por JS -->
                 </table>
                 
                 <!-- Paginacion -->
                 <div class="pagination" id="ticketsPagination"></div>
+            </section>
+
+            <!-- Vista de tarjetas -->
+            <section class="cards-grid hidden" id="cardsView">
+                <!-- Tarjetas renderizadas por JS -->
             </section>
         </div>
     </main>

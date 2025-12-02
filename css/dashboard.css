@@ -1269,3 +1269,125 @@ body.dashboard-body {
     }
 }
 
+/* ========================================
+   TICKET CARDS STYLES
+   ======================================== */
+
+.ticket-card {
+    display: flex;
+    flex-direction: column;
+    transition: all var(--transition-fast);
+}
+
+.ticket-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--shadow-color);
+}
+
+.ticket-card .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.ticket-card .card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.ticket-card .card-body {
+    flex: 1;
+}
+
+.ticket-card .card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.ticket-card .card-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+}
+
+.ticket-card .card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.ticket-card .card-detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+}
+
+.ticket-card .detail-label {
+    color: var(--text-tertiary);
+}
+
+.ticket-card .detail-value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.ticket-card .card-footer {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-start;
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Resolve button in table */
+.data-table .btn-resolve {
+    background: #22c55e;
+    color: white;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.data-table .btn-resolve:hover {
+    background: #16a34a;
+    transform: translateY(-1px);
+}
+
+/* Priority indicator on cards */
+.ticket-card[data-priority="critical"] {
+    border-left-color: #dc2626 !important;
+}
+
+.ticket-card[data-priority="high"] {
+    border-left-color: #ef4444 !important;
+}
+
+.ticket-card[data-priority="medium"] {
+    border-left-color: #f97316 !important;
+}
+
+.ticket-card[data-priority="low"] {
+    border-left-color: #6b7280 !important;
+}
+
