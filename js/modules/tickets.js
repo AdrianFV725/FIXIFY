@@ -1039,116 +1039,147 @@ const TicketsModule = {
             const temas = Object.keys(grouped).sort();
             
             if (temas.length === 0) {
-                return `<div style="text-align: center; padding: 2rem; color: var(--text-tertiary);">
-                    <p>No hay categorias registradas</p>
-                    <p style="font-size: 0.85rem; margin-top: 0.5rem;">Crea una nueva categoria para comenzar</p>
+                return `<div style="text-align: center; padding: 3rem 2rem; color: var(--text-tertiary);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem; opacity: 0.5;">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <p style="font-weight: 500; margin-bottom: 0.25rem;">No hay categorias registradas</p>
+                    <p style="font-size: 0.8rem;">Usa el formulario para crear la primera categoria</p>
                 </div>`;
             }
 
+            // Crear tabla compacta
+            html += `<table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color);">
+                        <th style="text-align: left; padding: 0.5rem 0.75rem; font-weight: 600; color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase;">Tema</th>
+                        <th style="text-align: left; padding: 0.5rem 0.75rem; font-weight: 600; color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase;">Servicio</th>
+                        <th style="text-align: left; padding: 0.5rem 0.75rem; font-weight: 600; color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase;">Clave</th>
+                        <th style="text-align: left; padding: 0.5rem 0.75rem; font-weight: 600; color: var(--text-secondary); font-size: 0.7rem; text-transform: uppercase;">Elemento</th>
+                        <th style="width: 70px;"></th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
             temas.forEach(tema => {
-                html += `
-                    <div class="category-tema-group" style="margin-bottom: 1rem;">
-                        <div style="font-weight: 600; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); margin-bottom: 0.5rem; color: var(--text-primary);">
-                            ${this.escapeHtml(tema)}
-                        </div>
-                `;
-                
                 const servicios = Object.keys(grouped[tema]).sort();
                 servicios.forEach(servicio => {
-                    html += `
-                        <div class="category-servicio-group" style="margin-left: 1rem; margin-bottom: 0.5rem;">
-                            <div style="font-size: 0.85rem; color: var(--text-secondary); padding: 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
-                                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${this.getCategoryColor(servicio)};"></span>
-                                ${servicioLabels[servicio] || servicio}
-                            </div>
-                            <div style="margin-left: 1rem;">
-                    `;
-                    
-                    grouped[tema][servicio].forEach(cat => {
+                    grouped[tema][servicio].forEach((cat, idx) => {
+                        const isFirst = idx === 0;
+                        const rowCount = grouped[tema][servicio].length;
                         html += `
-                            <div class="category-item" style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 0.25rem;">
-                                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                    <span style="font-family: monospace; font-size: 0.8rem; background: var(--bg-secondary); padding: 0.2rem 0.5rem; border-radius: 4px;">${this.escapeHtml(cat.clave)}</span>
-                                    <span>${this.escapeHtml(cat.elemento)}</span>
-                                </div>
-                                <div style="display: flex; gap: 0.25rem;">
-                                    <button class="btn-icon btn-ghost sm" onclick="TicketsModule.editCategory('${cat.id}')" title="Editar">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                    </button>
-                                    <button class="btn-icon btn-ghost sm" onclick="TicketsModule.deleteCategory('${cat.id}')" title="Eliminar" style="color: #ef4444;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                    </button>
-                                </div>
-                            </div>
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                ${isFirst ? `<td style="padding: 0.5rem 0.75rem; vertical-align: top; font-weight: 500;" rowspan="${rowCount}">${this.escapeHtml(tema)}</td>` : ''}
+                                ${isFirst ? `<td style="padding: 0.5rem 0.75rem; vertical-align: top;" rowspan="${rowCount}">
+                                    <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                                        <span style="width: 8px; height: 8px; border-radius: 50%; background: ${this.getCategoryColor(servicio)};"></span>
+                                        ${servicioLabels[servicio] || servicio}
+                                    </span>
+                                </td>` : ''}
+                                <td style="padding: 0.5rem 0.75rem;">
+                                    <code style="font-size: 0.75rem; background: var(--bg-tertiary); padding: 0.15rem 0.4rem; border-radius: 4px;">${this.escapeHtml(cat.clave)}</code>
+                                </td>
+                                <td style="padding: 0.5rem 0.75rem;">${this.escapeHtml(cat.elemento)}</td>
+                                <td style="padding: 0.5rem 0.75rem;">
+                                    <div style="display: flex; gap: 0.25rem; justify-content: flex-end;">
+                                        <button class="btn-icon btn-ghost sm" onclick="TicketsModule.editCategory('${cat.id}')" title="Editar" style="width: 26px; height: 26px;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                        </button>
+                                        <button class="btn-icon btn-ghost sm" onclick="TicketsModule.deleteCategory('${cat.id}')" title="Eliminar" style="color: #ef4444; width: 26px; height: 26px;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
                         `;
                     });
-                    
-                    html += `
-                            </div>
-                        </div>
-                    `;
                 });
-                
-                html += `</div>`;
             });
 
+            html += `</tbody></table>`;
             return html;
         };
 
         const modalHtml = `
             <div class="modal-overlay active" id="categoriesModal">
-                <div class="modal" style="max-width: 700px; max-height: 80vh;">
-                    <div class="modal-header">
-                        <h2 class="modal-title">Gestionar Categorias</h2>
+                <div class="modal" style="max-width: 950px; width: 95%; max-height: 90vh;">
+                    <div class="modal-header" style="padding: 1.25rem 1.5rem;">
+                        <div>
+                            <h2 class="modal-title" style="margin-bottom: 0.25rem;">Gestionar Categorias</h2>
+                            <p style="font-size: 0.8rem; color: var(--text-tertiary); margin: 0;">${categories.length} categoria${categories.length !== 1 ? 's' : ''} registrada${categories.length !== 1 ? 's' : ''}</p>
+                        </div>
                         <button class="modal-close" onclick="document.getElementById('categoriesModal').remove()">&times;</button>
                     </div>
-                    <div class="modal-body" style="display: flex; gap: 1rem; max-height: 60vh;">
+                    <div class="modal-body" style="display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; padding: 1.5rem; max-height: calc(90vh - 140px); overflow: hidden;">
                         <!-- Lista de categorias -->
-                        <div style="flex: 1; overflow-y: auto; padding-right: 0.5rem;" id="categoriesList">
+                        <div style="overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--card-bg);" id="categoriesList">
                             ${renderCategoriesList()}
                         </div>
                         
-                        <!-- Formulario para nueva categoria -->
-                        <div style="width: 280px; background: var(--bg-tertiary); padding: 1rem; border-radius: 12px; height: fit-content;">
-                            <div style="font-weight: 600; margin-bottom: 1rem;">Nueva Categoria</div>
-                            <form id="categoryForm" class="form">
-                                <div class="form-group" style="margin-bottom: 0.75rem;">
-                                    <label class="form-label" style="font-size: 0.85rem;">Tema <span class="required">*</span></label>
-                                    <input type="text" name="tema" id="categoryTemaInput" class="form-input" required placeholder="Ej: Soporte Tecnico" list="temasDatalist" style="font-size: 0.9rem;">
-                                    <datalist id="temasDatalist">
-                                        ${[...new Set(categories.map(c => c.tema))].filter(Boolean).map(t => `<option value="${this.escapeHtml(t)}">`).join('')}
-                                    </datalist>
+                        <!-- Panel lateral: Formulario -->
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            <div style="background: var(--bg-tertiary); padding: 1.25rem; border-radius: 12px;">
+                                <div style="font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                    <span id="formTitle">Nueva Categoria</span>
                                 </div>
-                                <div class="form-group" style="margin-bottom: 0.75rem;">
-                                    <label class="form-label" style="font-size: 0.85rem;">Servicio <span class="required">*</span></label>
-                                    <select name="servicio" class="form-select" required style="font-size: 0.9rem;">
-                                        <option value="">Seleccionar...</option>
-                                        <option value="software">Software</option>
-                                        <option value="hardware">Hardware</option>
-                                        <option value="network">Red</option>
-                                        <option value="other">Otro</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="margin-bottom: 0.75rem;">
-                                    <label class="form-label" style="font-size: 0.85rem;">Clave <span class="required">*</span></label>
-                                    <div style="position: relative;">
-                                        <input type="text" name="clave" id="categoryClaveInput" class="form-input" required placeholder="Se genera automaticamente" style="font-size: 0.9rem;">
-                                        <span id="claveAutoIndicator" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: var(--text-tertiary); display: none;">Auto</span>
+                                <form id="categoryForm" class="form">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                        <div class="form-group" style="margin: 0;">
+                                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Tema <span class="required">*</span></label>
+                                            <input type="text" name="tema" id="categoryTemaInput" class="form-input" required placeholder="Ej: Soporte" list="temasDatalist" style="font-size: 0.85rem; padding: 0.5rem 0.75rem;">
+                                            <datalist id="temasDatalist">
+                                                ${[...new Set(categories.map(c => c.tema))].filter(Boolean).map(t => `<option value="${this.escapeHtml(t)}">`).join('')}
+                                            </datalist>
+                                        </div>
+                                        <div class="form-group" style="margin: 0;">
+                                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Servicio <span class="required">*</span></label>
+                                            <select name="servicio" class="form-select" required style="font-size: 0.85rem; padding: 0.5rem 0.75rem;">
+                                                <option value="">Seleccionar...</option>
+                                                <option value="software">Software</option>
+                                                <option value="hardware">Hardware</option>
+                                                <option value="network">Red</option>
+                                                <option value="other">Otro</option>
+                                            </select>
+                                        </div>
                                     </div>
+                                    <div style="display: grid; grid-template-columns: 100px 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                        <div class="form-group" style="margin: 0;">
+                                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Clave <span class="required">*</span></label>
+                                            <div style="position: relative;">
+                                                <input type="text" name="clave" id="categoryClaveInput" class="form-input" required placeholder="AP.01" style="font-size: 0.85rem; padding: 0.5rem 0.75rem; font-family: monospace;">
+                                                <span id="claveAutoIndicator" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 0.6rem; color: var(--accent-primary); background: var(--accent-light); padding: 0.1rem 0.3rem; border-radius: 3px; display: none;">Auto</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group" style="margin: 0;">
+                                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Elemento <span class="required">*</span></label>
+                                            <input type="text" name="elemento" class="form-input" required placeholder="Nombre del elemento" style="font-size: 0.85rem; padding: 0.5rem 0.75rem;">
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="id" id="categoryId" value="">
+                                    <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                                        <button type="button" class="btn btn-secondary btn-sm" id="cancelCategoryEdit" style="display: none; flex: 1;">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary btn-sm" style="flex: 1;" id="saveCategoryBtn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                            Agregar
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            
+                            <!-- Info rapida -->
+                            <div style="background: var(--accent-light); padding: 1rem; border-radius: 10px; border: 1px solid var(--accent-primary); border-opacity: 0.2;">
+                                <div style="font-size: 0.75rem; color: var(--accent-primary); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                                    Tip
                                 </div>
-                                <div class="form-group" style="margin-bottom: 0.75rem;">
-                                    <label class="form-label" style="font-size: 0.85rem;">Elemento <span class="required">*</span></label>
-                                    <input type="text" name="elemento" class="form-input" required placeholder="Ej: Actualizacion de Slack" style="font-size: 0.9rem;">
-                                </div>
-                                <input type="hidden" name="id" id="categoryId" value="">
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <button type="button" class="btn btn-secondary btn-sm" id="cancelCategoryEdit" style="display: none; flex: 1;">Cancelar</button>
-                                    <button type="submit" class="btn btn-primary btn-sm" style="flex: 1;" id="saveCategoryBtn">Agregar</button>
-                                </div>
-                            </form>
+                                <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; margin: 0;">
+                                    La clave se genera automaticamente al seleccionar un tema existente. Puedes editarla manualmente si lo prefieres.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
+                    <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('categoriesModal').remove()">Cerrar</button>
                     </div>
                 </div>
@@ -1268,10 +1299,12 @@ const TicketsModule = {
         const resetForm = () => {
             categoryForm.reset();
             categoryIdInput.value = '';
-            saveCategoryBtn.textContent = 'Agregar';
+            saveCategoryBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Agregar';
             cancelCategoryEdit.style.display = 'none';
             claveAutoIndicator.style.display = 'none';
             isAutoGeneratedClave = false;
+            const formTitle = document.getElementById('formTitle');
+            if (formTitle) formTitle.textContent = 'Nueva Categoria';
         };
 
         cancelCategoryEdit.addEventListener('click', resetForm);
@@ -1330,8 +1363,10 @@ const TicketsModule = {
                 categoryForm.querySelector('[name="servicio"]').value = cat.servicio || '';
                 categoryForm.querySelector('[name="clave"]').value = cat.clave || '';
                 categoryForm.querySelector('[name="elemento"]').value = cat.elemento || '';
-                saveCategoryBtn.textContent = 'Actualizar';
+                saveCategoryBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Guardar';
                 cancelCategoryEdit.style.display = 'block';
+                const formTitle = document.getElementById('formTitle');
+                if (formTitle) formTitle.textContent = 'Editar Categoria';
                 // Desactivar auto-generacion cuando se edita
                 isAutoGeneratedClave = false;
                 claveAutoIndicator.style.display = 'none';
