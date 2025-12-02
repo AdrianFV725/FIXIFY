@@ -12,6 +12,11 @@ const AnalyticsModule = {
         categories: []
     },
 
+    // Filtro de tiempo activo
+    dateRange: '30d',
+    customDateStart: null,
+    customDateEnd: null,
+
     async init() {
         if (!Auth.isAuthenticated()) {
             window.location.href = '../index.html';
@@ -20,6 +25,85 @@ const AnalyticsModule = {
 
         await this.loadAllData();
         await this.renderDashboard();
+        this.bindEvents();
+    },
+
+    bindEvents() {
+        // Filtros de tiempo
+        const dateRangePicker = document.getElementById('dateRangePicker');
+        if (dateRangePicker) {
+            dateRangePicker.addEventListener('click', (e) => {
+                const btn = e.target.closest('.date-btn');
+                if (btn) {
+                    const range = btn.dataset.range;
+                    if (range === 'custom') {
+                        this.showCustomDateModal();
+                    } else {
+                        this.setDateRange(range);
+                    }
+                }
+            });
+        }
+
+        // Boton exportar
+        const exportBtn = document.getElementById('exportReportBtn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => this.showExportModal());
+        }
+    },
+
+    setDateRange(range) {
+        this.dateRange = range;
+        this.customDateStart = null;
+        this.customDateEnd = null;
+        
+        // Actualizar botones activos
+        document.querySelectorAll('.date-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.range === range);
+        });
+
+        // Re-renderizar dashboard
+        this.renderDashboard();
+    },
+
+    getDateRangeFilter() {
+        const now = new Date();
+        let startDate = null;
+
+        if (this.customDateStart && this.customDateEnd) {
+            return {
+                start: new Date(this.customDateStart),
+                end: new Date(this.customDateEnd)
+            };
+        }
+
+        switch (this.dateRange) {
+            case '7d':
+                startDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                break;
+            case '30d':
+                startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+                break;
+            case '90d':
+                startDate = new Date(now - 90 * 24 * 60 * 60 * 1000);
+                break;
+            case '1y':
+                startDate = new Date(now - 365 * 24 * 60 * 60 * 1000);
+                break;
+            default:
+                startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+        }
+
+        return { start: startDate, end: now };
+    },
+
+    filterByDateRange(items, dateField = 'createdAt') {
+        const { start, end } = this.getDateRangeFilter();
+        return items.filter(item => {
+            if (!item[dateField]) return true;
+            const itemDate = new Date(item[dateField]);
+            return itemDate >= start && itemDate <= end;
+        });
     },
 
     async loadAllData() {
@@ -45,12 +129,13 @@ const AnalyticsModule = {
     // ========================================
 
     getTicketMetrics() {
-        const { tickets } = this.data;
+        const { tickets: allTickets } = this.data;
         const now = new Date();
-        const last30Days = new Date(now - 30 * 24 * 60 * 60 * 1000);
+        
+        // Filtrar tickets por rango de fecha seleccionado
+        const tickets = this.filterByDateRange(allTickets);
+        
         const last7Days = new Date(now - 7 * 24 * 60 * 60 * 1000);
-
-        const recentTickets = tickets.filter(t => new Date(t.createdAt) >= last30Days);
         const thisWeekTickets = tickets.filter(t => new Date(t.createdAt) >= last7Days);
 
         // Tickets por estado
@@ -109,7 +194,7 @@ const AnalyticsModule = {
 
         return {
             total: tickets.length,
-            recentCount: recentTickets.length,
+            totalAll: allTickets.length,
             thisWeekCount: thisWeekTickets.length,
             byStatus,
             byPriority,
@@ -120,6 +205,559 @@ const AnalyticsModule = {
             resolutionRate,
             pendingCount: byStatus.open + byStatus.in_progress
         };
+    },
+
+    // ========================================
+    // MODALES
+    // ========================================
+
+    showCustomDateModal() {
+        const today = new Date().toISOString().split('T')[0];
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        const modalHtml = `
+            <div class="modal-overlay active" id="customDateModal">
+                <div class="modal" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Rango Personalizado</h2>
+                        <button class="modal-close" onclick="document.getElementById('customDateModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="customDateForm" class="form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Fecha Inicio</label>
+                                    <input type="date" name="startDate" class="form-input" value="${thirtyDaysAgo}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Fecha Fin</label>
+                                    <input type="date" name="endDate" class="form-input" value="${today}" required>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('customDateModal').remove()">Cancelar</button>
+                        <button type="submit" form="customDateForm" class="btn btn-primary">Aplicar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('customDateForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            this.customDateStart = formData.get('startDate');
+            this.customDateEnd = formData.get('endDate');
+            this.dateRange = 'custom';
+
+            document.querySelectorAll('.date-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.range === 'custom');
+            });
+
+            document.getElementById('customDateModal').remove();
+            this.renderDashboard();
+        });
+    },
+
+    showExportModal() {
+        const modalHtml = `
+            <div class="modal-overlay active" id="exportModal">
+                <div class="modal" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Exportar Reporte</h2>
+                        <button class="modal-close" onclick="document.getElementById('exportModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="export-options">
+                            <div class="export-section">
+                                <h4 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text-primary);">Selecciona que datos incluir:</h4>
+                                <div class="export-checkboxes">
+                                    <label class="export-checkbox">
+                                        <input type="checkbox" name="includeTickets" checked>
+                                        <span class="checkmark"></span>
+                                        <span>Analisis de Tickets</span>
+                                    </label>
+                                    <label class="export-checkbox">
+                                        <input type="checkbox" name="includeMachines" checked>
+                                        <span class="checkmark"></span>
+                                        <span>Analisis de Maquinas</span>
+                                    </label>
+                                    <label class="export-checkbox">
+                                        <input type="checkbox" name="includeEmployees" checked>
+                                        <span class="checkmark"></span>
+                                        <span>Analisis de Personal</span>
+                                    </label>
+                                    <label class="export-checkbox">
+                                        <input type="checkbox" name="includeLicenses" checked>
+                                        <span class="checkmark"></span>
+                                        <span>Analisis de Licencias</span>
+                                    </label>
+                                    <label class="export-checkbox">
+                                        <input type="checkbox" name="includeInsights" checked>
+                                        <span class="checkmark"></span>
+                                        <span>Insights y Alertas</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="export-section" style="margin-top: 1.25rem;">
+                                <h4 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text-primary);">Formato de exportacion:</h4>
+                                <div class="export-formats">
+                                    <label class="export-format active" data-format="csv">
+                                        <input type="radio" name="format" value="csv" checked>
+                                        <div class="format-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                        </div>
+                                        <span class="format-name">CSV</span>
+                                        <span class="format-desc">Excel compatible</span>
+                                    </label>
+                                    <label class="export-format" data-format="json">
+                                        <input type="radio" name="format" value="json">
+                                        <div class="format-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                                        </div>
+                                        <span class="format-name">JSON</span>
+                                        <span class="format-desc">Datos estructurados</span>
+                                    </label>
+                                    <label class="export-format" data-format="txt">
+                                        <input type="radio" name="format" value="txt">
+                                        <div class="format-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                        </div>
+                                        <span class="format-name">TXT</span>
+                                        <span class="format-desc">Texto plano</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="export-preview" style="margin-top: 1.25rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                    <span style="font-size: 0.8rem; color: var(--text-tertiary);">Rango de datos:</span>
+                                    <span style="font-size: 0.8rem; font-weight: 500;" id="exportDateRange">${this.getDateRangeLabel()}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.8rem; color: var(--text-tertiary);">Registros estimados:</span>
+                                    <span style="font-size: 0.8rem; font-weight: 500;" id="exportRecordCount">${this.getEstimatedRecords()}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <style>
+                            .export-checkboxes {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 0.5rem;
+                            }
+                            .export-checkbox {
+                                display: flex;
+                                align-items: center;
+                                gap: 0.75rem;
+                                padding: 0.5rem 0.75rem;
+                                background: var(--bg-tertiary);
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-size: 0.85rem;
+                                transition: all 0.2s ease;
+                            }
+                            .export-checkbox:hover {
+                                background: var(--border-color);
+                            }
+                            .export-checkbox input {
+                                display: none;
+                            }
+                            .export-checkbox .checkmark {
+                                width: 18px;
+                                height: 18px;
+                                border: 2px solid var(--border-color);
+                                border-radius: 4px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                transition: all 0.2s ease;
+                            }
+                            .export-checkbox input:checked + .checkmark {
+                                background: var(--accent-primary);
+                                border-color: var(--accent-primary);
+                            }
+                            .export-checkbox input:checked + .checkmark::after {
+                                content: '';
+                                width: 5px;
+                                height: 9px;
+                                border: 2px solid white;
+                                border-top: none;
+                                border-left: none;
+                                transform: rotate(45deg);
+                                margin-top: -2px;
+                            }
+                            .export-formats {
+                                display: grid;
+                                grid-template-columns: repeat(3, 1fr);
+                                gap: 0.75rem;
+                            }
+                            .export-format {
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                padding: 1rem 0.5rem;
+                                background: var(--bg-tertiary);
+                                border: 2px solid transparent;
+                                border-radius: 10px;
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                text-align: center;
+                            }
+                            .export-format:hover {
+                                border-color: var(--border-color);
+                            }
+                            .export-format.active {
+                                border-color: var(--accent-primary);
+                                background: var(--accent-light);
+                            }
+                            .export-format input {
+                                display: none;
+                            }
+                            .format-icon {
+                                width: 40px;
+                                height: 40px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                color: var(--text-secondary);
+                                margin-bottom: 0.5rem;
+                            }
+                            .export-format.active .format-icon {
+                                color: var(--accent-primary);
+                            }
+                            .format-name {
+                                font-weight: 600;
+                                font-size: 0.85rem;
+                            }
+                            .format-desc {
+                                font-size: 0.7rem;
+                                color: var(--text-tertiary);
+                                margin-top: 0.15rem;
+                            }
+                        </style>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('exportModal').remove()">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="doExportBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Descargar Reporte
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Toggle de formatos
+        document.querySelectorAll('.export-format').forEach(format => {
+            format.addEventListener('click', () => {
+                document.querySelectorAll('.export-format').forEach(f => f.classList.remove('active'));
+                format.classList.add('active');
+                format.querySelector('input').checked = true;
+            });
+        });
+
+        // Boton de exportar
+        document.getElementById('doExportBtn').addEventListener('click', () => {
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const options = {
+                includeTickets: document.querySelector('input[name="includeTickets"]').checked,
+                includeMachines: document.querySelector('input[name="includeMachines"]').checked,
+                includeEmployees: document.querySelector('input[name="includeEmployees"]').checked,
+                includeLicenses: document.querySelector('input[name="includeLicenses"]').checked,
+                includeInsights: document.querySelector('input[name="includeInsights"]').checked
+            };
+            
+            this.exportReport(format, options);
+            document.getElementById('exportModal').remove();
+        });
+    },
+
+    getDateRangeLabel() {
+        if (this.customDateStart && this.customDateEnd) {
+            return `${this.formatDateShort(this.customDateStart)} - ${this.formatDateShort(this.customDateEnd)}`;
+        }
+        const labels = {
+            '7d': 'Ultimos 7 dias',
+            '30d': 'Ultimos 30 dias',
+            '90d': 'Ultimos 90 dias',
+            '1y': 'Ultimo año'
+        };
+        return labels[this.dateRange] || 'Ultimos 30 dias';
+    },
+
+    formatDateShort(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+    },
+
+    getEstimatedRecords() {
+        const tickets = this.filterByDateRange(this.data.tickets);
+        return `~${tickets.length + this.data.machines.length + this.data.employees.length + this.data.licenses.length} registros`;
+    },
+
+    exportReport(format, options) {
+        const ticketMetrics = this.getTicketMetrics();
+        const machineMetrics = this.getMachineMetrics();
+        const employeeMetrics = this.getEmployeeMetrics();
+        const licenseMetrics = this.getLicenseMetrics();
+        const insights = this.generateInsights();
+
+        let content = '';
+        const filename = `FIXIFY_Reporte_${new Date().toISOString().split('T')[0]}`;
+
+        if (format === 'csv') {
+            content = this.generateCSV(ticketMetrics, machineMetrics, employeeMetrics, licenseMetrics, insights, options);
+            this.downloadFile(content, `${filename}.csv`, 'text/csv');
+        } else if (format === 'json') {
+            content = this.generateJSON(ticketMetrics, machineMetrics, employeeMetrics, licenseMetrics, insights, options);
+            this.downloadFile(content, `${filename}.json`, 'application/json');
+        } else {
+            content = this.generateTXT(ticketMetrics, machineMetrics, employeeMetrics, licenseMetrics, insights, options);
+            this.downloadFile(content, `${filename}.txt`, 'text/plain');
+        }
+
+        this.showToast('Reporte exportado correctamente', 'success');
+    },
+
+    generateCSV(ticketMetrics, machineMetrics, employeeMetrics, licenseMetrics, insights, options) {
+        let csv = '';
+        const dateRange = this.getDateRangeLabel();
+
+        csv += `REPORTE FIXIFY - ${dateRange}\n`;
+        csv += `Generado: ${new Date().toLocaleString('es-MX')}\n\n`;
+
+        if (options.includeTickets) {
+            csv += `RESUMEN DE TICKETS\n`;
+            csv += `Metrica,Valor\n`;
+            csv += `Total Tickets,${ticketMetrics.total}\n`;
+            csv += `Tasa de Resolucion,${ticketMetrics.resolutionRate}%\n`;
+            csv += `Tiempo Promedio,${this.formatTime(ticketMetrics.avgResolutionTime)}\n`;
+            csv += `Abiertos,${ticketMetrics.byStatus.open}\n`;
+            csv += `En Progreso,${ticketMetrics.byStatus.in_progress}\n`;
+            csv += `Resueltos,${ticketMetrics.byStatus.resolved}\n`;
+            csv += `Cerrados,${ticketMetrics.byStatus.closed}\n`;
+            csv += `Prioridad Critica,${ticketMetrics.byPriority.critical}\n`;
+            csv += `Prioridad Alta,${ticketMetrics.byPriority.high}\n`;
+            csv += `Prioridad Media,${ticketMetrics.byPriority.medium}\n`;
+            csv += `Prioridad Baja,${ticketMetrics.byPriority.low}\n`;
+            csv += `Incidencias,${ticketMetrics.byType.incidencia}\n`;
+            csv += `Requerimientos,${ticketMetrics.byType.requerimiento}\n\n`;
+        }
+
+        if (options.includeMachines) {
+            csv += `RESUMEN DE MAQUINAS\n`;
+            csv += `Metrica,Valor\n`;
+            csv += `Total Maquinas,${machineMetrics.total}\n`;
+            csv += `Asignadas,${machineMetrics.assignedCount}\n`;
+            csv += `Disponibles,${machineMetrics.unassignedCount}\n`;
+            csv += `Tasa de Utilizacion,${machineMetrics.utilizationRate}%\n`;
+            csv += `Activas,${machineMetrics.byStatus.active}\n`;
+            csv += `En Mantenimiento,${machineMetrics.byStatus.maintenance}\n`;
+            csv += `Inactivas,${machineMetrics.byStatus.inactive}\n`;
+            csv += `Antiguedad Promedio,${machineMetrics.avgAge} años\n`;
+            csv += `Equipos +3 años,${machineMetrics.oldMachinesCount}\n\n`;
+
+            if (machineMetrics.problematicMachines.length > 0) {
+                csv += `MAQUINAS PROBLEMATICAS\n`;
+                csv += `Nombre,Serial,Tickets\n`;
+                machineMetrics.problematicMachines.forEach(m => {
+                    csv += `"${m.name || 'Sin nombre'}","${m.serialNumber || '-'}",${m.ticketCount}\n`;
+                });
+                csv += `\n`;
+            }
+        }
+
+        if (options.includeEmployees) {
+            csv += `RESUMEN DE PERSONAL\n`;
+            csv += `Metrica,Valor\n`;
+            csv += `Total Empleados,${employeeMetrics.total}\n`;
+            csv += `Activos,${employeeMetrics.byStatus.active}\n`;
+            csv += `Inactivos,${employeeMetrics.byStatus.inactive}\n`;
+            csv += `Con Maquina,${employeeMetrics.employeesWithMachine}\n`;
+            csv += `Sin Maquina,${employeeMetrics.withoutMachine}\n\n`;
+
+            if (Object.keys(employeeMetrics.byDepartment).length > 0) {
+                csv += `EMPLEADOS POR DEPARTAMENTO\n`;
+                csv += `Departamento,Cantidad\n`;
+                Object.entries(employeeMetrics.byDepartment).forEach(([dept, count]) => {
+                    csv += `"${dept}",${count}\n`;
+                });
+                csv += `\n`;
+            }
+        }
+
+        if (options.includeLicenses) {
+            csv += `RESUMEN DE LICENCIAS\n`;
+            csv += `Metrica,Valor\n`;
+            csv += `Total Licencias,${licenseMetrics.total}\n`;
+            csv += `Activas,${licenseMetrics.active}\n`;
+            csv += `Por Vencer,${licenseMetrics.expiringSoon}\n`;
+            csv += `Vencidas,${licenseMetrics.expired}\n\n`;
+        }
+
+        if (options.includeInsights && insights.length > 0) {
+            csv += `INSIGHTS Y ALERTAS\n`;
+            csv += `Tipo,Titulo,Mensaje\n`;
+            insights.forEach(i => {
+                csv += `"${i.type}","${i.title}","${i.message}"\n`;
+            });
+        }
+
+        return csv;
+    },
+
+    generateJSON(ticketMetrics, machineMetrics, employeeMetrics, licenseMetrics, insights, options) {
+        const report = {
+            meta: {
+                generatedAt: new Date().toISOString(),
+                dateRange: this.getDateRangeLabel(),
+                generatedBy: 'FIXIFY Analytics'
+            }
+        };
+
+        if (options.includeTickets) report.tickets = ticketMetrics;
+        if (options.includeMachines) report.machines = machineMetrics;
+        if (options.includeEmployees) report.employees = employeeMetrics;
+        if (options.includeLicenses) report.licenses = licenseMetrics;
+        if (options.includeInsights) report.insights = insights;
+
+        return JSON.stringify(report, null, 2);
+    },
+
+    generateTXT(ticketMetrics, machineMetrics, employeeMetrics, licenseMetrics, insights, options) {
+        let txt = '';
+        const separator = '═'.repeat(50);
+        const dateRange = this.getDateRangeLabel();
+
+        txt += `${separator}\n`;
+        txt += `  REPORTE FIXIFY - ANALITICA Y REPORTES\n`;
+        txt += `${separator}\n\n`;
+        txt += `Periodo: ${dateRange}\n`;
+        txt += `Generado: ${new Date().toLocaleString('es-MX')}\n\n`;
+
+        if (options.includeTickets) {
+            txt += `${'─'.repeat(50)}\n`;
+            txt += `  ANALISIS DE TICKETS\n`;
+            txt += `${'─'.repeat(50)}\n\n`;
+            txt += `  Total de Tickets:        ${ticketMetrics.total}\n`;
+            txt += `  Tasa de Resolucion:      ${ticketMetrics.resolutionRate}%\n`;
+            txt += `  Tiempo Promedio:         ${this.formatTime(ticketMetrics.avgResolutionTime)}\n\n`;
+            txt += `  Por Estado:\n`;
+            txt += `    • Abiertos:            ${ticketMetrics.byStatus.open}\n`;
+            txt += `    • En Progreso:         ${ticketMetrics.byStatus.in_progress}\n`;
+            txt += `    • Resueltos:           ${ticketMetrics.byStatus.resolved}\n`;
+            txt += `    • Cerrados:            ${ticketMetrics.byStatus.closed}\n\n`;
+            txt += `  Por Prioridad:\n`;
+            txt += `    • Critica:             ${ticketMetrics.byPriority.critical}\n`;
+            txt += `    • Alta:                ${ticketMetrics.byPriority.high}\n`;
+            txt += `    • Media:               ${ticketMetrics.byPriority.medium}\n`;
+            txt += `    • Baja:                ${ticketMetrics.byPriority.low}\n\n`;
+            txt += `  Por Tipo:\n`;
+            txt += `    • Incidencias:         ${ticketMetrics.byType.incidencia}\n`;
+            txt += `    • Requerimientos:      ${ticketMetrics.byType.requerimiento}\n\n`;
+        }
+
+        if (options.includeMachines) {
+            txt += `${'─'.repeat(50)}\n`;
+            txt += `  ANALISIS DE MAQUINAS\n`;
+            txt += `${'─'.repeat(50)}\n\n`;
+            txt += `  Total de Maquinas:       ${machineMetrics.total}\n`;
+            txt += `  Asignadas:               ${machineMetrics.assignedCount}\n`;
+            txt += `  Disponibles:             ${machineMetrics.unassignedCount}\n`;
+            txt += `  Utilizacion:             ${machineMetrics.utilizationRate}%\n`;
+            txt += `  Antiguedad Promedio:     ${machineMetrics.avgAge} años\n\n`;
+            txt += `  Por Estado:\n`;
+            txt += `    • Activas:             ${machineMetrics.byStatus.active}\n`;
+            txt += `    • Mantenimiento:       ${machineMetrics.byStatus.maintenance}\n`;
+            txt += `    • Inactivas:           ${machineMetrics.byStatus.inactive}\n\n`;
+        }
+
+        if (options.includeEmployees) {
+            txt += `${'─'.repeat(50)}\n`;
+            txt += `  ANALISIS DE PERSONAL\n`;
+            txt += `${'─'.repeat(50)}\n\n`;
+            txt += `  Total de Empleados:      ${employeeMetrics.total}\n`;
+            txt += `  Activos:                 ${employeeMetrics.byStatus.active}\n`;
+            txt += `  Inactivos:               ${employeeMetrics.byStatus.inactive}\n`;
+            txt += `  Con Maquina Asignada:    ${employeeMetrics.employeesWithMachine}\n`;
+            txt += `  Sin Maquina:             ${employeeMetrics.withoutMachine}\n\n`;
+        }
+
+        if (options.includeLicenses) {
+            txt += `${'─'.repeat(50)}\n`;
+            txt += `  ANALISIS DE LICENCIAS\n`;
+            txt += `${'─'.repeat(50)}\n\n`;
+            txt += `  Total de Licencias:      ${licenseMetrics.total}\n`;
+            txt += `  Activas:                 ${licenseMetrics.active}\n`;
+            txt += `  Por Vencer (30 dias):    ${licenseMetrics.expiringSoon}\n`;
+            txt += `  Vencidas:                ${licenseMetrics.expired}\n\n`;
+        }
+
+        if (options.includeInsights && insights.length > 0) {
+            txt += `${'─'.repeat(50)}\n`;
+            txt += `  INSIGHTS Y ALERTAS\n`;
+            txt += `${'─'.repeat(50)}\n\n`;
+            insights.forEach((insight, i) => {
+                const typeLabel = { warning: '⚠️', danger: '🔴', success: '✅', info: 'ℹ️' };
+                txt += `  ${i + 1}. [${typeLabel[insight.type] || '•'}] ${insight.title}\n`;
+                txt += `     ${insight.message}\n\n`;
+            });
+        }
+
+        txt += `${separator}\n`;
+        txt += `  Fin del Reporte\n`;
+        txt += `${separator}\n`;
+
+        return txt;
+    },
+
+    downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    },
+
+    showToast(message, type = 'success') {
+        const colors = {
+            success: '#22c55e',
+            error: '#ef4444',
+            warning: '#f97316',
+            info: '#3b82f6'
+        };
+
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: ${colors[type] || colors.success};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     },
 
     getMachineMetrics() {
@@ -429,6 +1067,13 @@ const AnalyticsModule = {
         const insights = this.generateInsights();
 
         container.innerHTML = `
+            <!-- Indicador de rango de fechas -->
+            <div class="date-range-indicator">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span>Mostrando datos de: <strong>${this.getDateRangeLabel()}</strong></span>
+                ${ticketMetrics.total !== ticketMetrics.totalAll ? `<span class="filtered-badge">${ticketMetrics.total} de ${ticketMetrics.totalAll} tickets</span>` : ''}
+            </div>
+
             <!-- KPIs Principales -->
             <section class="analytics-kpis-grid">
                 ${this.renderKPICard('Tickets Totales', ticketMetrics.total, ticketMetrics.pendingCount + ' pendientes', '#3b82f6', 'file-text')}
@@ -468,7 +1113,7 @@ const AnalyticsModule = {
                             ${this.renderStatusBar('Resueltos', ticketMetrics.byStatus.resolved, ticketMetrics.total, '#22c55e')}
                             ${this.renderStatusBar('Cerrados', ticketMetrics.byStatus.closed, ticketMetrics.total, '#6b7280')}
                         </div>
-                    </div>
+                            </div>
 
                     <!-- Por Prioridad -->
                     <div class="analytics-card">
@@ -495,7 +1140,7 @@ const AnalyticsModule = {
                             <div class="type-item">
                                 <div class="type-icon" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                                </div>
+                        </div>
                                 <div class="type-value">${ticketMetrics.byType.requerimiento}</div>
                                 <div class="type-label">Requerimientos</div>
                             </div>
@@ -574,7 +1219,7 @@ const AnalyticsModule = {
                             <div class="status-box maintenance">
                                 <div class="status-value">${machineMetrics.byStatus.maintenance}</div>
                                 <div class="status-label">Mantenimiento</div>
-                            </div>
+                        </div>
                             <div class="status-box inactive">
                                 <div class="status-value">${machineMetrics.byStatus.inactive}</div>
                                 <div class="status-label">Inactivas</div>
@@ -674,7 +1319,7 @@ const AnalyticsModule = {
                             <div class="generator-item">
                                 <div class="generator-avatar" style="background: ${this.getAvatarColor(i)};">
                                     ${this.getInitials(e.name, e.lastName)}
-                                </div>
+                                    </div>
                                 <div class="generator-info">
                                     <div class="generator-name">${this.escapeHtml((e.name || '') + ' ' + (e.lastName || ''))}</div>
                                     <div class="generator-dept">${this.escapeHtml(e.department || 'Sin departamento')}</div>
@@ -741,15 +1386,42 @@ const AnalyticsModule = {
                                     <div class="expiring-item">
                                         <span class="expiring-name">${this.escapeHtml(l.software || l.name || 'Sin nombre')}</span>
                                         <span class="expiring-date">${this.formatDate(l.expirationDate)}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        `}
-                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
                 </div>
+            </div>
             </section>
 
             <style>
+                .date-range-indicator {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem 1rem;
+                    background: var(--card-bg);
+                    border: 1px solid var(--border-color);
+                    border-radius: 10px;
+                    margin-bottom: 1.5rem;
+                    font-size: 0.85rem;
+                    color: var(--text-secondary);
+                }
+                .date-range-indicator svg {
+                    color: var(--accent-primary);
+                }
+                .date-range-indicator strong {
+                    color: var(--text-primary);
+                }
+                .filtered-badge {
+                    margin-left: auto;
+                    padding: 0.25rem 0.6rem;
+                    background: var(--accent-light);
+                    color: var(--accent-primary);
+                    border-radius: 20px;
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                }
                 .analytics-kpis-grid {
                     display: grid;
                     grid-template-columns: repeat(6, 1fr);
