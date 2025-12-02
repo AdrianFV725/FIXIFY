@@ -23,6 +23,29 @@ const FirestoreService = {
     // ========================================
 
     /**
+     * Convierte Timestamps de Firestore a strings ISO
+     */
+    convertTimestamps(data) {
+        if (!data) return data;
+        
+        const result = { ...data };
+        for (const key in result) {
+            const value = result[key];
+            // Verificar si es un Timestamp de Firestore
+            if (value && typeof value === 'object') {
+                if (value.toDate && typeof value.toDate === 'function') {
+                    // Es un Timestamp de Firestore
+                    result[key] = value.toDate().toISOString();
+                } else if (value.seconds !== undefined && value.nanoseconds !== undefined) {
+                    // Es un objeto con estructura de Timestamp
+                    result[key] = new Date(value.seconds * 1000).toISOString();
+                }
+            }
+        }
+        return result;
+    },
+
+    /**
      * Obtiene todos los documentos de una coleccion
      */
     async getAll(collection) {
@@ -31,7 +54,7 @@ const FirestoreService = {
             if (!db) throw new Error('Firestore no inicializado');
 
             const snapshot = await db.collection(collection).get();
-            return snapshot.docs.map(doc => ({
+            return snapshot.docs.map(doc => this.convertTimestamps({
                 id: doc.id,
                 ...doc.data()
             }));
@@ -51,7 +74,7 @@ const FirestoreService = {
 
             const doc = await db.collection(collection).doc(id).get();
             if (doc.exists) {
-                return { id: doc.id, ...doc.data() };
+                return this.convertTimestamps({ id: doc.id, ...doc.data() });
             }
             return null;
         } catch (error) {
@@ -72,7 +95,7 @@ const FirestoreService = {
                 .where(field, '==', value)
                 .get();
 
-            return snapshot.docs.map(doc => ({
+            return snapshot.docs.map(doc => this.convertTimestamps({
                 id: doc.id,
                 ...doc.data()
             }));
@@ -90,23 +113,24 @@ const FirestoreService = {
             const db = getFirebaseDb();
             if (!db) throw new Error('Firestore no inicializado');
 
-            const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+            const now = new Date().toISOString();
 
             if (id) {
                 // Actualizar existente
                 await db.collection(collection).doc(id).set({
                     ...data,
-                    updatedAt: timestamp
+                    updatedAt: now
                 }, { merge: true });
-                return { id, ...data };
+                return { id, ...data, updatedAt: now };
             } else {
-                // Crear nuevo
-                const docRef = await db.collection(collection).add({
+                // Crear nuevo - asegurar que tenga createdAt
+                const dataToSave = {
                     ...data,
-                    createdAt: timestamp,
-                    updatedAt: timestamp
-                });
-                return { id: docRef.id, ...data };
+                    createdAt: data.createdAt || now,
+                    updatedAt: now
+                };
+                const docRef = await db.collection(collection).add(dataToSave);
+                return { id: docRef.id, ...dataToSave };
             }
         } catch (error) {
             console.error(`Error al guardar en ${collection}:`, error);

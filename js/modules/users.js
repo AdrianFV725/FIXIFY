@@ -35,6 +35,16 @@ const UsersModule = {
     async loadData() {
         try {
             this.users = await Store.getUsers() || [];
+            
+            // Actualizar usuarios que no tienen fecha de creacion
+            for (const user of this.users) {
+                if (!user.createdAt) {
+                    user.createdAt = new Date().toISOString();
+                    await Store.saveUser(user);
+                    console.log(`Fecha de creacion agregada a usuario: ${user.email}`);
+                }
+            }
+            
             this.filteredUsers = [...this.users];
         } catch (e) {
             console.error('Error cargando usuarios:', e);
@@ -239,7 +249,28 @@ const UsersModule = {
 
     formatDate(date) {
         if (!date) return '-';
-        return new Date(date).toLocaleDateString('es-MX');
+        
+        try {
+            // Manejar Timestamps de Firestore
+            if (date && typeof date === 'object') {
+                if (date.toDate && typeof date.toDate === 'function') {
+                    return date.toDate().toLocaleDateString('es-MX');
+                }
+                if (date.seconds !== undefined) {
+                    return new Date(date.seconds * 1000).toLocaleDateString('es-MX');
+                }
+            }
+            
+            // Manejar strings ISO o Date objects
+            const parsedDate = new Date(date);
+            if (isNaN(parsedDate.getTime())) {
+                return '-';
+            }
+            return parsedDate.toLocaleDateString('es-MX');
+        } catch (e) {
+            console.warn('Error al formatear fecha:', date, e);
+            return '-';
+        }
     },
 
     timeAgo(date) {
@@ -346,13 +377,16 @@ const UsersModule = {
             if (data.id) {
                 const existing = this.getById(data.id);
                 if (existing) {
-                    // Mantener password existente en edicion
+                    // Mantener password y createdAt existentes en edicion
                     data.password = existing.password;
+                    data.createdAt = existing.createdAt;
                     Object.assign(existing, data);
                     await Store.saveUser(existing);
                 }
             } else {
                 delete data.id;
+                // Agregar fecha de creacion para nuevos usuarios
+                data.createdAt = new Date().toISOString();
                 await Store.saveUser(data);
             }
 
