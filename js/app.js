@@ -24,6 +24,7 @@ const elements = {
     passwordToggle: document.getElementById('passwordToggle'),
     submitBtn: document.getElementById('submitBtn'),
     googleLoginBtn: document.getElementById('googleLoginBtn'),
+    forgotPasswordLink: document.getElementById('forgotPasswordLink'),
     notification: document.getElementById('notification'),
     notificationText: document.getElementById('notificationText'),
     loginCard: document.querySelector('.login-card')
@@ -266,6 +267,471 @@ class LoginController {
                 this.handleSubmit();
             }
         });
+
+        // Olvidé mi contraseña
+        if (elements.forgotPasswordLink) {
+            elements.forgotPasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showForgotPasswordModal();
+            });
+        }
+    }
+
+    // ========================================
+    // RECUPERACION DE CONTRASENA
+    // ========================================
+
+    showForgotPasswordModal() {
+        // Obtener el email si ya está escrito
+        const currentEmail = elements.emailInput?.value || '';
+
+        const modalHtml = `
+            <div class="forgot-modal-overlay" id="forgotPasswordModal">
+                <div class="forgot-modal">
+                    <button class="forgot-modal-close" id="closeForgotModal">&times;</button>
+                    
+                    <div class="forgot-modal-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </div>
+                    
+                    <h2 class="forgot-modal-title">Recuperar Contraseña</h2>
+                    <p class="forgot-modal-subtitle">Ingresa tu correo electronico y te enviaremos un enlace para restablecer tu contraseña.</p>
+                    
+                    <form id="forgotPasswordForm" class="forgot-form">
+                        <div class="forgot-form-group">
+                            <label for="forgotEmail">Correo electronico</label>
+                            <input 
+                                type="email" 
+                                id="forgotEmail" 
+                                class="forgot-input"
+                                placeholder="tucorreo@ejemplo.com"
+                                value="${this.escapeHtml(currentEmail)}"
+                                required
+                            >
+                            <span class="forgot-error" id="forgotEmailError"></span>
+                        </div>
+                        
+                        <button type="submit" class="forgot-submit-btn" id="forgotSubmitBtn">
+                            <span class="forgot-btn-text">Enviar Enlace</span>
+                            <span class="forgot-btn-loader">
+                                <svg class="spinner" viewBox="0 0 50 50">
+                                    <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                                </svg>
+                            </span>
+                        </button>
+                    </form>
+                    
+                    <a href="#" class="forgot-back-link" id="backToLoginLink">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Volver al inicio de sesion
+                    </a>
+                </div>
+            </div>
+        `;
+
+        // Agregar estilos del modal si no existen
+        if (!document.getElementById('forgotModalStyles')) {
+            const styles = document.createElement('style');
+            styles.id = 'forgotModalStyles';
+            styles.textContent = `
+                .forgot-modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.6);
+                    backdrop-filter: blur(8px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                    opacity: 0;
+                    animation: fadeIn 0.3s ease forwards;
+                }
+                
+                @keyframes fadeIn {
+                    to { opacity: 1; }
+                }
+                
+                .forgot-modal {
+                    background: var(--card-bg, #fff);
+                    border-radius: 20px;
+                    padding: 2.5rem;
+                    max-width: 420px;
+                    width: 90%;
+                    position: relative;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    transform: scale(0.9) translateY(20px);
+                    animation: slideUp 0.3s ease forwards;
+                }
+                
+                @keyframes slideUp {
+                    to { transform: scale(1) translateY(0); }
+                }
+                
+                .forgot-modal-close {
+                    position: absolute;
+                    top: 1rem;
+                    right: 1rem;
+                    width: 36px;
+                    height: 36px;
+                    border: none;
+                    background: var(--bg-tertiary, #f3f4f6);
+                    border-radius: 50%;
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                    color: var(--text-secondary, #6b7280);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s ease;
+                }
+                
+                .forgot-modal-close:hover {
+                    background: var(--accent-primary, #3b82f6);
+                    color: white;
+                }
+                
+                .forgot-modal-icon {
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, var(--accent-primary, #3b82f6), var(--accent-secondary, #8b5cf6));
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 1.5rem;
+                    color: white;
+                }
+                
+                .forgot-modal-title {
+                    text-align: center;
+                    font-size: 1.5rem;
+                    font-weight: 600;
+                    color: var(--text-primary, #111827);
+                    margin-bottom: 0.5rem;
+                }
+                
+                .forgot-modal-subtitle {
+                    text-align: center;
+                    color: var(--text-secondary, #6b7280);
+                    font-size: 0.9rem;
+                    margin-bottom: 1.5rem;
+                    line-height: 1.5;
+                }
+                
+                .forgot-form-group {
+                    margin-bottom: 1.5rem;
+                }
+                
+                .forgot-form-group label {
+                    display: block;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    color: var(--text-primary, #111827);
+                    margin-bottom: 0.5rem;
+                }
+                
+                .forgot-input {
+                    width: 100%;
+                    padding: 0.875rem 1rem;
+                    border: 2px solid var(--border-color, #e5e7eb);
+                    border-radius: 12px;
+                    font-size: 1rem;
+                    color: var(--text-primary, #111827);
+                    background: var(--input-bg, #fff);
+                    transition: all 0.2s ease;
+                    outline: none;
+                }
+                
+                .forgot-input:focus {
+                    border-color: var(--accent-primary, #3b82f6);
+                    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+                }
+                
+                .forgot-input.error {
+                    border-color: #ef4444;
+                }
+                
+                .forgot-error {
+                    display: block;
+                    color: #ef4444;
+                    font-size: 0.8rem;
+                    margin-top: 0.5rem;
+                    min-height: 1.2em;
+                }
+                
+                .forgot-submit-btn {
+                    width: 100%;
+                    padding: 1rem;
+                    border: none;
+                    border-radius: 12px;
+                    background: linear-gradient(135deg, var(--accent-primary, #3b82f6), var(--accent-secondary, #8b5cf6));
+                    color: white;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    position: relative;
+                    overflow: hidden;
+                }
+                
+                .forgot-submit-btn:hover:not(:disabled) {
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+                }
+                
+                .forgot-submit-btn:disabled {
+                    opacity: 0.7;
+                    cursor: not-allowed;
+                }
+                
+                .forgot-submit-btn.loading .forgot-btn-text {
+                    opacity: 0;
+                }
+                
+                .forgot-submit-btn.loading .forgot-btn-loader {
+                    opacity: 1;
+                }
+                
+                .forgot-btn-loader {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    opacity: 0;
+                    transition: opacity 0.2s ease;
+                }
+                
+                .forgot-btn-loader .spinner {
+                    width: 24px;
+                    height: 24px;
+                    animation: rotate 1s linear infinite;
+                }
+                
+                .forgot-btn-loader .path {
+                    stroke: white;
+                    stroke-linecap: round;
+                    animation: dash 1.5s ease-in-out infinite;
+                }
+                
+                .forgot-back-link {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.5rem;
+                    margin-top: 1.5rem;
+                    color: var(--text-secondary, #6b7280);
+                    text-decoration: none;
+                    font-size: 0.9rem;
+                    transition: color 0.2s ease;
+                }
+                
+                .forgot-back-link:hover {
+                    color: var(--accent-primary, #3b82f6);
+                }
+                
+                /* Estado de éxito */
+                .forgot-success {
+                    text-align: center;
+                    padding: 1rem 0;
+                }
+                
+                .forgot-success-icon {
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #22c55e, #16a34a);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 1.5rem;
+                    color: white;
+                    animation: scaleIn 0.3s ease;
+                }
+                
+                @keyframes scaleIn {
+                    from { transform: scale(0); }
+                    to { transform: scale(1); }
+                }
+                
+                .forgot-success-title {
+                    font-size: 1.25rem;
+                    font-weight: 600;
+                    color: var(--text-primary, #111827);
+                    margin-bottom: 0.5rem;
+                }
+                
+                .forgot-success-text {
+                    color: var(--text-secondary, #6b7280);
+                    font-size: 0.9rem;
+                    line-height: 1.5;
+                }
+                
+                .forgot-success-email {
+                    font-weight: 600;
+                    color: var(--accent-primary, #3b82f6);
+                }
+            `;
+            document.head.appendChild(styles);
+        }
+
+        // Insertar modal en el DOM
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Event listeners del modal
+        const modal = document.getElementById('forgotPasswordModal');
+        const closeBtn = document.getElementById('closeForgotModal');
+        const backLink = document.getElementById('backToLoginLink');
+        const form = document.getElementById('forgotPasswordForm');
+
+        const closeModal = () => {
+            modal.style.animation = 'fadeIn 0.2s ease reverse forwards';
+            setTimeout(() => modal.remove(), 200);
+        };
+
+        closeBtn.addEventListener('click', closeModal);
+        backLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeModal();
+        });
+
+        // Cerrar al hacer click fuera
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Cerrar con ESC
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+
+        // Manejar envio del formulario
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleForgotPassword(modal);
+        });
+
+        // Focus en el input
+        setTimeout(() => {
+            document.getElementById('forgotEmail')?.focus();
+        }, 100);
+    }
+
+    async handleForgotPassword(modal) {
+        const emailInput = document.getElementById('forgotEmail');
+        const errorSpan = document.getElementById('forgotEmailError');
+        const submitBtn = document.getElementById('forgotSubmitBtn');
+        const email = emailInput.value.trim();
+
+        // Validar email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email) {
+            emailInput.classList.add('error');
+            errorSpan.textContent = 'El correo es requerido';
+            return;
+        }
+        if (!emailRegex.test(email)) {
+            emailInput.classList.add('error');
+            errorSpan.textContent = 'Ingresa un correo valido';
+            return;
+        }
+
+        // Limpiar error
+        emailInput.classList.remove('error');
+        errorSpan.textContent = '';
+
+        // Mostrar loading
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+
+        try {
+            let result;
+
+            // Usar Auth.resetPassword si está disponible
+            if (window.Auth && typeof Auth.resetPassword === 'function') {
+                result = await Auth.resetPassword(email);
+            } else if (window.getFirebaseAuth) {
+                // Usar Firebase Auth directamente
+                const auth = getFirebaseAuth();
+                if (auth) {
+                    auth.languageCode = 'es';
+                    await auth.sendPasswordResetEmail(email);
+                    result = { success: true, message: 'Correo enviado' };
+                } else {
+                    result = { success: false, message: 'Firebase no esta disponible' };
+                }
+            } else {
+                result = { success: false, message: 'Sistema de autenticacion no disponible' };
+            }
+
+            if (result.success) {
+                // Mostrar estado de éxito
+                const modalContent = modal.querySelector('.forgot-modal');
+                modalContent.innerHTML = `
+                    <button class="forgot-modal-close" onclick="this.closest('.forgot-modal-overlay').remove()">&times;</button>
+                    
+                    <div class="forgot-success">
+                        <div class="forgot-success-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                        </div>
+                        
+                        <h3 class="forgot-success-title">Correo enviado!</h3>
+                        <p class="forgot-success-text">
+                            Hemos enviado un enlace de recuperacion a<br>
+                            <span class="forgot-success-email">${this.escapeHtml(email)}</span>
+                        </p>
+                        <p class="forgot-success-text" style="margin-top: 1rem; font-size: 0.8rem;">
+                            Revisa tu bandeja de entrada y spam. El enlace expira en 1 hora.
+                        </p>
+                    </div>
+                    
+                    <a href="#" class="forgot-back-link" onclick="this.closest('.forgot-modal-overlay').remove(); return false;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Volver al inicio de sesion
+                    </a>
+                `;
+            } else {
+                emailInput.classList.add('error');
+                errorSpan.textContent = result.message || 'Error al enviar el correo';
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+
+        } catch (error) {
+            console.error('Error al enviar correo de recuperacion:', error);
+            
+            let errorMessage = 'Error al enviar el correo';
+            if (error.code === 'auth/user-not-found') {
+                errorMessage = 'No existe una cuenta con este correo';
+            } else if (error.code === 'auth/too-many-requests') {
+                errorMessage = 'Demasiados intentos. Intenta mas tarde.';
+            } else if (error.code === 'auth/invalid-email') {
+                errorMessage = 'Correo electronico invalido';
+            }
+            
+            emailInput.classList.add('error');
+            errorSpan.textContent = errorMessage;
+            submitBtn.classList.remove('loading');
+            submitBtn.disabled = false;
+        }
     }
 
     togglePasswordVisibility() {
