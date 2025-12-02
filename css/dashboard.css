@@ -370,14 +370,10 @@ body.dashboard-body {
 }
 
 /* Tooltips para estado colapsado */
-.sidebar.collapsed .nav-item {
-    position: relative;
-}
-
 .sidebar.collapsed .nav-item::after {
     content: attr(data-tooltip);
     position: absolute;
-    left: calc(100% + 12px);
+    left: calc(100% + 8px);
     top: 50%;
     transform: translateY(-50%);
     background: var(--text-primary);
@@ -390,13 +386,9 @@ body.dashboard-body {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: all 0.2s ease;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
     z-index: 1000;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.sidebar.collapsed .nav-item::before {
-    left: -0.35rem !important;
 }
 
 .sidebar.collapsed .nav-item:hover::after {
@@ -404,20 +396,9 @@ body.dashboard-body {
     visibility: visible;
 }
 
-/* Flecha del tooltip */
-.sidebar.collapsed .nav-item:hover::before {
-    content: '';
-    position: absolute;
-    left: calc(100% + 4px);
-    top: 50%;
-    transform: translateY(-50%);
-    border: 6px solid transparent;
-    border-right-color: var(--text-primary);
-    z-index: 1001;
-}
-
-.sidebar.collapsed .nav-item.active:hover::before {
-    border-right-color: var(--text-primary);
+/* Mantener el indicador activo en su posicion */
+.sidebar.collapsed .nav-item.active::before {
+    left: -0.35rem;
 }
 
 /* ========================================
