@@ -768,39 +768,257 @@ const TicketsModule = {
             return;
         }
 
+        // Obtener nombre del usuario actual
+        const users = await Store.getUsers();
+        const user = users.find(u => u.id === currentUser.id || u.email === currentUser.email);
+        const userName = user?.name || currentUser.name || 'Usuario';
+
+        // Cargar categorías para el formulario
+        let categories = [];
         try {
-            // Obtener nombre del usuario actual
-            const users = await Store.getUsers();
-            const user = users.find(u => u.id === currentUser.id || u.email === currentUser.email);
-            const userName = user?.name || currentUser.name || 'Usuario';
+            categories = await Store.getCategories() || [];
+        } catch (e) {}
 
-            ticket.asignadoId = currentUser.id;
-            ticket.asignadoNombre = userName;
-            
-            // Si el ticket está abierto, cambiarlo a en proceso
-            if (ticket.status === 'open') {
-                ticket.status = 'in_progress';
+        // Obtener temas y servicios disponibles
+        const temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
+        const servicios = [
+            { value: 'software', label: 'Software' },
+            { value: 'hardware', label: 'Hardware' },
+            { value: 'network', label: 'Red' },
+            { value: 'other', label: 'Otro' }
+        ];
+
+        // Mostrar modal para tomar y completar ticket
+        const modalHtml = `
+            <div class="modal-overlay active" id="takeTicketModal">
+                <div class="modal modal-lg" style="max-width: 700px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Tomar y Completar Ticket</h2>
+                        <button class="modal-close" onclick="document.getElementById('takeTicketModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                            <div style="font-family: monospace; font-size: 0.75rem; color: var(--text-tertiary);">${ticket.folio || '-'}</div>
+                            <div style="font-weight: 600; margin-top: 0.25rem;">${this.escapeHtml(ticket.title || ticket.categoriaElemento || 'Sin titulo')}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                                ${this.escapeHtml(ticket.description || 'Sin descripcion')}
+                            </div>
+                        </div>
+                        <form id="takeTicketForm" class="form">
+                            <!-- Estado del Ticket -->
+                            <div class="form-group">
+                                <label class="form-label">Estado <span class="required">*</span></label>
+                                <select name="status" class="form-select" required>
+                                    <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Abierto</option>
+                                    <option value="in_progress" ${ticket.status === 'in_progress' || ticket.status === 'open' ? 'selected' : ''}>En Progreso</option>
+                                    <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Resuelto</option>
+                                    <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Cerrado</option>
+                                </select>
+                            </div>
+
+                            <!-- Prioridad -->
+                            <div class="form-group">
+                                <label class="form-label">Prioridad <span class="required">*</span></label>
+                                <select name="priority" class="form-select" required>
+                                    <option value="low" ${ticket.priority === 'low' ? 'selected' : ''}>Baja</option>
+                                    <option value="medium" ${ticket.priority === 'medium' || !ticket.priority ? 'selected' : ''}>Media</option>
+                                    <option value="high" ${ticket.priority === 'high' ? 'selected' : ''}>Alta</option>
+                                    <option value="critical" ${ticket.priority === 'critical' ? 'selected' : ''}>Critica</option>
+                                </select>
+                            </div>
+
+                            <!-- Tema y Servicio (si no están completos) -->
+                            ${!ticket.tema || !ticket.servicio ? `
+                                <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 12px; margin-bottom: 1rem;">
+                                    <div style="font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Clasificacion del Ticket</div>
+                                    <div class="form-row" style="margin-bottom: 0.75rem;">
+                                        <div class="form-group" style="margin-bottom: 0;">
+                                            <label class="form-label">Tema ${!ticket.tema ? '<span class="required">*</span>' : ''}</label>
+                                            <select name="tema" id="takeTicketTema" class="form-select" ${!ticket.tema ? 'required' : ''}>
+                                                <option value="">Seleccionar tema...</option>
+                                                ${temas.map(t => `<option value="${this.escapeHtml(t)}" ${ticket?.tema === t ? 'selected' : ''}>${this.escapeHtml(t)}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                        <div class="form-group" style="margin-bottom: 0;">
+                                            <label class="form-label">Servicio ${!ticket.servicio ? '<span class="required">*</span>' : ''}</label>
+                                            <select name="servicio" id="takeTicketServicio" class="form-select" ${!ticket.servicio ? 'required' : ''}>
+                                                <option value="">Seleccionar servicio...</option>
+                                                ${servicios.map(s => `<option value="${s.value}" ${ticket?.servicio === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label class="form-label">Elemento ${!ticket.categoriaId ? '<span class="required">*</span>' : ''}</label>
+                                        <select name="categoriaId" id="takeTicketElemento" class="form-select" ${!ticket.categoriaId ? 'required' : ''}>
+                                            <option value="">Seleccionar elemento...</option>
+                                            ${categories.filter(c => c.tema === ticket?.tema && c.servicio === ticket?.servicio).map(c => 
+                                                `<option value="${c.id}" ${ticket?.categoriaId === c.id ? 'selected' : ''}>[${this.escapeHtml(c.clave)}] ${this.escapeHtml(c.elemento)}</option>`
+                                            ).join('')}
+                                        </select>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <!-- Diagnóstico -->
+                            <div class="form-group">
+                                <label class="form-label">Diagnóstico / Análisis del Problema</label>
+                                <textarea name="diagnosis" class="form-textarea" rows="4" placeholder="Describe tu análisis del problema, posibles causas, etc...">${ticket.diagnosis || ticket.resolution || ''}</textarea>
+                            </div>
+
+                            <!-- Solución (si el estado es resuelto o cerrado) -->
+                            <div class="form-group" id="solutionGroup" style="display: none;">
+                                <label class="form-label">Solución Aplicada</label>
+                                <textarea name="resolution" class="form-textarea" rows="4" placeholder="Describe la solución que aplicaste...">${ticket.resolution || ''}</textarea>
+                            </div>
+
+                            <!-- Notas adicionales -->
+                            <div class="form-group">
+                                <label class="form-label">Notas Adicionales</label>
+                                <textarea name="notes" class="form-textarea" rows="3" placeholder="Cualquier información adicional relevante...">${ticket.notes || ''}</textarea>
+                            </div>
+
+                            <input type="hidden" name="ticketId" value="${ticket.id}">
+                            <input type="hidden" name="asignadoId" value="${currentUser.id}">
+                            <input type="hidden" name="asignadoNombre" value="${this.escapeHtml(userName)}">
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('takeTicketModal').remove()">Cancelar</button>
+                        <button type="submit" form="takeTicketForm" class="btn btn-primary" style="background: #3b82f6;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                            Tomar Ticket
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Referencias a elementos del formulario
+        const statusSelect = document.querySelector('#takeTicketForm select[name="status"]');
+        const solutionGroup = document.getElementById('solutionGroup');
+        const temaSelect = document.getElementById('takeTicketTema');
+        const servicioSelect = document.getElementById('takeTicketServicio');
+        const elementoSelect = document.getElementById('takeTicketElemento');
+        const categoriaClaveInput = document.createElement('input');
+        categoriaClaveInput.type = 'hidden';
+        categoriaClaveInput.name = 'categoriaClave';
+        categoriaClaveInput.id = 'takeTicketCategoriaClave';
+        const categoriaElementoInput = document.createElement('input');
+        categoriaElementoInput.type = 'hidden';
+        categoriaElementoInput.name = 'categoriaElemento';
+        categoriaElementoInput.id = 'takeTicketCategoriaElemento';
+        document.getElementById('takeTicketForm').appendChild(categoriaClaveInput);
+        document.getElementById('takeTicketForm').appendChild(categoriaElementoInput);
+
+        // Mostrar/ocultar campo de solución según el estado
+        const updateSolutionVisibility = () => {
+            const status = statusSelect.value;
+            if (status === 'resolved' || status === 'closed') {
+                solutionGroup.style.display = 'block';
+                if (status === 'resolved' || status === 'closed') {
+                    solutionGroup.querySelector('textarea').required = true;
+                    solutionGroup.querySelector('label').innerHTML = 'Solución Aplicada <span class="required">*</span>';
+                }
+            } else {
+                solutionGroup.style.display = 'none';
+                solutionGroup.querySelector('textarea').required = false;
+                solutionGroup.querySelector('label').innerHTML = 'Solución Aplicada';
             }
+        };
 
-            // Agregar al historial
-            ticket.history = ticket.history || [];
-            ticket.history.push({
-                action: 'taken',
-                timestamp: new Date().toISOString(),
-                user: userName,
-                note: `Ticket tomado por ${userName}`
+        statusSelect?.addEventListener('change', updateSolutionVisibility);
+        updateSolutionVisibility(); // Ejecutar al cargar
+
+        // Funcionalidad para filtrar elementos por tema y servicio
+        if (temaSelect && servicioSelect && elementoSelect) {
+            const updateElementos = () => {
+                const tema = temaSelect.value;
+                const servicio = servicioSelect.value;
+                const filtered = categories.filter(c => 
+                    (!tema || c.tema === tema) && 
+                    (!servicio || c.servicio === servicio)
+                );
+                
+                elementoSelect.innerHTML = '<option value="">Seleccionar elemento...</option>' +
+                    filtered.map(c => `<option value="${c.id}">[${this.escapeHtml(c.clave)}] ${this.escapeHtml(c.elemento)}</option>`).join('');
+            };
+
+            temaSelect.addEventListener('change', updateElementos);
+            servicioSelect.addEventListener('change', updateElementos);
+
+            // Actualizar campos ocultos cuando se selecciona elemento
+            elementoSelect.addEventListener('change', () => {
+                const selected = categories.find(c => c.id === elementoSelect.value);
+                if (selected) {
+                    categoriaClaveInput.value = selected.clave || '';
+                    categoriaElementoInput.value = selected.elemento || '';
+                } else {
+                    categoriaClaveInput.value = '';
+                    categoriaElementoInput.value = '';
+                }
             });
-
-            await Store.saveTicket(ticket);
-            await this.loadData();
-            this.filteredTickets = [...this.tickets];
-            this.renderStats();
-            this.applyFilters();
-            this.showToast('Ticket tomado correctamente', 'success');
-        } catch (error) {
-            console.error('Error al tomar ticket:', error);
-            this.showToast('Error al tomar el ticket', 'error');
         }
+
+        // Submit del formulario
+        document.getElementById('takeTicketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+
+            try {
+                // Actualizar el ticket con los datos del formulario
+                ticket.asignadoId = data.asignadoId;
+                ticket.asignadoNombre = data.asignadoNombre;
+                ticket.status = data.status;
+                ticket.priority = data.priority;
+
+                // Actualizar tema, servicio y categoría si se proporcionaron
+                if (data.tema) ticket.tema = data.tema;
+                if (data.servicio) {
+                    ticket.servicio = data.servicio;
+                    ticket.category = data.servicio; // Compatibilidad
+                }
+                if (data.categoriaId) {
+                    ticket.categoriaId = data.categoriaId;
+                    ticket.categoriaClave = data.categoriaClave || ticket.categoriaClave;
+                    ticket.categoriaElemento = data.categoriaElemento || ticket.categoriaElemento;
+                }
+
+                // Agregar diagnóstico y solución
+                if (data.diagnosis) ticket.diagnosis = data.diagnosis;
+                if (data.resolution) {
+                    ticket.resolution = data.resolution;
+                    if (data.status === 'resolved' || data.status === 'closed') {
+                        ticket.resolvedAt = new Date().toISOString();
+                        ticket.resolvedBy = userName;
+                    }
+                }
+                if (data.notes) ticket.notes = data.notes;
+
+                // Agregar al historial
+                ticket.history = ticket.history || [];
+                ticket.history.push({
+                    action: 'taken',
+                    timestamp: new Date().toISOString(),
+                    user: userName,
+                    note: `Ticket tomado por ${userName}${data.diagnosis ? '. Diagnóstico: ' + data.diagnosis.substring(0, 100) : ''}`
+                });
+
+                await Store.saveTicket(ticket);
+
+                document.getElementById('takeTicketModal').remove();
+                await this.loadData();
+                this.filteredTickets = [...this.tickets];
+                this.renderStats();
+                this.applyFilters();
+                this.showToast('Ticket tomado y actualizado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al tomar ticket:', error);
+                this.showToast('Error al tomar el ticket', 'error');
+            }
+        });
     },
 
     async deleteTicket(id) {
