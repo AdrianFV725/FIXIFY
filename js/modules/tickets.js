@@ -1102,39 +1102,39 @@ const TicketsModule = {
 
         const modalHtml = `
             <div class="modal-overlay active" id="categoriesModal">
-                <div class="modal" style="max-width: 950px; width: 95%; max-height: 90vh;">
-                    <div class="modal-header" style="padding: 1.25rem 1.5rem;">
+                <div class="modal" style="max-width: 950px; width: 95%; height: auto; max-height: 85vh; display: flex; flex-direction: column;">
+                    <div class="modal-header" style="padding: 1rem 1.5rem; flex-shrink: 0;">
                         <div>
-                            <h2 class="modal-title" style="margin-bottom: 0.25rem;">Gestionar Categorias</h2>
-                            <p style="font-size: 0.8rem; color: var(--text-tertiary); margin: 0;">${categories.length} categoria${categories.length !== 1 ? 's' : ''} registrada${categories.length !== 1 ? 's' : ''}</p>
+                            <h2 class="modal-title" style="margin-bottom: 0.15rem;">Gestionar Categorias</h2>
+                            <p style="font-size: 0.75rem; color: var(--text-tertiary); margin: 0;">${categories.length} categoria${categories.length !== 1 ? 's' : ''} registrada${categories.length !== 1 ? 's' : ''}</p>
                         </div>
                         <button class="modal-close" onclick="document.getElementById('categoriesModal').remove()">&times;</button>
                     </div>
-                    <div class="modal-body" style="display: grid; grid-template-columns: 1fr 300px; gap: 1.5rem; padding: 1.5rem; max-height: calc(90vh - 140px); overflow: hidden;">
-                        <!-- Lista de categorias -->
-                        <div style="overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--card-bg);" id="categoriesList">
+                    <div class="modal-body" style="display: grid; grid-template-columns: 1fr 280px; gap: 1.25rem; padding: 1rem 1.5rem; flex: 1; min-height: 0; overflow: hidden;">
+                        <!-- Lista de categorias (con scroll) -->
+                        <div style="overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--card-bg); min-height: 200px; max-height: 100%;" id="categoriesList">
                             ${renderCategoriesList()}
                         </div>
                         
-                        <!-- Panel lateral: Formulario -->
-                        <div style="display: flex; flex-direction: column; gap: 1rem;">
-                            <div style="background: var(--bg-tertiary); padding: 1.25rem; border-radius: 12px;">
-                                <div style="font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <!-- Panel lateral: Formulario (sin scroll) -->
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem; overflow: visible;">
+                            <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 10px;">
+                                <div style="font-weight: 600; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                     <span id="formTitle">Nueva Categoria</span>
                                 </div>
                                 <form id="categoryForm" class="form">
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
                                         <div class="form-group" style="margin: 0;">
-                                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Tema <span class="required">*</span></label>
-                                            <input type="text" name="tema" id="categoryTemaInput" class="form-input" required placeholder="Ej: Soporte" list="temasDatalist" style="font-size: 0.85rem; padding: 0.5rem 0.75rem;">
+                                            <label class="form-label" style="font-size: 0.7rem; margin-bottom: 0.2rem;">Tema <span class="required">*</span></label>
+                                            <input type="text" name="tema" id="categoryTemaInput" class="form-input" required placeholder="Ej: Soporte" list="temasDatalist" style="font-size: 0.8rem; padding: 0.4rem 0.6rem;">
                                             <datalist id="temasDatalist">
                                                 ${[...new Set(categories.map(c => c.tema))].filter(Boolean).map(t => `<option value="${this.escapeHtml(t)}">`).join('')}
                                             </datalist>
                                         </div>
                                         <div class="form-group" style="margin: 0;">
-                                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Servicio <span class="required">*</span></label>
-                                            <select name="servicio" class="form-select" required style="font-size: 0.85rem; padding: 0.5rem 0.75rem;">
+                                            <label class="form-label" style="font-size: 0.7rem; margin-bottom: 0.2rem;">Servicio <span class="required">*</span></label>
+                                            <select name="servicio" class="form-input" required style="font-size: 0.8rem; padding: 0.4rem 0.6rem; cursor: pointer;">
                                                 <option value="">Seleccionar...</option>
                                                 <option value="software">Software</option>
                                                 <option value="hardware">Hardware</option>
@@ -1143,43 +1143,39 @@ const TicketsModule = {
                                             </select>
                                         </div>
                                     </div>
-                                    <div style="display: grid; grid-template-columns: 100px 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                    <div style="display: grid; grid-template-columns: 90px 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
                                         <div class="form-group" style="margin: 0;">
-                                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Clave <span class="required">*</span></label>
+                                            <label class="form-label" style="font-size: 0.7rem; margin-bottom: 0.2rem;">Clave <span class="required">*</span></label>
                                             <div style="position: relative;">
-                                                <input type="text" name="clave" id="categoryClaveInput" class="form-input" required placeholder="AP.01" style="font-size: 0.85rem; padding: 0.5rem 0.75rem; font-family: monospace;">
-                                                <span id="claveAutoIndicator" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 0.6rem; color: var(--accent-primary); background: var(--accent-light); padding: 0.1rem 0.3rem; border-radius: 3px; display: none;">Auto</span>
+                                                <input type="text" name="clave" id="categoryClaveInput" class="form-input" required placeholder="AP.01" style="font-size: 0.8rem; padding: 0.4rem 0.6rem; font-family: monospace;">
+                                                <span id="claveAutoIndicator" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 0.55rem; color: var(--accent-primary); background: var(--accent-light); padding: 0.1rem 0.25rem; border-radius: 3px; display: none;">Auto</span>
                                             </div>
                                         </div>
                                         <div class="form-group" style="margin: 0;">
-                                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Elemento <span class="required">*</span></label>
-                                            <input type="text" name="elemento" class="form-input" required placeholder="Nombre del elemento" style="font-size: 0.85rem; padding: 0.5rem 0.75rem;">
+                                            <label class="form-label" style="font-size: 0.7rem; margin-bottom: 0.2rem;">Elemento <span class="required">*</span></label>
+                                            <input type="text" name="elemento" class="form-input" required placeholder="Nombre del elemento" style="font-size: 0.8rem; padding: 0.4rem 0.6rem;">
                                         </div>
                                     </div>
                                     <input type="hidden" name="id" id="categoryId" value="">
-                                    <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                                        <button type="button" class="btn btn-secondary btn-sm" id="cancelCategoryEdit" style="display: none; flex: 1;">Cancelar</button>
-                                        <button type="submit" class="btn btn-primary btn-sm" style="flex: 1;" id="saveCategoryBtn">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                    <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                                        <button type="button" class="btn btn-secondary btn-sm" id="cancelCategoryEdit" style="display: none; flex: 1; padding: 0.4rem 0.75rem; font-size: 0.75rem;">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary btn-sm" style="flex: 1; padding: 0.4rem 0.75rem; font-size: 0.75rem;" id="saveCategoryBtn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                             Agregar
                                         </button>
                                     </div>
                                 </form>
                             </div>
                             
-                            <!-- Info rapida -->
-                            <div style="background: var(--accent-light); padding: 1rem; border-radius: 10px; border: 1px solid var(--accent-primary); border-opacity: 0.2;">
-                                <div style="font-size: 0.75rem; color: var(--accent-primary); font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
-                                    Tip
-                                </div>
-                                <p style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; margin: 0;">
-                                    La clave se genera automaticamente al seleccionar un tema existente. Puedes editarla manualmente si lo prefieres.
+                            <!-- Tip compacto -->
+                            <div style="background: var(--bg-tertiary); padding: 0.6rem 0.75rem; border-radius: 8px; border-left: 3px solid var(--accent-primary);">
+                                <p style="font-size: 0.7rem; color: var(--text-tertiary); line-height: 1.35; margin: 0;">
+                                    <strong style="color: var(--text-secondary);">Tip:</strong> La clave se genera automaticamente al elegir un tema existente.
                                 </p>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                    <div class="modal-footer" style="padding: 0.75rem 1.5rem; border-top: 1px solid var(--border-color); flex-shrink: 0;">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('categoriesModal').remove()">Cerrar</button>
                     </div>
                 </div>
@@ -1299,7 +1295,7 @@ const TicketsModule = {
         const resetForm = () => {
             categoryForm.reset();
             categoryIdInput.value = '';
-            saveCategoryBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Agregar';
+            saveCategoryBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Agregar';
             cancelCategoryEdit.style.display = 'none';
             claveAutoIndicator.style.display = 'none';
             isAutoGeneratedClave = false;
@@ -1363,7 +1359,7 @@ const TicketsModule = {
                 categoryForm.querySelector('[name="servicio"]').value = cat.servicio || '';
                 categoryForm.querySelector('[name="clave"]').value = cat.clave || '';
                 categoryForm.querySelector('[name="elemento"]').value = cat.elemento || '';
-                saveCategoryBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Guardar';
+                saveCategoryBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Guardar';
                 cancelCategoryEdit.style.display = 'block';
                 const formTitle = document.getElementById('formTitle');
                 if (formTitle) formTitle.textContent = 'Editar Categoria';
