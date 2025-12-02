@@ -51,16 +51,27 @@ const FirestoreService = {
      */
     async getAll(collection) {
         try {
+            console.log(`FirestoreService.getAll - Obteniendo documentos de colección: ${collection}`);
             const db = getFirebaseDb();
-            if (!db) throw new Error('Firestore no inicializado');
+            if (!db) {
+                console.error('FirestoreService.getAll - Firestore no inicializado');
+                throw new Error('Firestore no inicializado');
+            }
 
             const snapshot = await db.collection(collection).get();
-            return snapshot.docs.map(doc => this.convertTimestamps({
-                id: doc.id,
-                ...doc.data()
-            }));
+            console.log(`FirestoreService.getAll - Snapshot obtenido: ${snapshot.docs.length} documentos`);
+            const results = snapshot.docs.map(doc => {
+                const data = this.convertTimestamps({
+                    id: doc.id,
+                    ...doc.data()
+                });
+                console.log(`FirestoreService.getAll - Documento ${doc.id}:`, data);
+                return data;
+            });
+            console.log(`FirestoreService.getAll - Total documentos retornados: ${results.length}`);
+            return results;
         } catch (error) {
-            console.error(`Error al obtener ${collection}:`, error);
+            console.error(`FirestoreService.getAll - Error al obtener ${collection}:`, error);
             return [];
         }
     },
@@ -111,18 +122,25 @@ const FirestoreService = {
      */
     async save(collection, data, id = null) {
         try {
+            console.log(`FirestoreService.save - Colección: ${collection}, ID: ${id || 'nuevo'}, Datos:`, data);
             const db = getFirebaseDb();
-            if (!db) throw new Error('Firestore no inicializado');
+            if (!db) {
+                console.error('FirestoreService.save - Firestore no inicializado');
+                throw new Error('Firestore no inicializado');
+            }
 
             const now = new Date().toISOString();
 
             if (id) {
                 // Actualizar existente
+                console.log(`FirestoreService.save - Actualizando documento ${id} en colección ${collection}`);
                 await db.collection(collection).doc(id).set({
                     ...data,
                     updatedAt: now
                 }, { merge: true });
-                return { id, ...data, updatedAt: now };
+                const result = { id, ...data, updatedAt: now };
+                console.log(`FirestoreService.save - Documento actualizado:`, result);
+                return result;
             } else {
                 // Crear nuevo - asegurar que tenga createdAt
                 const dataToSave = {
@@ -130,11 +148,14 @@ const FirestoreService = {
                     createdAt: data.createdAt || now,
                     updatedAt: now
                 };
+                console.log(`FirestoreService.save - Creando nuevo documento en colección ${collection}:`, dataToSave);
                 const docRef = await db.collection(collection).add(dataToSave);
-                return { id: docRef.id, ...dataToSave };
+                const result = { id: docRef.id, ...dataToSave };
+                console.log(`FirestoreService.save - Documento creado con ID ${docRef.id}:`, result);
+                return result;
             }
         } catch (error) {
-            console.error(`Error al guardar en ${collection}:`, error);
+            console.error(`FirestoreService.save - Error al guardar en ${collection}:`, error);
             throw error;
         }
     },
@@ -186,73 +207,96 @@ const FirestoreService = {
     },
 
     async saveUser(userData) {
-        // Normalizar email
-        userData.email = userData.email.toLowerCase();
-        
-        // Si tiene ID, actualizar (no crear en Firebase Auth)
-        if (userData.id) {
-            // No guardar password en texto plano si ya esta migrado
-            const existingUser = await this.getById(this.COLLECTIONS.USERS, userData.id);
-            if (existingUser?.firebaseUid) {
-                // Usuario migrado, no guardar password
-                const { password, ...safeData } = userData;
-                return await this.save(this.COLLECTIONS.USERS, safeData, userData.id);
-            }
-            return await this.save(this.COLLECTIONS.USERS, userData, userData.id);
-        }
-        
-        // Verificar que no exista el email
-        const existing = await this.getUserByEmail(userData.email);
-        if (existing) {
-            throw new Error('Ya existe un usuario con ese correo');
-        }
-
-        // Intentar crear en Firebase Auth si esta disponible
-        const auth = getFirebaseAuth();
-        if (auth && userData.password) {
-            try {
-                const userCredential = await auth.createUserWithEmailAndPassword(
-                    userData.email,
-                    userData.password
-                );
-                const firebaseUser = userCredential.user;
-
-                // Actualizar displayName
-                await firebaseUser.updateProfile({
-                    displayName: userData.name || 'Usuario'
-                });
-
-                // Guardar en Firestore sin password (Firebase Auth lo maneja)
-                const { password, ...safeUserData } = userData;
-                const firestoreData = {
-                    ...safeUserData,
-                    firebaseUid: firebaseUser.uid,
-                    createdAt: new Date().toISOString()
-                };
-
-                const result = await this.save(this.COLLECTIONS.USERS, firestoreData);
-                console.log('Usuario creado en Firebase Auth y Firestore');
-                return result;
-
-            } catch (authError) {
-                console.error('Error al crear en Firebase Auth:', authError);
-                
-                if (authError.code === 'auth/email-already-in-use') {
-                    throw new Error('Ya existe una cuenta con este correo en Firebase');
-                } else if (authError.code === 'auth/weak-password') {
-                    throw new Error('La contrasena debe tener al menos 6 caracteres');
-                } else if (authError.code === 'auth/invalid-email') {
-                    throw new Error('Correo electronico invalido');
+        try {
+            console.log('FirestoreService.saveUser - Iniciando:', { email: userData.email, role: userData.role, hasPassword: !!userData.password });
+            
+            // Normalizar email
+            userData.email = userData.email.toLowerCase();
+            
+            // Si tiene ID, actualizar (no crear en Firebase Auth)
+            if (userData.id) {
+                console.log('FirestoreService.saveUser - Actualizando usuario existente:', userData.id);
+                // No guardar password en texto plano si ya esta migrado
+                const existingUser = await this.getById(this.COLLECTIONS.USERS, userData.id);
+                if (existingUser?.firebaseUid) {
+                    // Usuario migrado, no guardar password
+                    const { password, ...safeData } = userData;
+                    const result = await this.save(this.COLLECTIONS.USERS, safeData, userData.id);
+                    console.log('FirestoreService.saveUser - Usuario actualizado:', result);
+                    return result;
                 }
-                
-                // Si falla Firebase Auth, crear solo en Firestore (modo legacy)
-                console.warn('Creando usuario solo en Firestore (modo legacy)');
-                return await this.save(this.COLLECTIONS.USERS, userData);
+                const result = await this.save(this.COLLECTIONS.USERS, userData, userData.id);
+                console.log('FirestoreService.saveUser - Usuario actualizado:', result);
+                return result;
             }
-        }
+            
+            // Verificar que no exista el email
+            console.log('FirestoreService.saveUser - Verificando email único:', userData.email);
+            const existing = await this.getUserByEmail(userData.email);
+            if (existing) {
+                console.warn('FirestoreService.saveUser - Email ya existe:', userData.email);
+                throw new Error('Ya existe un usuario con ese correo');
+            }
 
-        // Fallback: crear solo en Firestore
-        return await this.save(this.COLLECTIONS.USERS, userData);
+            // Intentar crear en Firebase Auth si esta disponible
+            const auth = getFirebaseAuth();
+            console.log('FirestoreService.saveUser - Firebase Auth disponible:', !!auth, 'Password disponible:', !!userData.password);
+            
+            if (auth && userData.password) {
+                try {
+                    console.log('FirestoreService.saveUser - Intentando crear en Firebase Auth');
+                    const userCredential = await auth.createUserWithEmailAndPassword(
+                        userData.email,
+                        userData.password
+                    );
+                    const firebaseUser = userCredential.user;
+
+                    // Actualizar displayName
+                    await firebaseUser.updateProfile({
+                        displayName: userData.name || 'Usuario'
+                    });
+
+                    // Guardar en Firestore sin password (Firebase Auth lo maneja)
+                    const { password, ...safeUserData } = userData;
+                    const firestoreData = {
+                        ...safeUserData,
+                        firebaseUid: firebaseUser.uid,
+                        createdAt: new Date().toISOString()
+                    };
+
+                    console.log('FirestoreService.saveUser - Guardando en Firestore (colección:', this.COLLECTIONS.USERS, '):', firestoreData);
+                    const result = await this.save(this.COLLECTIONS.USERS, firestoreData);
+                    console.log('FirestoreService.saveUser - Usuario creado en Firebase Auth y Firestore:', result);
+                    return result;
+
+                } catch (authError) {
+                    console.error('FirestoreService.saveUser - Error al crear en Firebase Auth:', authError);
+                    
+                    if (authError.code === 'auth/email-already-in-use') {
+                        throw new Error('Ya existe una cuenta con este correo en Firebase');
+                    } else if (authError.code === 'auth/weak-password') {
+                        throw new Error('La contrasena debe tener al menos 6 caracteres');
+                    } else if (authError.code === 'auth/invalid-email') {
+                        throw new Error('Correo electronico invalido');
+                    }
+                    
+                    // Si falla Firebase Auth, crear solo en Firestore (modo legacy)
+                    console.warn('FirestoreService.saveUser - Creando usuario solo en Firestore (modo legacy)');
+                    const result = await this.save(this.COLLECTIONS.USERS, userData);
+                    console.log('FirestoreService.saveUser - Usuario creado en Firestore (legacy):', result);
+                    return result;
+                }
+            }
+
+            // Fallback: crear solo en Firestore
+            console.log('FirestoreService.saveUser - Creando usuario solo en Firestore (sin password):', userData);
+            const result = await this.save(this.COLLECTIONS.USERS, userData);
+            console.log('FirestoreService.saveUser - Usuario creado en Firestore:', result);
+            return result;
+        } catch (error) {
+            console.error('FirestoreService.saveUser - Error general:', error);
+            throw error;
+        }
     },
 
     async updateUserLastLogin(email) {

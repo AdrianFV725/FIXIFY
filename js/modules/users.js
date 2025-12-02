@@ -1011,35 +1011,48 @@ const UsersModule = {
                 // Agregar fecha de creacion para nuevos usuarios
                 data.createdAt = new Date().toISOString();
                 
-                const savedUser = await Store.saveUser(data);
-                
-                // Verificar que el usuario se haya guardado correctamente
-                if (!savedUser || !savedUser.id) {
+                let savedUser;
+                try {
+                    console.log('Intentando guardar usuario:', { email: data.email, role: data.role, name: data.name });
+                    savedUser = await Store.saveUser(data);
+                    console.log('Usuario guardado:', savedUser);
+                    
+                    // Verificar que el usuario se haya guardado correctamente
+                    if (!savedUser || !savedUser.id) {
+                        Modal.alert({
+                            title: 'Error',
+                            message: 'No se pudo guardar el usuario correctamente. El usuario no tiene ID.',
+                            type: 'error'
+                        });
+                        return;
+                    }
+                    
+                    // Si es empleado, también guardar en la colección de empleados
+                    if (data.role === 'employee') {
+                        const employeeData = {
+                            id: savedUser.id,
+                            name: savedUser.name,
+                            lastName: savedUser.lastName || '',
+                            email: savedUser.email,
+                            employeeNumber: savedUser.employeeNumber || '',
+                            department: savedUser.department || '',
+                            position: savedUser.position || '',
+                            phone: savedUser.phone || '',
+                            startDate: savedUser.startDate || '',
+                            notes: savedUser.notes || '',
+                            status: savedUser.status || 'active',
+                            createdAt: savedUser.createdAt
+                        };
+                        await Store.saveEmployee(employeeData);
+                    }
+                } catch (error) {
+                    console.error('Error al guardar usuario:', error);
                     Modal.alert({
-                        title: 'Error',
-                        message: 'No se pudo guardar el usuario correctamente',
+                        title: 'Error al crear usuario',
+                        message: error.message || 'Ocurrió un error al intentar crear el usuario. Por favor, verifica la consola para más detalles.',
                         type: 'error'
                     });
                     return;
-                }
-                
-                // Si es empleado, también guardar en la colección de empleados
-                if (data.role === 'employee') {
-                    const employeeData = {
-                        id: savedUser.id,
-                        name: savedUser.name,
-                        lastName: savedUser.lastName || '',
-                        email: savedUser.email,
-                        employeeNumber: savedUser.employeeNumber || '',
-                        department: savedUser.department || '',
-                        position: savedUser.position || '',
-                        phone: savedUser.phone || '',
-                        startDate: savedUser.startDate || '',
-                        notes: savedUser.notes || '',
-                        status: savedUser.status || 'active',
-                        createdAt: savedUser.createdAt
-                    };
-                    await Store.saveEmployee(employeeData);
                 }
             }
 

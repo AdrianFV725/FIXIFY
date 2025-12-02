@@ -168,17 +168,21 @@ const Store = {
         // Intentar Firestore primero
         if (this.useFirestore && window.FirestoreService) {
             try {
+                console.log('Store.getUsers - Obteniendo usuarios de Firestore (colección:', FirestoreService.COLLECTIONS.USERS, ')');
                 firestoreUsers = await FirestoreService.getAll(FirestoreService.COLLECTIONS.USERS);
-                if (firestoreUsers && firestoreUsers.length > 0) {
-                    return firestoreUsers;
-                }
+                console.log('Store.getUsers - Usuarios obtenidos de Firestore:', firestoreUsers.length, firestoreUsers);
+                // Retornar usuarios de Firestore incluso si está vacío (para mantener consistencia)
+                return firestoreUsers || [];
             } catch (e) {
-                console.warn('Firestore no disponible, usando localStorage');
+                console.warn('Store.getUsers - Firestore no disponible, usando localStorage:', e);
             }
+        } else {
+            console.log('Store.getUsers - Firestore no está habilitado, usando localStorage');
         }
         
         // Usar localStorage
         let users = this.getLocal(this.KEYS.USERS) || [];
+        console.log('Store.getUsers - Usuarios de localStorage:', users.length, users);
         
         // Asegurar admin existe
         if (!users.find(u => u.email.toLowerCase() === 'admin@brands.mx')) {
