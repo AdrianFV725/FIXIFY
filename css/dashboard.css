@@ -760,6 +760,8 @@ body.dashboard-body {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    margin-left: 0;
+    margin-right: 0;
 }
 
 /* Ajustes responsive para el contenido */

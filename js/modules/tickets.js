@@ -1085,6 +1085,23 @@ const TicketsModule = {
                 }
             }
         }
+
+        // Auto-detectar usuario asignado basado en el usuario autenticado (solo para nuevos tickets)
+        // Solo usuarios y administradores pueden ser asignados, no empleados
+        let defaultAsignadoId = ticket?.asignadoId || '';
+        let defaultAsignadoNombre = ticket?.asignadoNombre || '';
+        if (!isEdit && currentUser && (currentUser.role === 'user' || currentUser.role === 'admin')) {
+            // Buscar usuario con el mismo ID o email
+            const matchingUser = users.find(u => 
+                (u.id === currentUser.id) || 
+                (u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase())
+            );
+            // Verificar que el usuario encontrado sea activo y tenga rol user o admin (no employee)
+            if (matchingUser && matchingUser.status === 'active' && (matchingUser.role === 'user' || matchingUser.role === 'admin')) {
+                defaultAsignadoId = matchingUser.id;
+                defaultAsignadoNombre = matchingUser.name || matchingUser.email || '';
+            }
+        }
         
         // Si es empleado, mostrar formulario simplificado
         if (isEmployee && !isEdit) {
@@ -1206,7 +1223,7 @@ const TicketsModule = {
                                     <label class="form-label">Asignado a (Tecnico)</label>
                                     <select name="asignadoId" class="form-select">
                                         <option value="">Sin asignar</option>
-                                        ${users.filter(u => u.status === 'active').map(u => `<option value="${u.id}" ${ticket?.asignadoId === u.id ? 'selected' : ''}>${this.escapeHtml(u.name || u.email)}</option>`).join('')}
+                                        ${users.filter(u => u.status === 'active' && (u.role === 'user' || u.role === 'admin')).map(u => `<option value="${u.id}" ${(isEdit ? ticket?.asignadoId === u.id : defaultAsignadoId === u.id) ? 'selected' : ''}>${this.escapeHtml(u.name || u.email)}</option>`).join('')}
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -1240,7 +1257,7 @@ const TicketsModule = {
                             
                             <input type="hidden" name="id" value="${ticket?.id || ''}">
                             <input type="hidden" name="contactoNombre" id="ticketContactoNombre" value="${isEdit ? (ticket?.contactoNombre || '') : (defaultContactoNombre || ticket?.contactoNombre || '')}">
-                            <input type="hidden" name="asignadoNombre" id="ticketAsignadoNombre" value="${ticket?.asignadoNombre || ''}">
+                            <input type="hidden" name="asignadoNombre" id="ticketAsignadoNombre" value="${isEdit ? (ticket?.asignadoNombre || '') : (defaultAsignadoNombre || ticket?.asignadoNombre || '')}">
                             <input type="hidden" name="categoriaClave" id="ticketCategoriaClave" value="${ticket?.categoriaClave || ''}">
                             <input type="hidden" name="categoriaElemento" id="ticketCategoriaElemento" value="${ticket?.categoriaElemento || ''}">
                         </form>
@@ -1493,6 +1510,20 @@ const TicketsModule = {
         } else if (contactoSelect && contactoSelect.value) {
             // Si ya hay un contacto seleccionado (desde el HTML en modo edición), también ejecutar la lógica
             contactoSelect.dispatchEvent(new Event('change'));
+        }
+
+        // Auto-seleccionar asignado si fue detectado automaticamente (solo para nuevos tickets)
+        if (!isEdit && defaultAsignadoId && asignadoSelect) {
+            // Si el valor ya está seleccionado en el HTML, solo necesitamos ejecutar la lógica de actualización
+            const currentValue = asignadoSelect.value;
+            if (currentValue !== defaultAsignadoId) {
+                asignadoSelect.value = defaultAsignadoId;
+            }
+            // Disparar el evento change para que se actualice el campo hidden asignadoNombre
+            asignadoSelect.dispatchEvent(new Event('change'));
+        } else if (asignadoSelect && asignadoSelect.value) {
+            // Si ya hay un asignado seleccionado (desde el HTML en modo edición), también ejecutar la lógica
+            asignadoSelect.dispatchEvent(new Event('change'));
         }
 
         // Submit del formulario

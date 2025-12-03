@@ -428,8 +428,15 @@ const AssignmentsModule = {
                     ` : allAssignments.map(a => {
                         const employee = this.employees.find(e => e.id === a.employeeId);
                         const isActive = !a.endDate;
+                        const isMachine = a.type === 'machine';
+                        const machineId = isMachine ? a.machineId : null;
+                        const machineExists = isMachine && this.machines.find(m => m.id === machineId);
+                        const clickableClass = isMachine && machineExists ? 'clickable-machine' : '';
                         return `
-                            <div class="history-item ${isActive ? 'active' : 'ended'}" data-type="${a.type}" data-status="${isActive ? 'active' : 'ended'}">
+                            <div class="history-item ${isActive ? 'active' : 'ended'} ${clickableClass}" 
+                                 data-type="${a.type}" 
+                                 data-status="${isActive ? 'active' : 'ended'}"
+                                 ${machineId ? `data-machine-id="${machineId}"` : ''}>
                                 <div class="history-icon ${a.type}">
                                     ${a.type === 'machine' ? `
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -528,6 +535,16 @@ const AssignmentsModule = {
         if (historySearchInput) {
             historySearchInput.addEventListener('input', () => this.filterHistory());
         }
+
+        // Event listeners para items de máquina clickeables en el historial
+        document.querySelectorAll('.history-item.clickable-machine').forEach(item => {
+            item.addEventListener('click', () => {
+                const machineId = item.dataset.machineId;
+                if (machineId) {
+                    window.location.href = `machine-detail.html?id=${machineId}`;
+                }
+            });
+        });
 
         // Busquedas
         this.bindSearchEvents();
