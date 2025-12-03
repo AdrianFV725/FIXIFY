@@ -246,15 +246,15 @@ const MachinesModule = {
         table.innerHTML = `
             <thead>
                 <tr>
-                    <th>No. Serie</th>
-                    <th>Nombre</th>
-                    <th>Modelo</th>
-                    <th>Año</th>
-                    <th>RAM</th>
-                    <th>Disco</th>
-                    <th>SO</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
+                    <th style="width: 12%; min-width: 120px;">No. Serie</th>
+                    <th style="width: 15%; min-width: 150px;">Nombre</th>
+                    <th style="width: 15%; min-width: 150px;">Modelo</th>
+                    <th style="width: 6%; min-width: 60px;">Año</th>
+                    <th style="width: 8%; min-width: 80px;">RAM</th>
+                    <th style="width: 8%; min-width: 80px;">Disco</th>
+                    <th style="width: 10%; min-width: 100px;">SO</th>
+                    <th style="width: 12%; min-width: 120px;">Estado</th>
+                    <th style="width: 14%; min-width: 140px;">Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -264,15 +264,15 @@ const MachinesModule = {
                     </td></tr>
                 ` : this.filteredMachines.map(m => `
                     <tr data-id="${m.id}">
-                        <td style="font-family: monospace;">${m.serialNumber || '-'}</td>
-                        <td>${this.escapeHtml(m.name || '')}</td>
-                        <td>${m.model || '-'}</td>
-                        <td>${m.year || '-'}</td>
-                        <td>${m.ram || '-'}</td>
-                        <td>${m.disk || '-'}</td>
-                        <td>${this.getOSLabel(m.operatingSystem)}</td>
+                        <td style="font-family: monospace; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${m.serialNumber || '-'}">${m.serialNumber || '-'}</td>
+                        <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(m.name || '')}">${this.escapeHtml(m.name || '')}</td>
+                        <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${m.model || '-'}">${m.model || '-'}</td>
+                        <td style="text-align: center;">${m.year || '-'}</td>
+                        <td style="text-align: center;">${m.ram || '-'}</td>
+                        <td style="text-align: center;">${m.disk || '-'}</td>
+                        <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.getOSLabel(m.operatingSystem)}</td>
                         <td>${this.getStatusBadge(m.status)}</td>
-                        <td class="cell-actions">
+                        <td class="cell-actions" style="white-space: nowrap;">
                             <button class="btn-icon btn-ghost sm" onclick="MachinesModule.viewMachine('${m.id}')" title="Ver detalles">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                             </button>

@@ -138,8 +138,11 @@ const Modal = {
         overlay.querySelectorAll('[data-action]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const action = btn.dataset.action;
-                if (action && action !== 'close') {
-                    // Disparar evento custom para la accion
+                if (action === 'close') {
+                    // Cerrar el modal si la accion es 'close'
+                    this.close();
+                } else if (action) {
+                    // Disparar evento custom para otras acciones
                     overlay.dispatchEvent(new CustomEvent('modal-action', {
                         detail: { action }
                     }));

@@ -1136,7 +1136,16 @@ const TicketsModule = {
 
                             <!-- Categoria: Tema > Servicio > Elemento -->
                             <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 12px; margin-bottom: 1rem;">
-                                <div style="font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Clasificacion del Ticket</div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                    <div style="font-weight: 600; color: var(--text-primary);">Clasificacion del Ticket</div>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="createCategoryBtn" style="padding: 0.4rem 0.75rem; font-size: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        </svg>
+                                        Nueva Categoria
+                                    </button>
+                                </div>
                                 <div class="form-row" style="margin-bottom: 0.75rem;">
                                     <div class="form-group" style="margin-bottom: 0;">
                                         <label class="form-label">Tema <span class="required">*</span></label>
@@ -1153,14 +1162,18 @@ const TicketsModule = {
                                         </select>
                                     </div>
                                 </div>
-                                <div class="form-group" style="margin-bottom: 0;">
+                                <div class="form-group" style="margin-bottom: 0; position: relative;">
                                     <label class="form-label">Elemento <span class="required">*</span></label>
-                                    <select name="categoriaId" id="ticketElemento" class="form-select" required>
-                                        <option value="">Seleccionar elemento...</option>
-                                        ${categories.filter(c => c.tema === ticket?.tema && c.servicio === ticket?.servicio).map(c => 
-                                            `<option value="${c.id}" ${ticket?.categoriaId === c.id ? 'selected' : ''}>[${this.escapeHtml(c.clave)}] ${this.escapeHtml(c.elemento)}</option>`
-                                        ).join('')}
-                                    </select>
+                                    <div style="position: relative;">
+                                        <input type="text" id="ticketElementoSearch" class="form-input" placeholder="Buscar por elemento..." autocomplete="off" style="padding-right: 2.5rem;">
+                                        <input type="hidden" name="categoriaId" id="ticketElemento" value="${ticket?.categoriaId || ''}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none;">
+                                            <circle cx="11" cy="11" r="8"></circle>
+                                            <path d="m21 21-4.35-4.35"></path>
+                                        </svg>
+                                    </div>
+                                    <div id="elementoDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; margin-top: 0.25rem; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+                                    <small style="color: var(--text-tertiary); font-size: 0.75rem; margin-top: 0.25rem; display: block;">Selecciona un elemento de la lista</small>
                                 </div>
                             </div>
                             
@@ -1255,7 +1268,9 @@ const TicketsModule = {
         // Referencias a elementos
         const temaSelect = document.getElementById('ticketTema');
         const servicioSelect = document.getElementById('ticketServicio');
-        const elementoSelect = document.getElementById('ticketElemento');
+        const elementoSearchInput = document.getElementById('ticketElementoSearch');
+        const elementoHiddenInput = document.getElementById('ticketElemento');
+        const elementoDropdown = document.getElementById('elementoDropdown');
         const contactoSelect = document.getElementById('ticketContacto');
         const machineDisplay = document.getElementById('ticketMachineDisplay');
         const machineIdInput = document.getElementById('ticketMachineId');
@@ -1265,34 +1280,150 @@ const TicketsModule = {
         const asignadoNombreInput = document.getElementById('ticketAsignadoNombre');
         const categoriaClaveInput = document.getElementById('ticketCategoriaClave');
         const categoriaElementoInput = document.getElementById('ticketCategoriaElemento');
+        const createCategoryBtn = document.getElementById('createCategoryBtn');
 
-        // Funcion para filtrar elementos por tema y servicio
-        const updateElementos = () => {
+        // Si hay un elemento seleccionado en modo edición, mostrar su nombre
+        if (ticket?.categoriaId) {
+            const selectedCategory = categories.find(c => c.id === ticket.categoriaId);
+            if (selectedCategory) {
+                elementoSearchInput.value = `[${selectedCategory.clave}] ${selectedCategory.elemento}`;
+            }
+        }
+
+        // Función para buscar elementos
+        const searchElementos = (query = '') => {
+            const searchTerm = query.toLowerCase().trim();
             const tema = temaSelect.value;
             const servicio = servicioSelect.value;
-            const filtered = categories.filter(c => 
-                (!tema || c.tema === tema) && 
-                (!servicio || c.servicio === servicio)
-            );
             
-            elementoSelect.innerHTML = '<option value="">Seleccionar elemento...</option>' +
-                filtered.map(c => `<option value="${c.id}">[${this.escapeHtml(c.clave)}] ${this.escapeHtml(c.elemento)}</option>`).join('');
+            // Filtrar por búsqueda, tema y servicio
+            let filtered = categories.filter(c => {
+                const matchesSearch = !searchTerm || 
+                    (c.elemento || '').toLowerCase().includes(searchTerm) ||
+                    (c.clave || '').toLowerCase().includes(searchTerm) ||
+                    (c.tema || '').toLowerCase().includes(searchTerm);
+                
+                const matchesTema = !tema || c.tema === tema;
+                const matchesServicio = !servicio || c.servicio === servicio;
+                
+                return matchesSearch && matchesTema && matchesServicio;
+            });
+            
+            // Si hay búsqueda, mostrar todos los resultados relevantes sin filtrar por tema/servicio
+            if (searchTerm) {
+                filtered = categories.filter(c => 
+                    (c.elemento || '').toLowerCase().includes(searchTerm) ||
+                    (c.clave || '').toLowerCase().includes(searchTerm) ||
+                    (c.tema || '').toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            return filtered.slice(0, 10); // Limitar a 10 resultados
         };
 
-        // Event listeners para cascada de selects
-        temaSelect.addEventListener('change', updateElementos);
-        servicioSelect.addEventListener('change', updateElementos);
+        // Función para mostrar dropdown de resultados
+        const showElementoDropdown = (results) => {
+            if (results.length === 0) {
+                elementoDropdown.innerHTML = '<div style="padding: 0.75rem; text-align: center; color: var(--text-tertiary); font-size: 0.85rem;">No se encontraron elementos</div>';
+                elementoDropdown.style.display = 'block';
+                return;
+            }
+            
+            elementoDropdown.innerHTML = results.map(cat => `
+                <div class="elemento-option" data-id="${cat.id}" style="padding: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background 0.2s ease;" 
+                     onmouseover="this.style.background='var(--bg-tertiary)'" 
+                     onmouseout="this.style.background=''">
+                    <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem;">
+                        <code style="font-size: 0.75rem; background: var(--bg-secondary); padding: 0.15rem 0.35rem; border-radius: 4px; margin-right: 0.5rem;">${this.escapeHtml(cat.clave)}</code>
+                        ${this.escapeHtml(cat.elemento)}
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-tertiary);">
+                        ${this.escapeHtml(cat.tema)} • ${servicios.find(s => s.value === cat.servicio)?.label || cat.servicio}
+                    </div>
+                </div>
+            `).join('');
+            
+            elementoDropdown.style.display = 'block';
+            
+            // Agregar event listeners a las opciones
+            elementoDropdown.querySelectorAll('.elemento-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    const categoryId = option.dataset.id;
+                    const selected = categories.find(c => c.id === categoryId);
+                    
+                    if (selected) {
+                        elementoHiddenInput.value = selected.id;
+                        elementoSearchInput.value = `[${selected.clave}] ${selected.elemento}`;
+                        elementoDropdown.style.display = 'none';
+                        
+                        // Auto-llenar tema y servicio
+                        temaSelect.value = selected.tema || '';
+                        servicioSelect.value = selected.servicio || '';
+                        
+                        // Actualizar campos ocultos
+                        categoriaClaveInput.value = selected.clave || '';
+                        categoriaElementoInput.value = selected.elemento || '';
+                    }
+                });
+            });
+        };
 
-        // Actualizar campos ocultos cuando se selecciona elemento
-        elementoSelect.addEventListener('change', () => {
-            const selected = categories.find(c => c.id === elementoSelect.value);
-            if (selected) {
-                categoriaClaveInput.value = selected.clave || '';
-                categoriaElementoInput.value = selected.elemento || '';
-            } else {
+        // Event listener para búsqueda de elementos
+        elementoSearchInput.addEventListener('input', (e) => {
+            const query = e.target.value;
+            if (query.length === 0) {
+                elementoDropdown.style.display = 'none';
+                elementoHiddenInput.value = '';
                 categoriaClaveInput.value = '';
                 categoriaElementoInput.value = '';
+                return;
             }
+            
+            const results = searchElementos(query);
+            showElementoDropdown(results);
+        });
+
+        // Event listener para cuando cambian tema o servicio (filtrar resultados si hay búsqueda)
+        temaSelect.addEventListener('change', () => {
+            if (elementoSearchInput.value) {
+                const results = searchElementos(elementoSearchInput.value);
+                showElementoDropdown(results);
+            }
+        });
+        
+        servicioSelect.addEventListener('change', () => {
+            if (elementoSearchInput.value) {
+                const results = searchElementos(elementoSearchInput.value);
+                showElementoDropdown(results);
+            }
+        });
+
+        // Cerrar dropdown al hacer click fuera
+        document.addEventListener('click', (e) => {
+            if (!elementoSearchInput.contains(e.target) && !elementoDropdown.contains(e.target)) {
+                elementoDropdown.style.display = 'none';
+            }
+        });
+
+        // Botón para crear nueva categoría
+        createCategoryBtn.addEventListener('click', async () => {
+            await this.openQuickCategoryModal(categories, temas, servicios, async (newCategory) => {
+                // Recargar categorías
+                categories = await Store.getCategories() || [];
+                temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
+                
+                // Actualizar select de temas
+                temaSelect.innerHTML = '<option value="">Seleccionar tema...</option>' +
+                    temas.map(t => `<option value="${this.escapeHtml(t)}">${this.escapeHtml(t)}</option>`).join('');
+                
+                // Seleccionar la nueva categoría
+                temaSelect.value = newCategory.tema || '';
+                servicioSelect.value = newCategory.servicio || '';
+                elementoHiddenInput.value = newCategory.id;
+                elementoSearchInput.value = `[${newCategory.clave}] ${newCategory.elemento}`;
+                categoriaClaveInput.value = newCategory.clave || '';
+                categoriaElementoInput.value = newCategory.elemento || '';
+            });
         });
 
         // Auto-llenado de maquina cuando se selecciona contacto
@@ -1370,6 +1501,13 @@ const TicketsModule = {
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
             
+            // Validar que se haya seleccionado un elemento
+            if (!elementoHiddenInput.value) {
+                this.showToast('Por favor selecciona un elemento', 'error');
+                elementoSearchInput.focus();
+                return;
+            }
+            
             // Obtener servicio del select (para guardar como category tambien por compatibilidad)
             data.category = data.servicio;
             
@@ -1400,6 +1538,162 @@ const TicketsModule = {
             } catch (error) {
                 console.error('Error al guardar ticket:', error);
                 this.showToast('Error al guardar el ticket', 'error');
+            }
+        });
+    },
+
+    // Modal rápido para crear categoría desde el modal de tickets
+    async openQuickCategoryModal(categories, temas, servicios, onSuccess) {
+        const servicioLabels = {
+            software: 'Software',
+            hardware: 'Hardware',
+            network: 'Red',
+            other: 'Otro'
+        };
+
+        // Función para generar la siguiente clave consecutiva
+        const generateNextClave = (tema) => {
+            if (!tema) return '';
+            
+            const temasCategories = categories.filter(c => c.tema === tema);
+            if (temasCategories.length === 0) return '';
+            
+            const claves = temasCategories.map(c => c.clave).filter(Boolean);
+            if (claves.length === 0) return '';
+            
+            const firstClave = claves[0];
+            const patterns = [
+                { regex: /^([A-Za-z]+)-(\d+)$/, separator: '-' },
+                { regex: /^([A-Za-z]+)\.(\d+)$/, separator: '.' },
+                { regex: /^([A-Za-z]+)_(\d+)$/, separator: '_' },
+                { regex: /^([A-Za-z]+)(\d+)$/, separator: '' }
+            ];
+            
+            let detectedPrefix = '';
+            let detectedSeparator = '.';
+            let numberLength = 1;
+            let maxNumber = 0;
+            
+            for (const { regex, separator } of patterns) {
+                const match = firstClave.match(regex);
+                if (match) {
+                    detectedPrefix = match[1];
+                    detectedSeparator = separator;
+                    numberLength = match[2].length;
+                    break;
+                }
+            }
+            
+            if (!detectedPrefix) return '';
+            
+            for (const clave of claves) {
+                for (const { regex } of patterns) {
+                    const match = clave.match(regex);
+                    if (match && match[1].toUpperCase() === detectedPrefix.toUpperCase()) {
+                        const num = parseInt(match[2], 10);
+                        if (match[2].length > numberLength) {
+                            numberLength = match[2].length;
+                        }
+                        if (num > maxNumber) maxNumber = num;
+                    }
+                }
+            }
+            
+            const nextNumber = maxNumber + 1;
+            const paddedNumber = String(nextNumber).padStart(numberLength, '0');
+            return `${detectedPrefix}${detectedSeparator}${paddedNumber}`;
+        };
+
+        const modalHtml = `
+            <div class="modal-overlay active" id="quickCategoryModal">
+                <div class="modal" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Nueva Categoria</h2>
+                        <button class="modal-close" onclick="document.getElementById('quickCategoryModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="quickCategoryForm" class="form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Tema <span class="required">*</span></label>
+                                    <input type="text" name="tema" id="quickCategoryTema" class="form-input" required placeholder="Ej: Soporte" list="quickTemasDatalist">
+                                    <datalist id="quickTemasDatalist">
+                                        ${temas.map(t => `<option value="${this.escapeHtml(t)}">`).join('')}
+                                    </datalist>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Servicio <span class="required">*</span></label>
+                                    <select name="servicio" id="quickCategoryServicio" class="form-select" required>
+                                        <option value="">Seleccionar...</option>
+                                        ${servicios.map(s => `<option value="${s.value}">${s.label}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Clave <span class="required">*</span></label>
+                                    <input type="text" name="clave" id="quickCategoryClave" class="form-input" required placeholder="Se generará automáticamente" style="font-family: monospace;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Elemento <span class="required">*</span></label>
+                                    <input type="text" name="elemento" id="quickCategoryElemento" class="form-input" required placeholder="Nombre del elemento">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('quickCategoryModal').remove()">Cancelar</button>
+                        <button type="submit" form="quickCategoryForm" class="btn btn-primary">Crear Categoria</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        const temaInput = document.getElementById('quickCategoryTema');
+        const claveInput = document.getElementById('quickCategoryClave');
+        let isAutoGeneratedClave = false;
+
+        // Auto-generar clave cuando cambia el tema
+        temaInput.addEventListener('input', () => {
+            const tema = temaInput.value.trim();
+            if (tema && !isAutoGeneratedClave) {
+                const nextClave = generateNextClave(tema);
+                if (nextClave) {
+                    claveInput.value = nextClave;
+                    isAutoGeneratedClave = true;
+                }
+            }
+        });
+
+        // Si el usuario modifica manualmente la clave, desactivar auto-generación
+        claveInput.addEventListener('input', () => {
+            if (document.activeElement === claveInput) {
+                isAutoGeneratedClave = false;
+            }
+        });
+
+        // Submit del formulario
+        document.getElementById('quickCategoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            try {
+                delete data.id;
+                const newCategory = await Store.saveCategory(data);
+                this.showToast('Categoria creada correctamente', 'success');
+                
+                document.getElementById('quickCategoryModal').remove();
+                
+                // Llamar callback con la nueva categoría
+                if (onSuccess) {
+                    await onSuccess(newCategory);
+                }
+            } catch (error) {
+                console.error('Error al crear categoria:', error);
+                this.showToast('Error al crear la categoria', 'error');
             }
         });
     },

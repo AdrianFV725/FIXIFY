@@ -101,11 +101,13 @@
     width: 100%;
     position: relative;
     max-width: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Contenedor interno sin scroll horizontal */
+/* Contenedor interno con scroll horizontal si es necesario */
 .data-table-container > div {
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
     width: 100%;
     -webkit-overflow-scrolling: touch;
@@ -133,6 +135,7 @@
 
 .data-table {
     width: 100%;
+    min-width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
     word-wrap: break-word;
@@ -157,7 +160,8 @@
 /* Ajustar anchos de columnas específicas */
 .data-table th,
 .data-table td {
-    padding: 0.75rem 0.5rem;
+    padding: 0.75rem 0.75rem;
+    box-sizing: border-box;
 }
 
 .data-table thead {
@@ -165,7 +169,7 @@
 }
 
 .data-table th {
-    padding: 1rem;
+    padding: 0.875rem 0.75rem;
     text-align: left;
     font-size: 0.75rem;
     font-weight: 600;
@@ -173,6 +177,7 @@
     letter-spacing: 0.05em;
     color: var(--text-tertiary);
     border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
 }
 
 .data-table th.sortable {
@@ -195,7 +200,7 @@
 }
 
 .data-table td {
-    padding: 1rem;
+    padding: 0.875rem 0.75rem;
     font-size: 0.875rem;
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
@@ -228,6 +233,45 @@
 .cell-actions {
     display: flex;
     gap: 0.5rem;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+}
+
+/* Mejorar scrollbar para tablas */
+.data-table-container::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+.data-table-container::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+.data-table-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.data-table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+/* Asegurar que la tabla use todo el ancho disponible */
+#machinesTable {
+    width: 100%;
+    min-width: 100%;
+}
+
+/* Responsive: en pantallas pequeñas, permitir scroll horizontal */
+@media (max-width: 1200px) {
+    .data-table-container {
+        overflow-x: auto;
+    }
+    
+    .data-table {
+        min-width: 900px; /* Ancho mínimo para mantener legibilidad */
+    }
 }
 
 /* ========================================
