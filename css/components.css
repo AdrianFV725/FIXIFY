@@ -97,15 +97,15 @@
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 16px;
-    overflow: visible;
+    overflow: hidden;
     width: 100%;
     position: relative;
     max-width: 100%;
 }
 
-/* Contenedor interno con scroll */
+/* Contenedor interno sin scroll horizontal */
 .data-table-container > div {
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: auto;
     width: 100%;
     -webkit-overflow-scrolling: touch;
@@ -114,8 +114,7 @@
 }
 
 .data-table-container > div::-webkit-scrollbar {
-    height: 10px;
-    width: 10px;
+    width: 8px;
 }
 
 .data-table-container > div::-webkit-scrollbar-track {
@@ -126,46 +125,39 @@
 .data-table-container > div::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: 4px;
-    border: 2px solid var(--bg-tertiary);
 }
 
 .data-table-container > div::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
 }
 
-/* Scrollbar horizontal más visible */
-.data-table-container > div::-webkit-scrollbar:horizontal {
-    height: 12px;
-}
-
-/* Scrollbar vertical más visible */
-.data-table-container > div::-webkit-scrollbar:vertical {
-    width: 12px;
-}
-
 .data-table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: auto;
-    white-space: nowrap;
+    table-layout: fixed;
+    word-wrap: break-word;
 }
 
-/* Permitir que las celdas se ajusten al contenido pero respetando min-width */
-/* Asegurar que las celdas respeten los anchos mínimos pero permitan scroll */
+/* Permitir que el texto se ajuste en las celdas */
 .data-table th {
-    white-space: nowrap;
-    overflow: visible;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-wrap: break-word;
 }
 
 .data-table td {
-    white-space: nowrap;
-    overflow: visible;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-wrap: break-word;
+    max-width: 0;
 }
 
-/* Las celdas deben mantener su ancho mínimo definido */
+/* Ajustar anchos de columnas específicas */
 .data-table th,
 .data-table td {
-    min-width: fit-content;
+    padding: 0.75rem 0.5rem;
 }
 
 .data-table thead {

@@ -404,73 +404,73 @@ const UsersModule = {
                 };
                 return `
                         <tr data-id="${u.id}" style="transition: all 0.2s ease;">
-                            <td style="padding: 0.75rem 1rem;">
-                                <div style="display: flex; align-items: center; gap: 0.625rem;">
-                                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.8rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);">
+                            <td style="padding: 0.75rem 0.5rem; overflow: hidden;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.75rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);">
                                         ${(u.name || 'U')[0].toUpperCase()}
                                     </div>
-                                    <div style="min-width: 0; flex: 1;">
-                                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem;">${self.escapeHtml(u.name || 'Usuario')} ${u.lastName ? self.escapeHtml(u.lastName) : ''}</div>
+                                    <div style="min-width: 0; flex: 1; overflow: hidden;">
+                                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8rem;">${self.escapeHtml(u.name || 'Usuario')} ${u.lastName ? self.escapeHtml(u.lastName) : ''}</div>
                                         ${u.employeeNumber ? `<div style="font-size: 0.65rem; color: var(--text-tertiary); font-family: 'Monaco', 'Menlo', monospace; background: var(--bg-tertiary); padding: 0.125rem 0.375rem; border-radius: 4px; display: inline-block;">#${self.escapeHtml(u.employeeNumber)}</div>` : ''}
                                     </div>
                                 </div>
                             </td>
-                            <td style="padding: 0.75rem 1rem;">
-                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <td style="padding: 0.75rem 0.5rem; overflow: hidden;">
+                                <div style="display: flex; align-items: center; gap: 0.375rem; min-width: 0;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary); flex-shrink: 0;">
                                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                                         <polyline points="22,6 12,13 2,6"></polyline>
                                     </svg>
-                                    <span style="color: var(--text-primary); word-break: break-word; font-size: 0.8rem;">${u.email || '-'}</span>
+                                    <span style="color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; display: block; min-width: 0; flex: 1;">${u.email || '-'}</span>
                                 </div>
                             </td>
-                            <td style="padding: 0.75rem 1rem;">${roleBadge(u.role)}</td>
+                            <td style="padding: 0.75rem 0.5rem; overflow: hidden;">${roleBadge(u.role)}</td>
                             ${hasEmployees ? `
-                                <td style="padding: 0.75rem 1rem;">
+                                <td style="padding: 0.75rem 0.5rem; overflow: hidden;">
                                     ${u.role === 'employee' && u.department ? `
-                                        <div style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.25rem 0.625rem; background: ${getDeptColor(u.department)}15; border: 1px solid ${getDeptColor(u.department)}40; border-radius: 6px; font-size: 0.75rem; font-weight: 500; color: ${getDeptColor(u.department)};">
-                                            <div style="width: 6px; height: 6px; border-radius: 50%; background: ${getDeptColor(u.department)};"></div>
-                                            ${getDeptName(u.department)}
+                                        <div style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.5rem; background: ${getDeptColor(u.department)}15; border: 1px solid ${getDeptColor(u.department)}40; border-radius: 6px; font-size: 0.7rem; font-weight: 500; color: ${getDeptColor(u.department)}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            <div style="width: 5px; height: 5px; border-radius: 50%; background: ${getDeptColor(u.department)}; flex-shrink: 0;"></div>
+                                            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${getDeptName(u.department)}</span>
                                         </div>
-                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.8rem;">-</span>'}
+                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.75rem;">-</span>'}
                                 </td>
-                                <td style="padding: 0.75rem 1rem;">
+                                <td style="padding: 0.75rem 0.5rem; overflow: hidden;">
                                     ${u.role === 'employee' && u.position ? `
-                                        <span style="color: var(--text-primary); font-weight: 500; font-size: 0.8rem;">${self.escapeHtml(u.position)}</span>
-                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.8rem;">-</span>'}
+                                        <span style="color: var(--text-primary); font-weight: 500; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;">${self.escapeHtml(u.position)}</span>
+                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.75rem;">-</span>'}
                                 </td>
                             ` : ''}
-                            <td style="padding: 0.75rem 1rem;">${statusBadge(u.status)}</td>
-                            <td style="padding: 0.75rem 1rem;">
-                                <span style="color: var(--text-primary); font-size: 0.8rem;">${self.formatDate(u.createdAt)}</span>
+                            <td style="padding: 0.75rem 0.5rem; overflow: hidden;">${statusBadge(u.status)}</td>
+                            <td style="padding: 0.75rem 0.5rem; overflow: hidden;">
+                                <span style="color: var(--text-primary); font-size: 0.75rem; white-space: nowrap;">${self.formatDate(u.createdAt)}</span>
                             </td>
-                            <td style="padding: 0.75rem 1rem;">
-                                <div style="display: flex; align-items: center; gap: 0.375rem;">
+                            <td style="padding: 0.75rem 0.5rem; overflow: hidden;">
+                                <div style="display: flex; align-items: center; gap: 0.25rem; min-width: 0;">
                                     ${u.lastLogin ? `
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-tertiary); flex-shrink: 0;">
                                             <circle cx="12" cy="12" r="10"></circle>
                                             <polyline points="12 6 12 12 16 14"></polyline>
                                         </svg>
-                                        <span style="color: var(--text-secondary); font-size: 0.75rem;">${self.timeAgo(u.lastLogin)}</span>
-                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.75rem; font-style: italic;">Nunca</span>'}
+                                        <span style="color: var(--text-secondary); font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${self.timeAgo(u.lastLogin)}</span>
+                                    ` : '<span style="color: var(--text-tertiary); font-size: 0.7rem; font-style: italic;">Nunca</span>'}
                                 </div>
                             </td>
-                            <td style="padding: 0.75rem 1rem;">
-                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.375rem;">
+                            <td style="padding: 0.75rem 0.5rem; overflow: hidden;">
+                                <div style="display: flex; align-items: center; justify-content: center; gap: 0.25rem; flex-wrap: wrap;">
                                     ${u.role === 'employee' ? `
-                                        <button class="btn-icon sm" onclick="window.location.href='user-detail.html?id=${u.id}'" title="Ver detalle" style="width: 28px; height: 28px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'; this.style.transform='scale(1)'">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                        <button class="btn-icon sm" onclick="window.location.href='user-detail.html?id=${u.id}'" title="Ver detalle" style="width: 24px; height: 24px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;" onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'; this.style.transform='scale(1)'">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                         </button>
                                     ` : ''}
-                                    <button class="btn-icon sm" onclick="UsersModule.editUser('${u.id}')" title="Editar" style="width: 28px; height: 28px; background: rgba(34, 197, 94, 0.1); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(34, 197, 94, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(34, 197, 94, 0.1)'; this.style.transform='scale(1)'">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    <button class="btn-icon sm" onclick="UsersModule.editUser('${u.id}')" title="Editar" style="width: 24px; height: 24px; background: rgba(34, 197, 94, 0.1); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;" onmouseover="this.style.background='rgba(34, 197, 94, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(34, 197, 94, 0.1)'; this.style.transform='scale(1)'">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                     </button>
-                                    <button class="btn-icon sm" onclick="UsersModule.openPasswordForm('${u.id}')" title="Cambiar contraseña" style="width: 28px; height: 28px; background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(168, 85, 247, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(168, 85, 247, 0.1)'; this.style.transform='scale(1)'">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                    <button class="btn-icon sm" onclick="UsersModule.openPasswordForm('${u.id}')" title="Cambiar contraseña" style="width: 24px; height: 24px; background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;" onmouseover="this.style.background='rgba(168, 85, 247, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(168, 85, 247, 0.1)'; this.style.transform='scale(1)'">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                                     </button>
                                     ${u.email !== currentUser?.email ? `
-                                        <button class="btn-icon sm" onclick="UsersModule.deleteUser('${u.id}')" title="Eliminar" style="width: 28px; height: 28px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='scale(1)'">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        <button class="btn-icon sm" onclick="UsersModule.deleteUser('${u.id}')" title="Eliminar" style="width: 24px; height: 24px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'; this.style.transform='scale(1.1)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='scale(1)'">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                         </button>
                                     ` : ''}
                                 </div>
@@ -481,18 +481,18 @@ const UsersModule = {
         }
 
         container.innerHTML = `
-            <div style="overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 480px); width: 100%; position: relative; -webkit-overflow-scrolling: touch; scrollbar-width: thin;">
-                <table class="data-table" style="width: max-content; min-width: 100%;">
+            <div style="overflow-x: hidden; overflow-y: auto; max-height: calc(100vh - 480px); width: 100%; position: relative; -webkit-overflow-scrolling: touch; scrollbar-width: thin;">
+                <table class="data-table" style="width: 100%; table-layout: fixed;">
                     <thead style="position: sticky; top: 0; z-index: 10; background: var(--card-bg); backdrop-filter: blur(10px);">
                         <tr>
-                            <th style="min-width: 180px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Usuario</th>
-                            <th style="min-width: 160px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Correo</th>
-                            <th style="min-width: 100px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Rol</th>
-                            ${hasEmployees ? '<th style="min-width: 120px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Departamento</th><th style="min-width: 140px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Puesto</th>' : ''}
-                            <th style="min-width: 90px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Estado</th>
-                            <th style="min-width: 100px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Creado</th>
-                            <th style="min-width: 120px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Último Acceso</th>
-                            <th style="min-width: 120px; padding: 0.875rem 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color); text-align: center;">Acciones</th>
+                            <th style="width: ${hasEmployees ? '18%' : '22%'}; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Usuario</th>
+                            <th style="width: ${hasEmployees ? '18%' : '22%'}; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Correo</th>
+                            <th style="width: ${hasEmployees ? '10%' : '12%'}; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Rol</th>
+                            ${hasEmployees ? '<th style="width: 12%; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Depto.</th><th style="width: 12%; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Puesto</th>' : ''}
+                            <th style="width: ${hasEmployees ? '8%' : '10%'}; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Estado</th>
+                            <th style="width: ${hasEmployees ? '10%' : '12%'}; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Creado</th>
+                            <th style="width: ${hasEmployees ? '10%' : '12%'}; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">Último Acceso</th>
+                            <th style="width: ${hasEmployees ? '12%' : '10%'}; padding: 0.75rem 0.5rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color); text-align: center;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
