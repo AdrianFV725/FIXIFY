@@ -527,7 +527,7 @@ const Auth = {
             // Configurar action code settings para el enlace de reset
             const actionCodeSettings = {
                 url: this.getActionCodeUrl(),
-                handleCodeInApp: true
+                handleCodeInApp: false
             };
 
             console.log('Reset password - Action URL:', actionCodeSettings.url);
@@ -886,7 +886,7 @@ const Auth = {
             // Configurar action code settings
             const actionCodeSettings = {
                 url: this.getActionCodeUrl(),
-                handleCodeInApp: true
+                handleCodeInApp: false
             };
 
             // Función auxiliar para enviar el correo con reintentos
