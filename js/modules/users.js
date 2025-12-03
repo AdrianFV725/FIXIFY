@@ -863,15 +863,9 @@ const UsersModule = {
                         <div id="employeeFieldsSection" style="display: ${user?.role === 'employee' ? 'block' : 'none'}; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
                             <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--text-primary);">Información de Empleado</h3>
                             
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                                <div class="form-group">
-                                    <label>Número de Empleado</label>
-                                    <input type="text" name="employeeNumber" value="${user?.employeeNumber || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
-                                </div>
-                                <div class="form-group">
-                                    <label>Apellidos</label>
-                                    <input type="text" name="lastName" value="${user?.lastName || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
-                                </div>
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label>Número de Empleado</label>
+                                <input type="text" name="employeeNumber" value="${user?.employeeNumber || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
                             </div>
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
@@ -946,12 +940,14 @@ const UsersModule = {
             // Si el rol no es employee, limpiar campos de empleado
             if (data.role !== 'employee') {
                 delete data.employeeNumber;
-                delete data.lastName;
                 delete data.department;
                 delete data.position;
                 delete data.startDate;
                 delete data.notes;
             }
+            
+            // Eliminar lastName ya que no se usa (el nombre completo está en el campo name)
+            delete data.lastName;
             
             // Verificar email unico
             if (!isEdit) {
@@ -980,7 +976,6 @@ const UsersModule = {
                         const employeeData = {
                             id: existing.id,
                             name: existing.name,
-                            lastName: existing.lastName || '',
                             email: existing.email,
                             employeeNumber: existing.employeeNumber || '',
                             department: existing.department || '',
@@ -1066,7 +1061,6 @@ const UsersModule = {
                         const employeeData = {
                             id: savedUser.id,
                             name: savedUser.name,
-                            lastName: savedUser.lastName || '',
                             email: savedUser.email,
                             employeeNumber: savedUser.employeeNumber || '',
                             department: savedUser.department || '',
