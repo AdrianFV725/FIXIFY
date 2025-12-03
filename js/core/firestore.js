@@ -301,12 +301,19 @@ const FirestoreService = {
                         throw new Error('La contrasena debe tener al menos 6 caracteres');
                     } else if (authError.code === 'auth/invalid-email') {
                         throw new Error('Correo electronico invalido');
+                    } else if (authError.code === 'auth/network-request-failed') {
+                        // Error de red: crear en Firestore y el usuario se migrará automáticamente al hacer login
+                        console.warn('FirestoreService.saveUser - Error de red al crear en Firebase Auth, creando en Firestore. El usuario se migrará automáticamente al hacer login.');
+                        const result = await this.save(this.COLLECTIONS.USERS, userData);
+                        console.log('FirestoreService.saveUser - Usuario creado en Firestore (se migrará al login):', result);
+                        return result;
                     }
                     
                     // Si falla Firebase Auth por otra razón, crear solo en Firestore (modo legacy)
-                    console.warn('FirestoreService.saveUser - Creando usuario solo en Firestore (modo legacy)');
+                    // El usuario se migrará automáticamente cuando intente hacer login
+                    console.warn('FirestoreService.saveUser - Error al crear en Firebase Auth:', authError.code, '- Creando usuario solo en Firestore. El usuario se migrará automáticamente al hacer login.');
                     const result = await this.save(this.COLLECTIONS.USERS, userData);
-                    console.log('FirestoreService.saveUser - Usuario creado en Firestore (legacy):', result);
+                    console.log('FirestoreService.saveUser - Usuario creado en Firestore (legacy, se migrará al login):', result);
                     return result;
                 }
             }

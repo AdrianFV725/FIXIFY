@@ -155,14 +155,26 @@ const Auth = {
                     if (!isUserMigrated && userData.password) {
                         // Verificar contrasena contra Firestore (migracion)
                         if (userData.password === password) {
+                            console.log('Usuario no migrado encontrado, migrando a Firebase Auth...');
                             // Crear usuario en Firebase Auth
                             const migrationResult = await this.migrateUserToFirebaseAuth(email, password, userData);
                             if (migrationResult.success) {
                                 return migrationResult;
+                            } else {
+                                // Si la migración falla, permitir login con contraseña de Firestore
+                                console.log('Migración falló, usando login con contraseña de Firestore');
+                                return await this.loginWithLocalStorage(email, password, remember);
                             }
+                        } else {
+                            return { success: false, message: 'Contrasena incorrecta' };
                         }
+                    } else if (!isUserMigrated && userData.password) {
+                        // Usuario tiene contraseña en Firestore pero no coincide
+                        return { success: false, message: 'Contrasena incorrecta' };
+                    } else {
+                        // Usuario no existe en Firebase Auth y no tiene contraseña en Firestore
+                        return { success: false, message: 'Credenciales incorrectas' };
                     }
-                    return { success: false, message: 'Credenciales incorrectas' };
                 }
                 
                 // Contraseña incorrecta - NO intentar con contraseña de Firestore
@@ -934,7 +946,9 @@ const Auth = {
     },
 
     /**
-     * Actualiza la contrasena directamente (solo para usuarios en modo legacy sin Firebase Auth)
+     * Actualiza la contrasena directamente
+     * Si el usuario está migrado a Firebase Auth, también actualiza allí
+     * Si no está migrado, actualiza en Firestore y migra a Firebase Auth
      */
     async updatePasswordDirect(userId, newPassword) {
         try {
@@ -943,16 +957,111 @@ const Auth = {
                 return { success: false, message: 'Usuario no encontrado' };
             }
 
-            // Verificar que no tiene firebaseUid (no esta migrado)
-            if (user.firebaseUid) {
-                return { 
-                    success: false, 
-                    message: 'Este usuario usa Firebase Auth. Usa la opcion de enviar correo de restablecimiento.' 
-                };
+            // Validar longitud de contraseña
+            if (newPassword.length < 6) {
+                return { success: false, message: 'La contrasena debe tener al menos 6 caracteres' };
             }
 
+            const auth = getFirebaseAuth();
+            const useFirebase = this.useFirebase && auth;
+
+            // Si el usuario ya está migrado a Firebase Auth
+            if (user.firebaseUid && useFirebase) {
+                try {
+                    // Intentar actualizar la contraseña en Firebase Auth
+                    // Como no podemos actualizar la contraseña de otro usuario desde el cliente,
+                    // necesitamos usar un enfoque diferente: eliminar y recrear el usuario
+                    // O mejor: usar una Cloud Function
+                    
+                    // Por ahora, actualizamos en Firestore y el usuario deberá usar reset de contraseña
+                    // O intentamos crear el usuario de nuevo (fallará si ya existe, pero podemos manejarlo)
+                    
+                    // Intentar crear el usuario con la nueva contraseña
+                    // Si ya existe, eso significa que el usuario está en Firebase Auth
+                    // En ese caso, solo actualizamos en Firestore y el usuario usará reset de contraseña
+                    try {
+                        // Intentar crear usuario (fallará si ya existe, que es lo esperado)
+                        await auth.createUserWithEmailAndPassword(user.email, newPassword);
+                        // Si llegamos aquí, el usuario no existía en Firebase Auth (caso raro)
+                        // Actualizar firebaseUid
+                        const firebaseUser = auth.currentUser;
+                        if (firebaseUser) {
+                            await FirestoreService.save(FirestoreService.COLLECTIONS.USERS, {
+                                firebaseUid: firebaseUser.uid
+                            }, user.id);
+                        }
+                    } catch (createError) {
+                        if (createError.code === 'auth/email-already-in-use') {
+                            // El usuario ya existe en Firebase Auth, no podemos actualizar desde el cliente
+                            // Actualizar solo en Firestore para mantener consistencia
+                            user.password = newPassword;
+                            await Store.saveUser(user);
+                            
+                            try {
+                                await FirestoreService.logActivity('password_updated_by_admin', { 
+                                    targetUserId: userId,
+                                    adminEmail: this.getCurrentUser()?.email,
+                                    note: 'Contrasena actualizada en Firestore. El usuario debe usar reset de contrasena para actualizar en Firebase Auth.'
+                                });
+                            } catch (e) {}
+                            
+                            return { 
+                                success: true, 
+                                message: 'Contrasena actualizada en el sistema. El usuario debe usar "Olvide mi contrasena" para actualizar su contrasena en Firebase Auth.' 
+                            };
+                        } else {
+                            throw createError;
+                        }
+                    }
+                } catch (authError) {
+                    console.error('Error al actualizar en Firebase Auth:', authError);
+                    // Fallback: actualizar solo en Firestore
+                    user.password = newPassword;
+                    await Store.saveUser(user);
+                    
+                    try {
+                        await FirestoreService.logActivity('password_updated_by_admin', { 
+                            targetUserId: userId,
+                            adminEmail: this.getCurrentUser()?.email,
+                            note: 'Contrasena actualizada solo en Firestore debido a error en Firebase Auth'
+                        });
+                    } catch (e) {}
+                    
+                    return { 
+                        success: true, 
+                        message: 'Contrasena actualizada en el sistema. Si el usuario tiene problemas para iniciar sesion, debe usar "Olvide mi contrasena".' 
+                    };
+                }
+            }
+
+            // Usuario NO migrado: actualizar en Firestore y migrar a Firebase Auth
             user.password = newPassword;
             await Store.saveUser(user);
+
+            // Intentar migrar a Firebase Auth si está disponible
+            if (useFirebase) {
+                try {
+                    console.log('Migrando usuario a Firebase Auth con nueva contraseña...');
+                    const migrationResult = await this.migrateUserToFirebaseAuth(user.email, newPassword, user);
+                    if (migrationResult.success) {
+                        try {
+                            await FirestoreService.logActivity('password_updated_by_admin', { 
+                                targetUserId: userId,
+                                adminEmail: this.getCurrentUser()?.email,
+                                migrated: true
+                            });
+                        } catch (e) {}
+                        
+                        return { 
+                            success: true, 
+                            message: 'Contrasena actualizada y usuario migrado a Firebase Auth correctamente' 
+                        };
+                    }
+                } catch (migrationError) {
+                    console.warn('No se pudo migrar usuario a Firebase Auth:', migrationError);
+                    // Continuar con el éxito porque al menos se actualizó en Firestore
+                }
+            }
 
             try {
                 await FirestoreService.logActivity('password_updated_by_admin', { 
