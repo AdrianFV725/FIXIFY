@@ -273,14 +273,37 @@ const FirestoreService = {
                     console.error('FirestoreService.saveUser - Error al crear en Firebase Auth:', authError);
                     
                     if (authError.code === 'auth/email-already-in-use') {
-                        throw new Error('Ya existe una cuenta con este correo en Firebase');
+                        // El email ya existe en Firebase Auth pero puede que no exista en Firestore
+                        console.warn('FirestoreService.saveUser - Email ya existe en Firebase Auth, verificando en Firestore...');
+                        
+                        // Verificar si ya existe en Firestore
+                        const existingInFirestore = await this.getUserByEmail(userData.email);
+                        if (existingInFirestore) {
+                            console.warn('FirestoreService.saveUser - Usuario ya existe en Firestore también');
+                            throw new Error('Ya existe un usuario con ese correo');
+                        }
+                        
+                        // El usuario existe en Firebase Auth pero no en Firestore
+                        // Crear solo en Firestore sin password (Firebase Auth ya lo maneja)
+                        console.log('FirestoreService.saveUser - Creando registro en Firestore para usuario existente en Firebase Auth');
+                        const { password, ...safeUserData } = userData;
+                        const firestoreData = {
+                            ...safeUserData,
+                            // No podemos obtener el UID sin la contraseña, pero podemos crear el registro
+                            // El UID se actualizará cuando el usuario haga login
+                            createdAt: new Date().toISOString()
+                        };
+                        
+                        const result = await this.save(this.COLLECTIONS.USERS, firestoreData);
+                        console.log('FirestoreService.saveUser - Usuario creado en Firestore (email ya existe en Auth):', result);
+                        return result;
                     } else if (authError.code === 'auth/weak-password') {
                         throw new Error('La contrasena debe tener al menos 6 caracteres');
                     } else if (authError.code === 'auth/invalid-email') {
                         throw new Error('Correo electronico invalido');
                     }
                     
-                    // Si falla Firebase Auth, crear solo en Firestore (modo legacy)
+                    // Si falla Firebase Auth por otra razón, crear solo en Firestore (modo legacy)
                     console.warn('FirestoreService.saveUser - Creando usuario solo en Firestore (modo legacy)');
                     const result = await this.save(this.COLLECTIONS.USERS, userData);
                     console.log('FirestoreService.saveUser - Usuario creado en Firestore (legacy):', result);

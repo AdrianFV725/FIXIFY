@@ -1012,6 +1012,7 @@ const UsersModule = {
                 data.createdAt = new Date().toISOString();
                 
                 let savedUser;
+                let emailExistsInAuth = false;
                 try {
                     console.log('Intentando guardar usuario:', { email: data.email, role: data.role, name: data.name });
                     savedUser = await Store.saveUser(data);
@@ -1026,9 +1027,50 @@ const UsersModule = {
                         });
                         return;
                     }
+                } catch (error) {
+                    console.error('Error al guardar usuario:', error);
                     
-                    // Si es empleado, también guardar en la colección de empleados
-                    if (data.role === 'employee') {
+                    // Verificar si el error es porque el email ya existe en Firebase Auth
+                    if (error.message && error.message.includes('Ya existe una cuenta con este correo en Firebase')) {
+                        // Intentar crear solo en Firestore sin password
+                        console.log('Email existe en Firebase Auth, intentando crear solo en Firestore...');
+                        try {
+                            const { password, ...dataWithoutPassword } = data;
+                            savedUser = await Store.saveUser(dataWithoutPassword);
+                            emailExistsInAuth = true;
+                            console.log('Usuario creado solo en Firestore:', savedUser);
+                            
+                            // Verificar que el usuario se haya guardado correctamente
+                            if (!savedUser || !savedUser.id) {
+                                Modal.alert({
+                                    title: 'Error',
+                                    message: 'No se pudo guardar el usuario correctamente. El usuario no tiene ID.',
+                                    type: 'error'
+                                });
+                                return;
+                            }
+                        } catch (firestoreError) {
+                            console.error('Error al crear en Firestore:', firestoreError);
+                            Modal.alert({
+                                title: 'Error al crear usuario',
+                                message: firestoreError.message || 'Ocurrió un error al intentar crear el usuario. Por favor, verifica la consola para más detalles.',
+                                type: 'error'
+                            });
+                            return;
+                        }
+                    } else {
+                        Modal.alert({
+                            title: 'Error al crear usuario',
+                            message: error.message || 'Ocurrió un error al intentar crear el usuario. Por favor, verifica la consola para más detalles.',
+                            type: 'error'
+                        });
+                        return;
+                    }
+                }
+                
+                // Si es empleado, también guardar en la colección de empleados
+                if (savedUser && data.role === 'employee') {
+                    try {
                         const employeeData = {
                             id: savedUser.id,
                             name: savedUser.name,
@@ -1044,15 +1086,19 @@ const UsersModule = {
                             createdAt: savedUser.createdAt
                         };
                         await Store.saveEmployee(employeeData);
+                    } catch (employeeError) {
+                        console.error('Error al guardar empleado:', employeeError);
+                        // No bloqueamos la creación del usuario si falla guardar el empleado
                     }
-                } catch (error) {
-                    console.error('Error al guardar usuario:', error);
+                }
+                
+                // Mostrar mensaje informativo si el email ya existía en Firebase Auth
+                if (emailExistsInAuth) {
                     Modal.alert({
-                        title: 'Error al crear usuario',
-                        message: error.message || 'Ocurrió un error al intentar crear el usuario. Por favor, verifica la consola para más detalles.',
-                        type: 'error'
+                        title: 'Usuario creado',
+                        message: 'El usuario se creó exitosamente en el sistema. Nota: Este correo ya existe en Firebase Authentication. El usuario deberá usar la contraseña original para iniciar sesión.',
+                        type: 'info'
                     });
-                    return;
                 }
             }
 
