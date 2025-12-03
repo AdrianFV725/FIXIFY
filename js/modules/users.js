@@ -191,66 +191,68 @@ const UsersModule = {
             employees: this.users.filter(u => u.role === 'employee').length
         };
 
-        const inactive = stats.total - stats.active;
         const percentageActive = stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0;
 
         container.innerHTML = `
-            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem;">
-                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(59, 130, 246, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(59, 130, 246, 0.2)'">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-                        </div>
-                        <div style="text-align: right;">
-                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.total}</span>
-                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Total</span>
-                        </div>
-                    </div>
+            <div class="mini-stat stat-total">
+                <div class="mini-stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                    </svg>
                 </div>
-                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(34, 197, 94, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(34, 197, 94, 0.2)'">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div class="mini-stat-icon" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        </div>
-                        <div style="text-align: right;">
-                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.active}</span>
-                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Activos</span>
-                            <span style="display: block; font-size: 0.65rem; color: #22c55e; font-weight: 600; margin-top: 0.125rem;">${percentageActive}%</span>
-                        </div>
-                    </div>
+                <div class="mini-stat-content">
+                    <span class="mini-stat-value">${stats.total}</span>
+                    <span class="mini-stat-label">Total</span>
                 </div>
-                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(168, 85, 247, 0.05)); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(168, 85, 247, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(168, 85, 247, 0.2)'">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div class="mini-stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #a855f7; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-                        </div>
-                        <div style="text-align: right;">
-                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.admins}</span>
-                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Admins</span>
-                        </div>
-                    </div>
+            </div>
+            <div class="mini-stat stat-active">
+                <div class="mini-stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
                 </div>
-                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05)); border: 1px solid rgba(249, 115, 22, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(249, 115, 22, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(249, 115, 22, 0.2)'">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div class="mini-stat-icon" style="background: rgba(249, 115, 22, 0.15); color: #f97316; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                        </div>
-                        <div style="text-align: right;">
-                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.users}</span>
-                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Usuarios</span>
-                        </div>
-                    </div>
+                <div class="mini-stat-content">
+                    <span class="mini-stat-value">${stats.active}</span>
+                    <span class="mini-stat-label">Activos</span>
+                    <span class="mini-stat-percentage">${percentageActive}%</span>
                 </div>
-                <div class="mini-stat" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; transition: all 0.2s ease; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(59, 130, 246, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(59, 130, 246, 0.2)'">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-                        </div>
-                        <div style="text-align: right;">
-                            <span class="mini-stat-value" style="display: block; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); line-height: 1;">${stats.employees}</span>
-                            <span class="mini-stat-label" style="display: block; font-size: 0.7rem; color: var(--text-secondary); font-weight: 500; margin-top: 0.125rem;">Empleados</span>
-                        </div>
-                    </div>
+            </div>
+            <div class="mini-stat stat-admin">
+                <div class="mini-stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                        <path d="M2 17l10 5 10-5"></path>
+                        <path d="M2 12l10 5 10-5"></path>
+                    </svg>
+                </div>
+                <div class="mini-stat-content">
+                    <span class="mini-stat-value">${stats.admins}</span>
+                    <span class="mini-stat-label">Admins</span>
+                </div>
+            </div>
+            <div class="mini-stat stat-user">
+                <div class="mini-stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </div>
+                <div class="mini-stat-content">
+                    <span class="mini-stat-value">${stats.users}</span>
+                    <span class="mini-stat-label">Usuarios</span>
+                </div>
+            </div>
+            <div class="mini-stat stat-employee">
+                <div class="mini-stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                    </svg>
+                </div>
+                <div class="mini-stat-content">
+                    <span class="mini-stat-value">${stats.employees}</span>
+                    <span class="mini-stat-label">Empleados</span>
                 </div>
             </div>
         `;
@@ -261,46 +263,46 @@ const UsersModule = {
         if (!container) return;
 
         container.innerHTML = `
-            <div class="filters-wrapper" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <h3 style="margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">
+            <div class="filters-wrapper">
+                <div class="filters-header">
+                    <h3 class="filters-title">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="11" cy="11" r="8"></circle>
                             <path d="M21 21l-4.35-4.35"></path>
                         </svg>
                         Filtros
                     </h3>
-                    <button class="filter-btn" id="clearFilters" style="padding: 0.375rem 0.75rem; font-size: 0.75rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 0.25rem;" onmouseover="this.style.background='var(--border-color)'; this.style.color='var(--text-primary)'" onmouseout="this.style.background='var(--bg-tertiary)'; this.style.color='var(--text-secondary)'">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button class="filter-clear-btn" id="clearFilters">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                         Limpiar
                     </button>
                 </div>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 0.75rem; align-items: end;">
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
-                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Búsqueda</label>
-                        <div style="position: relative;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.625rem; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none;">
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label class="filter-label">Búsqueda</label>
+                        <div class="filter-input-wrapper">
+                            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="11" cy="11" r="8"></circle>
                                 <path d="M21 21l-4.35-4.35"></path>
                             </svg>
-                            <input type="text" class="filter-input" id="searchInput" placeholder="Nombre, correo..." style="width: 100%; padding: 0.625rem 0.625rem 0.625rem 2rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                            <input type="text" class="filter-input" id="searchInput" placeholder="Nombre, correo...">
                         </div>
                     </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
-                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Rol</label>
-                        <select class="filter-select" id="roleFilter" style="width: 100%; padding: 0.625rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                    <div class="filter-group">
+                        <label class="filter-label">Rol</label>
+                        <select class="filter-select" id="roleFilter">
                             <option value="">Todos</option>
                             <option value="admin">Admin</option>
                             <option value="user">Usuario</option>
                             <option value="employee">Empleado</option>
                         </select>
                     </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
-                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Estado</label>
-                        <select class="filter-select" id="statusFilter" style="width: 100%; padding: 0.625rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                    <div class="filter-group">
+                        <label class="filter-label">Estado</label>
+                        <select class="filter-select" id="statusFilter">
                             <option value="">Todos</option>
                             ${(this.employeeOptions.status || [
                                 { value: 'active', label: 'Activo' },
@@ -308,16 +310,16 @@ const UsersModule = {
                             ]).map(s => `<option value="${s.value}">${this.escapeHtml(s.label)}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
-                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Depto.</label>
-                        <select class="filter-select" id="departmentFilter" style="width: 100%; padding: 0.625rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                    <div class="filter-group">
+                        <label class="filter-label">Depto.</label>
+                        <select class="filter-select" id="departmentFilter">
                             <option value="">Todos</option>
                             ${this.departments.map(d => `<option value="${d.id}">${this.escapeHtml(d.name)}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="filter-group" style="display: flex; flex-direction: column; gap: 0.375rem;">
-                        <label class="filter-label" style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Puesto</label>
-                        <input type="text" class="filter-input" id="positionFilter" placeholder="Buscar..." style="width: 100%; padding: 0.625rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; transition: all 0.2s ease;" onfocus="this.style.borderColor='var(--accent-primary)'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)'" onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'">
+                    <div class="filter-group">
+                        <label class="filter-label">Puesto</label>
+                        <input type="text" class="filter-input" id="positionFilter" placeholder="Buscar...">
                     </div>
                 </div>
             </div>
