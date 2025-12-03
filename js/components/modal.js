@@ -232,14 +232,19 @@ const Modal = {
      */
     confirmDelete(itemName, itemType = 'registro') {
         return new Promise((resolve) => {
-            // Crear overlay
-            let overlay = document.getElementById('modalOverlay');
-            if (!overlay) {
-                overlay = document.createElement('div');
-                overlay.className = 'modal-overlay';
-                overlay.id = 'modalOverlay';
-                document.body.appendChild(overlay);
+            // Crear overlay separado para el modal de confirmación con z-index mayor
+            // para que aparezca por encima de otros modales
+            const confirmOverlayId = 'confirmDeleteModalOverlay';
+            let overlay = document.getElementById(confirmOverlayId);
+            if (overlay) {
+                overlay.remove();
             }
+            
+            overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.id = confirmOverlayId;
+            overlay.style.zIndex = '10001'; // Mayor que el z-index del modal de categorías (1000)
+            document.body.appendChild(overlay);
 
             const escapedName = Utils?.escapeHtml(itemName) || itemName;
 
@@ -296,7 +301,10 @@ const Modal = {
             // Guardar estado
             this.activeModal = {
                 overlay,
-                onClose: () => resolve(false)
+                onClose: () => {
+                    overlay.remove();
+                    resolve(false);
+                }
             };
 
             // Mostrar modal
@@ -304,16 +312,36 @@ const Modal = {
                 overlay.classList.add('active');
             });
 
-            document.body.style.overflow = 'hidden';
+            // No cambiar overflow del body si ya hay otro modal abierto
+            if (!document.getElementById('modalOverlay') && !document.getElementById('categoriesModal')) {
+                document.body.style.overflow = 'hidden';
+            }
 
             // Eventos
             const handleAction = (action) => {
+                // Eliminar el listener de escape
+                if (overlay._escapeHandler) {
+                    document.removeEventListener('keydown', overlay._escapeHandler);
+                }
+                
+                // Eliminar el overlay de confirmación
+                overlay.remove();
+                
+                // Restaurar overflow solo si no hay otros modales abiertos
+                if (!document.getElementById('modalOverlay') && !document.getElementById('categoriesModal')) {
+                    document.body.style.overflow = '';
+                }
+                
+                // Limpiar el activeModal si es este
+                if (this.activeModal && this.activeModal.overlay === overlay) {
+                    this.activeModal = null;
+                }
+                
                 if (action === 'confirm') {
                     resolve(true);
                 } else {
                     resolve(false);
                 }
-                this.close();
             };
 
             overlay.querySelectorAll('[data-action]').forEach(btn => {
@@ -331,6 +359,9 @@ const Modal = {
                 }
             };
             document.addEventListener('keydown', handleEscape);
+            
+            // Guardar referencia al listener para poder eliminarlo si es necesario
+            overlay._escapeHandler = handleEscape;
         });
     },
 

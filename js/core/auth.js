@@ -462,27 +462,42 @@ const Auth = {
         // Detectar la URL base del sitio
         const currentUrl = window.location.href;
         const urlParts = currentUrl.split('/');
+        const protocol = urlParts[0];
+        const host = urlParts[2];
         
         // Si estamos en localhost o desarrollo
-        if (currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1')) {
+        if (host.includes('localhost') || host.includes('127.0.0.1')) {
             // Usar la URL base actual
             const baseUrl = urlParts.slice(0, 3).join('/');
-            const pathParts = window.location.pathname.split('/');
+            const pathParts = window.location.pathname.split('/').filter(p => p);
             
             // Determinar si estamos en la raiz o en pages/
             if (pathParts.includes('pages')) {
-                return `${baseUrl}/${pathParts.slice(1, -1).join('/')}/reset-password.html`;
+                const pagesIndex = pathParts.indexOf('pages');
+                const pathBeforePages = pathParts.slice(0, pagesIndex).join('/');
+                return `${baseUrl}/${pathBeforePages ? pathBeforePages + '/' : ''}pages/reset-password.html`;
             } else {
                 // Encontrar el path del proyecto
-                const projectPath = pathParts.slice(1, -1).join('/');
-                return `${baseUrl}/${projectPath}/pages/reset-password.html`;
+                const projectPath = pathParts.slice(0, -1).join('/');
+                return `${baseUrl}/${projectPath ? projectPath + '/' : ''}pages/reset-password.html`;
             }
         }
         
-        // Para produccion, usar el dominio configurado en Firebase
-        // Esto deberia coincidir con los dominios autorizados en Firebase Console
-        const baseUrl = urlParts.slice(0, 3).join('/');
-        return `${baseUrl}/pages/reset-password.html`;
+        // Para produccion, usar el dominio actual
+        // Esto debe coincidir con los dominios autorizados en Firebase Console
+        const baseUrl = `${protocol}//${host}`;
+        const pathParts = window.location.pathname.split('/').filter(p => p);
+        
+        // Si estamos en pages/, usar la ruta relativa
+        if (pathParts.includes('pages')) {
+            const pagesIndex = pathParts.indexOf('pages');
+            const pathBeforePages = pathParts.slice(0, pagesIndex).join('/');
+            return `${baseUrl}/${pathBeforePages ? pathBeforePages + '/' : ''}pages/reset-password.html`;
+        }
+        
+        // Si estamos en la raiz o en otra ruta, construir la ruta completa
+        const projectPath = pathParts.slice(0, -1).join('/');
+        return `${baseUrl}/${projectPath ? projectPath + '/' : ''}pages/reset-password.html`;
     },
 
     /**
@@ -529,12 +544,19 @@ const Auth = {
                             console.log(`Correo enviado exitosamente (intento ${attempt})`);
                             return true;
                         } catch (settingsError) {
-                            // Si falla por dominio no autorizado, intentar sin settings
+                            // Si falla por dominio no autorizado, mostrar error más claro
                             if (settingsError.code === 'auth/unauthorized-continue-uri') {
-                                console.log('Dominio no autorizado, intentando sin actionCodeSettings...');
-                                await auth.sendPasswordResetEmail(email);
-                                console.log(`Correo enviado exitosamente sin settings (intento ${attempt})`);
-                                return true;
+                                console.error('ERROR: Dominio no autorizado en Firebase Console');
+                                console.error('URL intentada:', actionCodeSettings.url);
+                                console.error('Para solucionar:');
+                                console.error('1. Ve a Firebase Console > Authentication > Settings > Authorized domains');
+                                console.error('2. Agrega el dominio:', window.location.hostname);
+                                console.error('3. Si usas un dominio personalizado, agrégalo también');
+                                // Lanzar error en lugar de enviar sin settings para que el usuario sepa
+                                throw {
+                                    code: 'auth/unauthorized-continue-uri',
+                                    message: `El dominio ${window.location.hostname} no está autorizado en Firebase Console. Por favor, autoriza este dominio en Firebase Console > Authentication > Settings > Authorized domains para usar la página personalizada de restablecimiento de contraseña.`
+                                };
                             }
                             throw settingsError;
                         }
@@ -573,18 +595,12 @@ const Auth = {
                     if (checkError.code === 'auth/user-not-found') {
                         userExistsInAuth = false;
                     } else if (checkError.code === 'auth/unauthorized-continue-uri') {
-                        // Intentar sin settings para verificar
-                        try {
-                            await auth.sendPasswordResetEmail(email);
-                            userExistsInAuth = true;
-                        } catch (checkError2) {
-                            if (checkError2.code === 'auth/user-not-found') {
-                                userExistsInAuth = false;
-                            } else {
-                                // Otro error, intentar migrar
-                                userExistsInAuth = false;
-                            }
-                        }
+                        // Dominio no autorizado - no intentar sin settings
+                        console.error('ERROR: Dominio no autorizado en Firebase Console');
+                        console.error('URL intentada:', actionCodeSettings.url);
+                        console.error('Para solucionar, agrega el dominio en Firebase Console > Authentication > Settings > Authorized domains');
+                        // Continuar con la migración, pero el correo se enviará con la URL personalizada si el dominio está autorizado
+                        userExistsInAuth = false;
                     } else {
                         // Otro error, asumir que no existe y migrar
                         userExistsInAuth = false;
@@ -885,12 +901,18 @@ const Auth = {
                             console.log(`Correo enviado exitosamente a ${userEmail} (intento ${attempt})`);
                             return true;
                         } catch (settingsError) {
-                            // Si falla por dominio no autorizado, intentar sin settings
+                            // Si falla por dominio no autorizado, mostrar error más claro
                             if (settingsError.code === 'auth/unauthorized-continue-uri') {
-                                console.log('Dominio no autorizado, intentando sin actionCodeSettings...');
-                                await auth.sendPasswordResetEmail(userEmail);
-                                console.log(`Correo enviado exitosamente sin settings (intento ${attempt})`);
-                                return true;
+                                console.error('ERROR: Dominio no autorizado en Firebase Console');
+                                console.error('URL intentada:', actionCodeSettings.url);
+                                console.error('Para solucionar:');
+                                console.error('1. Ve a Firebase Console > Authentication > Settings > Authorized domains');
+                                console.error('2. Agrega el dominio:', window.location.hostname);
+                                // Lanzar error en lugar de enviar sin settings
+                                throw {
+                                    code: 'auth/unauthorized-continue-uri',
+                                    message: `El dominio ${window.location.hostname} no está autorizado en Firebase Console. Por favor, autoriza este dominio en Firebase Console > Authentication > Settings > Authorized domains para usar la página personalizada de restablecimiento de contraseña.`
+                                };
                             }
                             throw settingsError;
                         }
@@ -1351,3 +1373,4 @@ const Auth = {
 
 // Exportar para uso global
 window.Auth = Auth;
+

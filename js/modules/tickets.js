@@ -467,7 +467,7 @@ const TicketsModule = {
         };
 
         container.innerHTML = this.filteredTickets.map(t => `
-            <div class="card ticket-card" data-id="${t.id}" style="border-left: 4px solid ${this.getPriorityColor(t.priority)};">
+            <div class="card ticket-card" data-id="${t.id}" style="border-left: 4px solid ${this.getPriorityColor(t.priority)}; cursor: pointer;" data-ticket-id="${t.id}">
                 <div class="card-header">
                     <div class="card-icon" style="background: ${this.getCategoryColor(t.servicio || t.category)}20; color: ${this.getCategoryColor(t.servicio || t.category)};">
                         ${this.getCategoryIcon(t.servicio || t.category)}
@@ -514,7 +514,7 @@ const TicketsModule = {
                         </div>
                     </div>
                 </div>
-                <div class="card-footer" style="flex-wrap: wrap;">
+                <div class="card-footer" style="flex-wrap: wrap;" onclick="event.stopPropagation();">
                     ${(() => {
                         const currentUser = Auth?.getCurrentUser();
                         const isEmployee = currentUser?.role === 'employee';
@@ -556,6 +556,19 @@ const TicketsModule = {
                 </div>
             </div>
         `).join('');
+
+        // Agregar event listeners para clicks en las cards
+        container.querySelectorAll('.ticket-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                // No abrir detalle si se hizo clic en un botón
+                if (e.target.closest('button')) return;
+                
+                const ticketId = card.getAttribute('data-ticket-id');
+                if (ticketId) {
+                    this.showTicketDetail(ticketId);
+                }
+            });
+        });
     },
 
     // ========================================
@@ -654,6 +667,238 @@ const TicketsModule = {
 
     getTicketById(id) {
         return this.tickets.find(t => t.id === id);
+    },
+
+    async showTicketDetail(id) {
+        const ticket = this.getTicketById(id);
+        if (!ticket) {
+            this.showToast('Error: Ticket no encontrado', 'error');
+            return;
+        }
+
+        const currentUser = Auth?.getCurrentUser();
+        const isEmployee = currentUser?.role === 'employee';
+        const isAssigned = ticket.asignadoId === currentUser?.id;
+        const canResolve = (status) => status === 'open' || status === 'in_progress';
+        const canTake = !isEmployee && !ticket.asignadoId && (ticket.status === 'open' || ticket.status === 'in_progress');
+        const canEdit = !isEmployee;
+        const canDelete = !isEmployee;
+
+        const getTipoLabel = (tipo) => {
+            return tipo === 'requerimiento' ? 'Requerimiento' : 'Incidencia';
+        };
+
+        const getTipoColor = (tipo) => {
+            return tipo === 'requerimiento' ? '#8b5cf6' : '#ef4444';
+        };
+
+        const formatDateTime = (date) => {
+            if (!date) return '-';
+            return new Date(date).toLocaleString('es-MX', { 
+                day: '2-digit', 
+                month: 'short', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+
+        const modalContent = `
+            <div class="ticket-detail-container" style="max-height: 80vh; overflow-y: auto;">
+                <!-- Header con información principal -->
+                <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border-left: 4px solid ${this.getPriorityColor(ticket.priority)};">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                <span style="font-family: monospace; font-size: 0.85rem; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 0.25rem 0.5rem; border-radius: 4px;">${ticket.folio || '-'}</span>
+                                ${ticket.categoriaClave ? `<span style="font-family: monospace; font-size: 0.75rem; background: var(--bg-tertiary); padding: 0.25rem 0.5rem; border-radius: 4px;">${this.escapeHtml(ticket.categoriaClave)}</span>` : ''}
+                                <span class="badge" style="background: ${getTipoColor(ticket.tipo)}15; color: ${getTipoColor(ticket.tipo)}; font-size: 0.75rem;">${getTipoLabel(ticket.tipo)}</span>
+                            </div>
+                            <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary);">${this.escapeHtml(ticket.title || ticket.categoriaElemento || 'Sin titulo')}</h2>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                            ${this.getStatusBadge(ticket.status)}
+                            ${this.getPriorityBadge(ticket.priority)}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información del ticket -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 0.25rem;">Tema</div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${this.escapeHtml(ticket.tema || '-')}</div>
+                    </div>
+                    <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 0.25rem;">Servicio</div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${this.getCategoryLabel(ticket.servicio || ticket.category)}</div>
+                    </div>
+                    <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 0.25rem;">Contacto</div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${this.escapeHtml(ticket.contactoNombre || '-')}</div>
+                    </div>
+                    ${ticket.machineSerial ? `
+                    <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 0.25rem;">Máquina</div>
+                        <div style="font-weight: 600; color: var(--text-primary); font-family: monospace; font-size: 0.9rem;">${this.escapeHtml(ticket.machineSerial)}</div>
+                    </div>
+                    ` : ''}
+                    <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 0.25rem;">Asignado a</div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${this.escapeHtml(ticket.asignadoNombre || 'Sin asignar')}</div>
+                    </div>
+                    <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 0.25rem;">Creado</div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${formatDateTime(ticket.createdAt)}</div>
+                    </div>
+                    ${ticket.resolvedAt ? `
+                    <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 0.25rem;">Resuelto</div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${formatDateTime(ticket.resolvedAt)}</div>
+                    </div>
+                    ` : ''}
+                    ${ticket.resolvedBy ? `
+                    <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 0.25rem;">Resuelto por</div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${this.escapeHtml(ticket.resolvedBy)}</div>
+                    </div>
+                    ` : ''}
+                </div>
+
+                <!-- Descripción -->
+                <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-primary);">Descripción</h3>
+                    <p style="margin: 0; color: var(--text-secondary); white-space: pre-wrap; line-height: 1.6;">${this.escapeHtml(ticket.description || 'Sin descripción')}</p>
+                </div>
+
+                <!-- Solución (si existe) -->
+                ${ticket.resolution ? `
+                <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 1rem; color: var(--text-primary);">Solución</h3>
+                    <p style="margin: 0; color: var(--text-secondary); white-space: pre-wrap; line-height: 1.6;">${this.escapeHtml(ticket.resolution)}</p>
+                </div>
+                ` : ''}
+
+                <!-- Acciones -->
+                <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    ${canTake ? `
+                    <button class="btn btn-primary" data-action="take-ticket" data-ticket-id="${ticket.id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                        Tomar Ticket
+                    </button>
+                    ` : ''}
+                    ${!isEmployee && canResolve(ticket.status) && (isAssigned || currentUser?.role === 'admin') ? `
+                    <button class="btn" style="background: #22c55e; color: white;" data-action="resolve-ticket" data-ticket-id="${ticket.id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        Resolver
+                    </button>
+                    ` : ''}
+                    ${canEdit ? `
+                    <button class="btn btn-secondary" data-action="edit-ticket" data-ticket-id="${ticket.id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        Editar
+                    </button>
+                    ` : ''}
+                    ${canDelete ? `
+                    <button class="btn btn-danger" data-action="delete-ticket" data-ticket-id="${ticket.id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        Eliminar
+                    </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        // Crear overlay del modal
+        const overlayId = 'ticketDetailModalOverlay';
+        let overlay = document.getElementById(overlayId);
+        if (overlay) {
+            overlay.remove();
+        }
+
+        overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = overlayId;
+        document.body.appendChild(overlay);
+
+        overlay.innerHTML = `
+            <div class="modal modal-xl">
+                <div class="modal-header">
+                    <h2 class="modal-title">Detalle del Ticket</h2>
+                    <button class="modal-close" data-action="close">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    ${modalContent}
+                </div>
+            </div>
+        `;
+
+        // Mostrar modal
+        requestAnimationFrame(() => {
+            overlay.classList.add('active');
+        });
+
+        // Función para cerrar el modal
+        const closeModal = () => {
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                overlay.remove();
+                // Solo restaurar overflow si no hay otros modales abiertos
+                if (!document.querySelector('.modal-overlay.active')) {
+                    document.body.style.overflow = '';
+                }
+            }, 300);
+        };
+
+        // Event listeners
+        overlay.querySelector('[data-action="close"]')?.addEventListener('click', closeModal);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeModal();
+            }
+        });
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+
+        // Manejar acciones de los botones
+        overlay.querySelectorAll('[data-action]').forEach(btn => {
+            if (btn.dataset.action === 'close') return;
+            
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const action = btn.dataset.action;
+                const ticketId = btn.dataset.ticketId;
+                
+                closeModal();
+                
+                // Pequeño delay para que el modal se cierre antes de abrir otro
+                setTimeout(() => {
+                    if (action === 'take-ticket') {
+                        this.takeTicket(ticketId);
+                    } else if (action === 'resolve-ticket') {
+                        this.resolveTicket(ticketId);
+                    } else if (action === 'edit-ticket') {
+                        this.editTicket(ticketId);
+                    } else if (action === 'delete-ticket') {
+                        this.deleteTicket(ticketId);
+                    }
+                }, 100);
+            });
+        });
+
+        document.body.style.overflow = 'hidden';
     },
 
     async editTicket(id) {
@@ -1118,18 +1363,32 @@ const TicketsModule = {
         // Botón para crear nueva categoría
         createCategoryBtn?.addEventListener('click', async () => {
             await this.openQuickCategoryModal(categories, temas, servicios, async (newCategory) => {
+                // Recargar categorías para asegurar que la nueva esté disponible
                 categories = await Store.getCategories() || [];
-                temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
                 
+                // Actualizar select de temas con la nueva lista
+                temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
                 temaSelect.innerHTML = '<option value="">Seleccionar tema...</option>' +
                     temas.map(t => `<option value="${this.escapeHtml(t)}">${this.escapeHtml(t)}</option>`).join('');
                 
-                temaSelect.value = newCategory.tema || '';
-                servicioSelect.value = newCategory.servicio || '';
+                // Rellenar automáticamente todos los campos con la nueva categoría
+                if (newCategory.tema) {
+                    temaSelect.value = newCategory.tema;
+                }
+                if (newCategory.servicio) {
+                    servicioSelect.value = newCategory.servicio;
+                }
+                
+                // Establecer todos los valores de la categoría creada
                 elementoHiddenInput.value = newCategory.id;
                 elementoSearchInput.value = `[${newCategory.clave}] ${newCategory.elemento}`;
                 categoriaClaveInput.value = newCategory.clave || '';
                 categoriaElementoInput.value = newCategory.elemento || '';
+                
+                // Cerrar el dropdown si está abierto
+                if (elementoDropdown) {
+                    elementoDropdown.style.display = 'none';
+                }
             });
         });
 
@@ -1693,21 +1952,32 @@ const TicketsModule = {
         // Botón para crear nueva categoría
         createCategoryBtn.addEventListener('click', async () => {
             await this.openQuickCategoryModal(categories, temas, servicios, async (newCategory) => {
-                // Recargar categorías
+                // Recargar categorías para asegurar que la nueva esté disponible
                 categories = await Store.getCategories() || [];
-                temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
                 
-                // Actualizar select de temas
+                // Actualizar select de temas con la nueva lista
+                temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
                 temaSelect.innerHTML = '<option value="">Seleccionar tema...</option>' +
                     temas.map(t => `<option value="${this.escapeHtml(t)}">${this.escapeHtml(t)}</option>`).join('');
                 
-                // Seleccionar la nueva categoría
-                temaSelect.value = newCategory.tema || '';
-                servicioSelect.value = newCategory.servicio || '';
+                // Rellenar automáticamente todos los campos con la nueva categoría
+                if (newCategory.tema) {
+                    temaSelect.value = newCategory.tema;
+                }
+                if (newCategory.servicio) {
+                    servicioSelect.value = newCategory.servicio;
+                }
+                
+                // Establecer todos los valores de la categoría creada
                 elementoHiddenInput.value = newCategory.id;
                 elementoSearchInput.value = `[${newCategory.clave}] ${newCategory.elemento}`;
                 categoriaClaveInput.value = newCategory.clave || '';
                 categoriaElementoInput.value = newCategory.elemento || '';
+                
+                // Cerrar el dropdown si está abierto
+                if (elementoDropdown) {
+                    elementoDropdown.style.display = 'none';
+                }
             });
         });
 
@@ -1987,8 +2257,15 @@ const TicketsModule = {
                 document.getElementById('quickCategoryModal').remove();
                 
                 // Llamar callback con la nueva categoría
+                // Envolver en try-catch para que errores en el callback no muestren mensaje de error
+                // ya que la categoría ya se creó exitosamente
                 if (onSuccess) {
-                    await onSuccess(newCategory);
+                    try {
+                        await onSuccess(newCategory);
+                    } catch (callbackError) {
+                        console.error('Error en callback después de crear categoria:', callbackError);
+                        // No mostramos toast de error porque la categoría ya se creó exitosamente
+                    }
                 }
             } catch (error) {
                 console.error('Error al crear categoria:', error);
