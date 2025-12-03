@@ -768,19 +768,37 @@ const TicketsModule = {
             return;
         }
 
-        // Obtener nombre del usuario actual
-        const users = await Store.getUsers();
-        const user = users.find(u => u.id === currentUser.id || u.email === currentUser.email);
-        const userName = user?.name || currentUser.name || 'Usuario';
-
-        // Cargar categorías para el formulario
-        let categories = [];
+        // Cargar todos los datos necesarios (igual que en openTicketForm)
+        let employees = [], users = [], categories = [], machines = [], machineAssignments = [];
+        
         try {
-            categories = await Store.getCategories() || [];
-        } catch (e) {}
+            [employees, users, categories, machines, machineAssignments] = await Promise.all([
+                Store.getEmployees() || [],
+                Store.getUsers() || [],
+                Store.getCategories() || [],
+                Store.getMachines() || [],
+                Store.getMachineAssignments() || []
+            ]);
+        } catch (e) {
+            console.error('Error cargando datos para tomar ticket:', e);
+        }
 
-        // Obtener temas y servicios disponibles
+        // Obtener usuario actual de la lista de usuarios
+        const user = users.find(u => 
+            u.id === currentUser.id || 
+            (u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase())
+        );
+        const userName = user?.name || currentUser.name || 'Usuario';
+        const currentUserId = user?.id || currentUser.id;
+
+        // Determinar si se debe pre-seleccionar el usuario actual al tomar el ticket
+        // Se pre-selecciona si no hay asignado previo o si el asignado previo es el mismo usuario
+        const shouldPreselectCurrentUser = !ticket.asignadoId || ticket.asignadoId === currentUserId;
+
+        // Obtener temas unicos de las categorias
         const temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
+        
+        // Servicios disponibles
         const servicios = [
             { value: 'software', label: 'Software' },
             { value: 'hardware', label: 'Hardware' },
@@ -788,177 +806,405 @@ const TicketsModule = {
             { value: 'other', label: 'Otro' }
         ];
 
-        // Mostrar modal para tomar y completar ticket
+        // Pre-llenar título y descripción con los datos del empleado
+        const prefillTitle = ticket.title || ticket.categoriaElemento || '';
+        const prefillDescription = ticket.description || '';
+
+        // Mostrar modal para tomar ticket con la misma estructura que crear ticket
         const modalHtml = `
             <div class="modal-overlay active" id="takeTicketModal">
                 <div class="modal modal-lg" style="max-width: 700px;">
                     <div class="modal-header">
-                        <h2 class="modal-title">Tomar y Completar Ticket</h2>
+                        <h2 class="modal-title">Tomar Ticket</h2>
                         <button class="modal-close" onclick="document.getElementById('takeTicketModal').remove()">&times;</button>
                     </div>
                     <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-                        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <div style="font-family: monospace; font-size: 0.75rem; color: var(--text-tertiary);">${ticket.folio || '-'}</div>
-                            <div style="font-weight: 600; margin-top: 0.25rem;">${this.escapeHtml(ticket.title || ticket.categoriaElemento || 'Sin titulo')}</div>
-                            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
-                                ${this.escapeHtml(ticket.description || 'Sin descripcion')}
-                            </div>
-                        </div>
                         <form id="takeTicketForm" class="form">
-                            <!-- Estado del Ticket -->
+                            <!-- Tipo de Ticket -->
                             <div class="form-group">
-                                <label class="form-label">Estado <span class="required">*</span></label>
-                                <select name="status" class="form-select" required>
-                                    <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Abierto</option>
-                                    <option value="in_progress" ${ticket.status === 'in_progress' || ticket.status === 'open' ? 'selected' : ''}>En Progreso</option>
-                                    <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Resuelto</option>
-                                    <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Cerrado</option>
-                                </select>
+                                <label class="form-label">Tipo de Ticket <span class="required">*</span></label>
+                                <div class="ticket-type-toggle" style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                                    <label class="type-option ${ticket?.tipo === 'incidencia' || !ticket?.tipo ? 'active' : ''}" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1rem; border: 2px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.2s ease;">
+                                        <input type="radio" name="tipo" value="incidencia" ${ticket?.tipo === 'incidencia' || !ticket?.tipo ? 'checked' : ''} style="display: none;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                        <span>Incidencia</span>
+                                    </label>
+                                    <label class="type-option ${ticket?.tipo === 'requerimiento' ? 'active' : ''}" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1rem; border: 2px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.2s ease;">
+                                        <input type="radio" name="tipo" value="requerimiento" ${ticket?.tipo === 'requerimiento' ? 'checked' : ''} style="display: none;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                        <span>Requerimiento</span>
+                                    </label>
+                                </div>
                             </div>
 
-                            <!-- Prioridad -->
+                            <!-- Titulo -->
                             <div class="form-group">
-                                <label class="form-label">Prioridad <span class="required">*</span></label>
-                                <select name="priority" class="form-select" required>
-                                    <option value="low" ${ticket.priority === 'low' ? 'selected' : ''}>Baja</option>
-                                    <option value="medium" ${ticket.priority === 'medium' || !ticket.priority ? 'selected' : ''}>Media</option>
-                                    <option value="high" ${ticket.priority === 'high' ? 'selected' : ''}>Alta</option>
-                                    <option value="critical" ${ticket.priority === 'critical' ? 'selected' : ''}>Critica</option>
-                                </select>
+                                <label class="form-label">Titulo <span class="required">*</span></label>
+                                <input type="text" name="title" class="form-input" required value="${this.escapeHtml(prefillTitle)}" placeholder="Escribe un titulo descriptivo para el ticket...">
                             </div>
 
-                            <!-- Tema y Servicio (si no están completos) -->
-                            ${!ticket.tema || !ticket.servicio ? `
+                            <!-- Categoria: Tema > Servicio > Elemento -->
                                 <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 12px; margin-bottom: 1rem;">
-                                    <div style="font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary);">Clasificacion del Ticket</div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                    <div style="font-weight: 600; color: var(--text-primary);">Clasificacion del Ticket</div>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="takeTicketCreateCategoryBtn" style="padding: 0.4rem 0.75rem; font-size: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        </svg>
+                                        Nueva Categoria
+                                    </button>
+                                </div>
                                     <div class="form-row" style="margin-bottom: 0.75rem;">
                                         <div class="form-group" style="margin-bottom: 0;">
-                                            <label class="form-label">Tema ${!ticket.tema ? '<span class="required">*</span>' : ''}</label>
-                                            <select name="tema" id="takeTicketTema" class="form-select" ${!ticket.tema ? 'required' : ''}>
+                                        <label class="form-label">Tema <span class="required">*</span></label>
+                                        <select name="tema" id="takeTicketTema" class="form-select" required>
                                                 <option value="">Seleccionar tema...</option>
                                                 ${temas.map(t => `<option value="${this.escapeHtml(t)}" ${ticket?.tema === t ? 'selected' : ''}>${this.escapeHtml(t)}</option>`).join('')}
                                             </select>
                                         </div>
                                         <div class="form-group" style="margin-bottom: 0;">
-                                            <label class="form-label">Servicio ${!ticket.servicio ? '<span class="required">*</span>' : ''}</label>
-                                            <select name="servicio" id="takeTicketServicio" class="form-select" ${!ticket.servicio ? 'required' : ''}>
+                                        <label class="form-label">Servicio <span class="required">*</span></label>
+                                        <select name="servicio" id="takeTicketServicio" class="form-select" required>
                                                 <option value="">Seleccionar servicio...</option>
                                                 ${servicios.map(s => `<option value="${s.value}" ${ticket?.servicio === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="form-group" style="margin-bottom: 0;">
-                                        <label class="form-label">Elemento ${!ticket.categoriaId ? '<span class="required">*</span>' : ''}</label>
-                                        <select name="categoriaId" id="takeTicketElemento" class="form-select" ${!ticket.categoriaId ? 'required' : ''}>
-                                            <option value="">Seleccionar elemento...</option>
-                                            ${categories.filter(c => c.tema === ticket?.tema && c.servicio === ticket?.servicio).map(c => 
-                                                `<option value="${c.id}" ${ticket?.categoriaId === c.id ? 'selected' : ''}>[${this.escapeHtml(c.clave)}] ${this.escapeHtml(c.elemento)}</option>`
-                                            ).join('')}
-                                        </select>
+                                <div class="form-group" style="margin-bottom: 0; position: relative;">
+                                    <label class="form-label">Elemento <span class="required">*</span></label>
+                                    <div style="position: relative;">
+                                        <input type="text" id="takeTicketElementoSearch" class="form-input" placeholder="Buscar por elemento..." autocomplete="off" style="padding-right: 2.5rem;" value="${ticket?.categoriaId ? (() => { const cat = categories.find(c => c.id === ticket.categoriaId); return cat ? `[${cat.clave}] ${cat.elemento}` : ''; })() : ''}">
+                                        <input type="hidden" name="categoriaId" id="takeTicketElemento" value="${ticket?.categoriaId || ''}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none;">
+                                            <circle cx="11" cy="11" r="8"></circle>
+                                            <path d="m21 21-4.35-4.35"></path>
+                                        </svg>
                                     </div>
+                                    <div id="takeTicketElementoDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; margin-top: 0.25rem; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+                                    <small style="color: var(--text-tertiary); font-size: 0.75rem; margin-top: 0.25rem; display: block;">Selecciona un elemento de la lista</small>
                                 </div>
-                            ` : ''}
-
-                            <!-- Diagnóstico -->
-                            <div class="form-group">
-                                <label class="form-label">Diagnóstico / Análisis del Problema</label>
-                                <textarea name="diagnosis" class="form-textarea" rows="4" placeholder="Describe tu análisis del problema, posibles causas, etc...">${ticket.diagnosis || ticket.resolution || ''}</textarea>
                             </div>
 
-                            <!-- Solución (si el estado es resuelto o cerrado) -->
-                            <div class="form-group" id="solutionGroup" style="display: none;">
-                                <label class="form-label">Solución Aplicada</label>
-                                <textarea name="resolution" class="form-textarea" rows="4" placeholder="Describe la solución que aplicaste...">${ticket.resolution || ''}</textarea>
+                            <!-- Descripcion -->
+                            <div class="form-group">
+                                <label class="form-label">Descripcion <span class="required">*</span></label>
+                                <textarea name="description" class="form-textarea" required rows="3" placeholder="Describe el problema o requerimiento detalladamente...">${this.escapeHtml(prefillDescription)}</textarea>
                             </div>
 
-                            <!-- Notas adicionales -->
+                            <!-- Contacto y Maquina -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Contacto (Empleado) <span class="required">*</span></label>
+                                    <select name="contactoId" id="takeTicketContacto" class="form-select" required>
+                                        <option value="">Seleccionar empleado...</option>
+                                        ${employees.map(e => `<option value="${e.id}" ${ticket?.contactoId === e.id ? 'selected' : ''}>${this.escapeHtml(e.name || '')} ${this.escapeHtml(e.lastName || '')}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Maquina Asignada</label>
+                                    <input type="text" id="takeTicketMachineDisplay" class="form-input" readonly placeholder="Se llenara automaticamente" value="${ticket?.machineSerial || ''}" style="background: var(--bg-tertiary);">
+                                    <input type="hidden" name="machineId" id="takeTicketMachineId" value="${ticket?.machineId || ''}">
+                                    <input type="hidden" name="machineSerial" id="takeTicketMachineSerial" value="${ticket?.machineSerial || ''}">
+                                </div>
+                            </div>
+
+                            <!-- Asignado a y Prioridad -->
+                            <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Notas Adicionales</label>
-                                <textarea name="notes" class="form-textarea" rows="3" placeholder="Cualquier información adicional relevante...">${ticket.notes || ''}</textarea>
+                                    <label class="form-label">Asignado a (Tecnico)</label>
+                                    <select name="asignadoId" class="form-select">
+                                        <option value="">Sin asignar</option>
+                                        ${users.filter(u => u.status === 'active' && (u.role === 'user' || u.role === 'admin')).map(u => {
+                                            // Pre-seleccionar el usuario actual al tomar el ticket si aplica
+                                            const isCurrentUser = u.id === currentUserId || (u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase());
+                                            const shouldSelect = isCurrentUser && shouldPreselectCurrentUser;
+                                            return `<option value="${u.id}" ${shouldSelect ? 'selected' : ''}>${this.escapeHtml(u.name || u.email)}</option>`;
+                                        }).join('')}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Prioridad <span class="required">*</span></label>
+                                    <select name="priority" class="form-select" required>
+                                        <option value="low" ${ticket.priority === 'low' ? 'selected' : ''}>Baja</option>
+                                        <option value="medium" ${ticket.priority === 'medium' || !ticket.priority ? 'selected' : ''}>Media</option>
+                                        <option value="high" ${ticket.priority === 'high' ? 'selected' : ''}>Alta</option>
+                                        <option value="critical" ${ticket.priority === 'critical' ? 'selected' : ''}>Critica</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Estado -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Estado <span class="required">*</span></label>
+                                    <select name="status" class="form-select" required>
+                                        <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Abierto</option>
+                                        <option value="in_progress" ${ticket.status === 'in_progress' || ticket.status === 'open' ? 'selected' : ''}>En Progreso</option>
+                                        <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Resuelto</option>
+                                        <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Cerrado</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Comentario de Cierre / Resolucion</label>
+                                    <textarea name="resolution" class="form-textarea" rows="2" placeholder="Describe la solucion aplicada...">${this.escapeHtml(ticket.resolution || '')}</textarea>
+                                </div>
                             </div>
 
                             <input type="hidden" name="ticketId" value="${ticket.id}">
-                            <input type="hidden" name="asignadoId" value="${currentUser.id}">
-                            <input type="hidden" name="asignadoNombre" value="${this.escapeHtml(userName)}">
+                            <input type="hidden" name="contactoNombre" id="takeTicketContactoNombre" value="${ticket?.contactoNombre || ''}">
+                            <input type="hidden" name="asignadoNombre" id="takeTicketAsignadoNombre" value="${shouldPreselectCurrentUser ? userName : (ticket?.asignadoNombre || '')}">
+                            <input type="hidden" name="categoriaClave" id="takeTicketCategoriaClave" value="${ticket?.categoriaClave || ''}">
+                            <input type="hidden" name="categoriaElemento" id="takeTicketCategoriaElemento" value="${ticket?.categoriaElemento || ''}">
                         </form>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('takeTicketModal').remove()">Cancelar</button>
-                        <button type="submit" form="takeTicketForm" class="btn btn-primary" style="background: #3b82f6;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                            Tomar Ticket
-                        </button>
+                        <button type="submit" form="takeTicketForm" class="btn btn-primary">Tomar Ticket</button>
                     </div>
                 </div>
             </div>
+            <style>
+                .type-option.active {
+                    border-color: var(--accent-primary) !important;
+                    background: var(--accent-light) !important;
+                    color: var(--accent-primary) !important;
+                }
+                .type-option:hover {
+                    border-color: var(--accent-primary);
+                }
+            </style>
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        // Referencias a elementos del formulario
-        const statusSelect = document.querySelector('#takeTicketForm select[name="status"]');
-        const solutionGroup = document.getElementById('solutionGroup');
+        // Referencias a elementos (igual que en openTicketForm)
         const temaSelect = document.getElementById('takeTicketTema');
         const servicioSelect = document.getElementById('takeTicketServicio');
-        const elementoSelect = document.getElementById('takeTicketElemento');
-        const categoriaClaveInput = document.createElement('input');
-        categoriaClaveInput.type = 'hidden';
-        categoriaClaveInput.name = 'categoriaClave';
-        categoriaClaveInput.id = 'takeTicketCategoriaClave';
-        const categoriaElementoInput = document.createElement('input');
-        categoriaElementoInput.type = 'hidden';
-        categoriaElementoInput.name = 'categoriaElemento';
-        categoriaElementoInput.id = 'takeTicketCategoriaElemento';
-        document.getElementById('takeTicketForm').appendChild(categoriaClaveInput);
-        document.getElementById('takeTicketForm').appendChild(categoriaElementoInput);
+        const elementoSearchInput = document.getElementById('takeTicketElementoSearch');
+        const elementoHiddenInput = document.getElementById('takeTicketElemento');
+        const elementoDropdown = document.getElementById('takeTicketElementoDropdown');
+        const contactoSelect = document.getElementById('takeTicketContacto');
+        const machineDisplay = document.getElementById('takeTicketMachineDisplay');
+        const machineIdInput = document.getElementById('takeTicketMachineId');
+        const machineSerialInput = document.getElementById('takeTicketMachineSerial');
+        const contactoNombreInput = document.getElementById('takeTicketContactoNombre');
+        const asignadoSelect = document.querySelector('#takeTicketForm select[name="asignadoId"]');
+        const asignadoNombreInput = document.getElementById('takeTicketAsignadoNombre');
+        const categoriaClaveInput = document.getElementById('takeTicketCategoriaClave');
+        const categoriaElementoInput = document.getElementById('takeTicketCategoriaElemento');
+        const createCategoryBtn = document.getElementById('takeTicketCreateCategoryBtn');
 
-        // Mostrar/ocultar campo de solución según el estado
-        const updateSolutionVisibility = () => {
-            const status = statusSelect.value;
-            if (status === 'resolved' || status === 'closed') {
-                solutionGroup.style.display = 'block';
-                if (status === 'resolved' || status === 'closed') {
-                    solutionGroup.querySelector('textarea').required = true;
-                    solutionGroup.querySelector('label').innerHTML = 'Solución Aplicada <span class="required">*</span>';
-                }
-            } else {
-                solutionGroup.style.display = 'none';
-                solutionGroup.querySelector('textarea').required = false;
-                solutionGroup.querySelector('label').innerHTML = 'Solución Aplicada';
+        // Si hay un elemento seleccionado, mostrar su nombre
+        if (ticket?.categoriaId) {
+            const selectedCategory = categories.find(c => c.id === ticket.categoriaId);
+            if (selectedCategory && elementoSearchInput) {
+                elementoSearchInput.value = `[${selectedCategory.clave}] ${selectedCategory.elemento}`;
+                categoriaClaveInput.value = selectedCategory.clave || '';
+                categoriaElementoInput.value = selectedCategory.elemento || '';
             }
-        };
+        }
 
-        statusSelect?.addEventListener('change', updateSolutionVisibility);
-        updateSolutionVisibility(); // Ejecutar al cargar
-
-        // Funcionalidad para filtrar elementos por tema y servicio
-        if (temaSelect && servicioSelect && elementoSelect) {
-            const updateElementos = () => {
+        // Función para buscar elementos (igual que en openTicketForm)
+        const searchElementos = (query = '') => {
+            const searchTerm = query.toLowerCase().trim();
                 const tema = temaSelect.value;
                 const servicio = servicioSelect.value;
-                const filtered = categories.filter(c => 
-                    (!tema || c.tema === tema) && 
-                    (!servicio || c.servicio === servicio)
-                );
+            
+            let filtered = categories.filter(c => {
+                const matchesSearch = !searchTerm || 
+                    (c.elemento || '').toLowerCase().includes(searchTerm) ||
+                    (c.clave || '').toLowerCase().includes(searchTerm) ||
+                    (c.tema || '').toLowerCase().includes(searchTerm);
                 
-                elementoSelect.innerHTML = '<option value="">Seleccionar elemento...</option>' +
-                    filtered.map(c => `<option value="${c.id}">[${this.escapeHtml(c.clave)}] ${this.escapeHtml(c.elemento)}</option>`).join('');
-            };
+                const matchesTema = !tema || c.tema === tema;
+                const matchesServicio = !servicio || c.servicio === servicio;
+                
+                return matchesSearch && matchesTema && matchesServicio;
+            });
+            
+            if (searchTerm) {
+                filtered = categories.filter(c => 
+                    (c.elemento || '').toLowerCase().includes(searchTerm) ||
+                    (c.clave || '').toLowerCase().includes(searchTerm) ||
+                    (c.tema || '').toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            return filtered.slice(0, 10);
+        };
 
-            temaSelect.addEventListener('change', updateElementos);
-            servicioSelect.addEventListener('change', updateElementos);
-
-            // Actualizar campos ocultos cuando se selecciona elemento
-            elementoSelect.addEventListener('change', () => {
-                const selected = categories.find(c => c.id === elementoSelect.value);
+        // Función para mostrar dropdown de resultados
+        const showElementoDropdown = (results) => {
+            if (results.length === 0) {
+                elementoDropdown.innerHTML = '<div style="padding: 0.75rem; text-align: center; color: var(--text-tertiary); font-size: 0.85rem;">No se encontraron elementos</div>';
+                elementoDropdown.style.display = 'block';
+                return;
+            }
+            
+            elementoDropdown.innerHTML = results.map(cat => `
+                <div class="elemento-option" data-id="${cat.id}" style="padding: 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background 0.2s ease;" 
+                     onmouseover="this.style.background='var(--bg-tertiary)'" 
+                     onmouseout="this.style.background=''">
+                    <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem;">
+                        <code style="font-size: 0.75rem; background: var(--bg-secondary); padding: 0.15rem 0.35rem; border-radius: 4px; margin-right: 0.5rem;">${this.escapeHtml(cat.clave)}</code>
+                        ${this.escapeHtml(cat.elemento)}
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-tertiary);">
+                        ${this.escapeHtml(cat.tema)} • ${servicios.find(s => s.value === cat.servicio)?.label || cat.servicio}
+                    </div>
+                </div>
+            `).join('');
+            
+            elementoDropdown.style.display = 'block';
+            
+            elementoDropdown.querySelectorAll('.elemento-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    const categoryId = option.dataset.id;
+                    const selected = categories.find(c => c.id === categoryId);
+                    
                 if (selected) {
+                        elementoHiddenInput.value = selected.id;
+                        elementoSearchInput.value = `[${selected.clave}] ${selected.elemento}`;
+                        elementoDropdown.style.display = 'none';
+                        
+                        temaSelect.value = selected.tema || '';
+                        servicioSelect.value = selected.servicio || '';
+                        
                     categoriaClaveInput.value = selected.clave || '';
                     categoriaElementoInput.value = selected.elemento || '';
-                } else {
+                    }
+                });
+            });
+        };
+
+        // Event listener para búsqueda de elementos
+        elementoSearchInput?.addEventListener('input', (e) => {
+            const query = e.target.value;
+            if (query.length === 0) {
+                elementoDropdown.style.display = 'none';
+                elementoHiddenInput.value = '';
                     categoriaClaveInput.value = '';
                     categoriaElementoInput.value = '';
-                }
+                return;
+            }
+            
+            const results = searchElementos(query);
+            showElementoDropdown(results);
+        });
+
+        // Event listener para cuando cambian tema o servicio
+        temaSelect?.addEventListener('change', () => {
+            if (elementoSearchInput.value) {
+                const results = searchElementos(elementoSearchInput.value);
+                showElementoDropdown(results);
+            }
+        });
+        
+        servicioSelect?.addEventListener('change', () => {
+            if (elementoSearchInput.value) {
+                const results = searchElementos(elementoSearchInput.value);
+                showElementoDropdown(results);
+            }
+        });
+
+        // Cerrar dropdown al hacer click fuera
+        document.addEventListener('click', (e) => {
+            if (elementoSearchInput && elementoDropdown && !elementoSearchInput.contains(e.target) && !elementoDropdown.contains(e.target)) {
+                elementoDropdown.style.display = 'none';
+            }
+        });
+
+        // Botón para crear nueva categoría
+        createCategoryBtn?.addEventListener('click', async () => {
+            await this.openQuickCategoryModal(categories, temas, servicios, async (newCategory) => {
+                categories = await Store.getCategories() || [];
+                temas = [...new Set(categories.map(c => c.tema))].filter(Boolean);
+                
+                temaSelect.innerHTML = '<option value="">Seleccionar tema...</option>' +
+                    temas.map(t => `<option value="${this.escapeHtml(t)}">${this.escapeHtml(t)}</option>`).join('');
+                
+                temaSelect.value = newCategory.tema || '';
+                servicioSelect.value = newCategory.servicio || '';
+                elementoHiddenInput.value = newCategory.id;
+                elementoSearchInput.value = `[${newCategory.clave}] ${newCategory.elemento}`;
+                categoriaClaveInput.value = newCategory.clave || '';
+                categoriaElementoInput.value = newCategory.elemento || '';
             });
+        });
+
+        // Auto-llenado de maquina cuando se selecciona contacto
+        contactoSelect?.addEventListener('change', async () => {
+            const employeeId = contactoSelect.value;
+            const employee = employees.find(e => e.id === employeeId);
+            
+            if (employee) {
+                contactoNombreInput.value = `${employee.name || ''} ${employee.lastName || ''}`.trim();
+            } else {
+                contactoNombreInput.value = '';
+            }
+            
+            if (employeeId) {
+                const activeAssignment = machineAssignments.find(a => 
+                    a.employeeId === employeeId && !a.endDate
+                );
+                
+                if (activeAssignment) {
+                    const machine = machines.find(m => m.id === activeAssignment.machineId);
+                    if (machine) {
+                        machineIdInput.value = machine.id;
+                        machineSerialInput.value = machine.serialNumber || '';
+                        machineDisplay.value = machine.serialNumber || machine.name || 'Maquina asignada';
+                    } else {
+                        machineIdInput.value = '';
+                        machineSerialInput.value = '';
+                        machineDisplay.value = '';
+                    }
+                } else {
+                    machineIdInput.value = '';
+                    machineSerialInput.value = '';
+                    machineDisplay.value = 'Sin maquina asignada';
+                }
+            } else {
+                machineIdInput.value = '';
+                machineSerialInput.value = '';
+                machineDisplay.value = '';
+            }
+        });
+
+        // Actualizar nombre del asignado
+        asignadoSelect?.addEventListener('change', () => {
+            const selected = users.find(u => u.id === asignadoSelect.value);
+            asignadoNombreInput.value = selected ? (selected.name || selected.email) : '';
+        });
+
+        // Toggle de tipo de ticket
+        document.querySelectorAll('#takeTicketForm .type-option input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                document.querySelectorAll('#takeTicketForm .type-option').forEach(opt => opt.classList.remove('active'));
+                radio.closest('.type-option').classList.add('active');
+            });
+        });
+
+        // Auto-ejecutar lógica de contacto si ya hay uno seleccionado
+        if (contactoSelect && contactoSelect.value) {
+            contactoSelect.dispatchEvent(new Event('change'));
+        }
+
+        // Auto-ejecutar lógica de asignado - asegurar que el nombre se actualice automáticamente
+        if (asignadoSelect) {
+            // Si hay un valor seleccionado (incluyendo el usuario actual pre-seleccionado), ejecutar el evento change
+            if (asignadoSelect.value) {
+                asignadoSelect.dispatchEvent(new Event('change'));
+            } else if (shouldPreselectCurrentUser && currentUserId) {
+                // Si debería estar pre-seleccionado pero no se seleccionó automáticamente, asegurarse de que el nombre esté correcto
+                asignadoNombreInput.value = userName;
+            }
+        }
+        
+        // Asegurar que si el usuario actual está pre-seleccionado, el nombre también esté actualizado
+        if (shouldPreselectCurrentUser && currentUserId && asignadoNombreInput) {
+            asignadoNombreInput.value = userName;
         }
 
         // Submit del formulario
@@ -966,15 +1212,39 @@ const TicketsModule = {
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
+            
+            // Validar que se haya seleccionado un elemento
+            if (!elementoHiddenInput.value) {
+                this.showToast('Por favor selecciona un elemento', 'error');
+                elementoSearchInput?.focus();
+                return;
+            }
 
             try {
-                // Actualizar el ticket con los datos del formulario
-                ticket.asignadoId = data.asignadoId;
-                ticket.asignadoNombre = data.asignadoNombre;
+                // Actualizar el ticket con todos los datos del formulario
+                if (data.title) ticket.title = data.title;
+                if (data.description) ticket.description = data.description;
+                if (data.tipo) ticket.tipo = data.tipo;
+                
+                // Actualizar contacto y máquina
+                if (data.contactoId) {
+                    ticket.contactoId = data.contactoId;
+                    ticket.contactoNombre = data.contactoNombre || ticket.contactoNombre;
+                }
+                if (data.machineId) {
+                    ticket.machineId = data.machineId;
+                    ticket.machineSerial = data.machineSerial || ticket.machineSerial;
+                }
+                
+                // Actualizar asignado
+                ticket.asignadoId = data.asignadoId || currentUser.id;
+                ticket.asignadoNombre = data.asignadoNombre || userName;
+                
+                // Actualizar estado y prioridad
                 ticket.status = data.status;
                 ticket.priority = data.priority;
 
-                // Actualizar tema, servicio y categoría si se proporcionaron
+                // Actualizar tema, servicio y categoría
                 if (data.tema) ticket.tema = data.tema;
                 if (data.servicio) {
                     ticket.servicio = data.servicio;
@@ -986,8 +1256,7 @@ const TicketsModule = {
                     ticket.categoriaElemento = data.categoriaElemento || ticket.categoriaElemento;
                 }
 
-                // Agregar diagnóstico y solución
-                if (data.diagnosis) ticket.diagnosis = data.diagnosis;
+                // Actualizar resolución
                 if (data.resolution) {
                     ticket.resolution = data.resolution;
                     if (data.status === 'resolved' || data.status === 'closed') {
@@ -995,7 +1264,6 @@ const TicketsModule = {
                         ticket.resolvedBy = userName;
                     }
                 }
-                if (data.notes) ticket.notes = data.notes;
 
                 // Agregar al historial
                 ticket.history = ticket.history || [];
@@ -1003,7 +1271,7 @@ const TicketsModule = {
                     action: 'taken',
                     timestamp: new Date().toISOString(),
                     user: userName,
-                    note: `Ticket tomado por ${userName}${data.diagnosis ? '. Diagnóstico: ' + data.diagnosis.substring(0, 100) : ''}`
+                    note: `Ticket tomado por ${userName}`
                 });
 
                 await Store.saveTicket(ticket);
