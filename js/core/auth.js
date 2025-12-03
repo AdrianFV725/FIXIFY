@@ -483,9 +483,17 @@ const Auth = {
             }
         }
         
-        // Para produccion, usar el dominio actual
-        // Esto debe coincidir con los dominios autorizados en Firebase Console
-        const baseUrl = `${protocol}//${host}`;
+        // Para produccion, detectar el dominio correcto
+        // Prioridad: GitHub Pages si estamos ahí, sino el dominio actual
+        let baseUrl;
+        if (host.includes('github.io')) {
+            // Si estamos en GitHub Pages, usar ese dominio
+            baseUrl = `${protocol}//${host}`;
+        } else {
+            // Usar el dominio actual
+            baseUrl = `${protocol}//${host}`;
+        }
+        
         const pathParts = window.location.pathname.split('/').filter(p => p);
         
         // Si estamos en pages/, usar la ruta relativa
