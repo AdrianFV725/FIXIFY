@@ -484,28 +484,49 @@ const Auth = {
         }
         
         // Para produccion, detectar el dominio correcto
-        // Prioridad: GitHub Pages si estamos ahí, sino el dominio actual
         let baseUrl;
+        const pathParts = window.location.pathname.split('/').filter(p => p);
+        
         if (host.includes('github.io')) {
-            // Si estamos en GitHub Pages, usar ese dominio
+            // Si estamos en GitHub Pages
             baseUrl = `${protocol}//${host}`;
+            
+            // Si el pathname incluye el nombre del repositorio (FIXIFY), mantenerlo
+            // Si no, asumir que está en la raíz del usuario
+            if (pathParts.length > 0 && pathParts[0] !== 'pages') {
+                // El primer elemento puede ser el nombre del repositorio
+                const repoName = pathParts[0];
+                // Si estamos en pages/, construir la ruta con el repo
+                if (pathParts.includes('pages')) {
+                    return `${baseUrl}/${repoName}/pages/reset-password.html`;
+                }
+            }
+            
+            // Si estamos directamente en pages/ desde la raíz del usuario
+            if (pathParts.includes('pages')) {
+                const pagesIndex = pathParts.indexOf('pages');
+                const pathBeforePages = pathParts.slice(0, pagesIndex).join('/');
+                return `${baseUrl}/${pathBeforePages ? pathBeforePages + '/' : ''}pages/reset-password.html`;
+            }
+            
+            // Si no hay path, puede ser que GitHub Pages esté en la raíz del repo
+            // Intentar con el nombre del repositorio
+            return `${baseUrl}/FIXIFY/pages/reset-password.html`;
         } else {
             // Usar el dominio actual
             baseUrl = `${protocol}//${host}`;
+            
+            // Si estamos en pages/, usar la ruta relativa
+            if (pathParts.includes('pages')) {
+                const pagesIndex = pathParts.indexOf('pages');
+                const pathBeforePages = pathParts.slice(0, pagesIndex).join('/');
+                return `${baseUrl}/${pathBeforePages ? pathBeforePages + '/' : ''}pages/reset-password.html`;
+            }
+            
+            // Si estamos en la raiz o en otra ruta, construir la ruta completa
+            const projectPath = pathParts.slice(0, -1).join('/');
+            return `${baseUrl}/${projectPath ? projectPath + '/' : ''}pages/reset-password.html`;
         }
-        
-        const pathParts = window.location.pathname.split('/').filter(p => p);
-        
-        // Si estamos en pages/, usar la ruta relativa
-        if (pathParts.includes('pages')) {
-            const pagesIndex = pathParts.indexOf('pages');
-            const pathBeforePages = pathParts.slice(0, pagesIndex).join('/');
-            return `${baseUrl}/${pathBeforePages ? pathBeforePages + '/' : ''}pages/reset-password.html`;
-        }
-        
-        // Si estamos en la raiz o en otra ruta, construir la ruta completa
-        const projectPath = pathParts.slice(0, -1).join('/');
-        return `${baseUrl}/${projectPath ? projectPath + '/' : ''}pages/reset-password.html`;
     },
 
     /**
