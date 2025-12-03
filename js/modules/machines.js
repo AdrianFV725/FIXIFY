@@ -246,15 +246,15 @@ const MachinesModule = {
         table.innerHTML = `
             <thead>
                 <tr>
-                    <th style="width: 12%; min-width: 120px;">No. Serie</th>
-                    <th style="width: 15%; min-width: 150px;">Nombre</th>
-                    <th style="width: 15%; min-width: 150px;">Modelo</th>
-                    <th style="width: 6%; min-width: 60px;">Año</th>
-                    <th style="width: 8%; min-width: 80px;">RAM</th>
-                    <th style="width: 8%; min-width: 80px;">Disco</th>
-                    <th style="width: 10%; min-width: 100px;">SO</th>
-                    <th style="width: 12%; min-width: 120px;">Estado</th>
-                    <th style="width: 14%; min-width: 140px;">Acciones</th>
+                    <th>No. Serie</th>
+                    <th>Nombre</th>
+                    <th>Modelo</th>
+                    <th>Año</th>
+                    <th>RAM</th>
+                    <th>Disco</th>
+                    <th>SO</th>
+                    <th>Estado</th>
+                    <th class="actions-header">Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -264,22 +264,22 @@ const MachinesModule = {
                     </td></tr>
                 ` : this.filteredMachines.map(m => `
                     <tr data-id="${m.id}">
-                        <td style="font-family: monospace; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${m.serialNumber || '-'}">${m.serialNumber || '-'}</td>
-                        <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${this.escapeHtml(m.name || '')}">${this.escapeHtml(m.name || '')}</td>
-                        <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${m.model || '-'}">${m.model || '-'}</td>
-                        <td style="text-align: center;">${m.year || '-'}</td>
-                        <td style="text-align: center;">${m.ram || '-'}</td>
-                        <td style="text-align: center;">${m.disk || '-'}</td>
-                        <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.getOSLabel(m.operatingSystem)}</td>
-                        <td>${this.getStatusBadge(m.status)}</td>
-                        <td class="cell-actions" style="white-space: nowrap;">
-                            <button class="btn-icon btn-ghost sm" onclick="MachinesModule.viewMachine('${m.id}')" title="Ver detalles">
+                        <td class="cell-serial" title="${m.serialNumber || '-'}">${m.serialNumber || '-'}</td>
+                        <td class="cell-name" title="${this.escapeHtml(m.name || '')}">${this.escapeHtml(m.name || '')}</td>
+                        <td class="cell-model" title="${m.model || '-'}">${m.model || '-'}</td>
+                        <td class="cell-year">${m.year || '-'}</td>
+                        <td class="cell-ram">${m.ram || '-'}</td>
+                        <td class="cell-disk">${m.disk || '-'}</td>
+                        <td class="cell-os">${this.getOSLabel(m.operatingSystem)}</td>
+                        <td class="cell-status">${this.getStatusBadge(m.status)}</td>
+                        <td class="cell-actions">
+                            <button class="btn-icon btn-ghost sm action-btn" onclick="MachinesModule.viewMachine('${m.id}')" title="Ver detalles">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                             </button>
-                            <button class="btn-icon btn-ghost sm" onclick="MachinesModule.editMachine('${m.id}')" title="Editar">
+                            <button class="btn-icon btn-ghost sm action-btn" onclick="MachinesModule.editMachine('${m.id}')" title="Editar">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </button>
-                            <button class="btn-icon btn-ghost sm" onclick="MachinesModule.deleteMachine('${m.id}')" title="Eliminar">
+                            <button class="btn-icon btn-ghost sm action-btn action-btn-danger" onclick="MachinesModule.deleteMachine('${m.id}')" title="Eliminar">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                             </button>
                         </td>
