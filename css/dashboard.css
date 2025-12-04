@@ -2164,6 +2164,13 @@ body.dashboard-body {
     justify-content: center;
 }
 
+.machine-card .card-icon svg {
+    width: 24px;
+    height: 24px;
+    display: block;
+    flex-shrink: 0;
+}
+
 .machine-card .card-body {
     flex: 1;
 }
@@ -2254,6 +2261,13 @@ body.dashboard-body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+}
+
+.mini-stat-icon svg {
+    width: 20px;
+    height: 20px;
+    display: block;
     flex-shrink: 0;
 }
 
@@ -2624,6 +2638,13 @@ body.dashboard-body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+}
+
+.ticket-card .card-icon svg {
+    width: 22px;
+    height: 22px;
+    display: block;
     flex-shrink: 0;
 }
 

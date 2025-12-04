@@ -107,7 +107,7 @@ const TicketsModule = {
         container.innerHTML = `
             <div class="mini-stat">
                 <div class="mini-stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
                 </div>
                 <div class="mini-stat-content">
                     <span class="mini-stat-value">${stats.total}</span>
@@ -116,7 +116,7 @@ const TicketsModule = {
             </div>
             <div class="mini-stat">
                 <div class="mini-stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                 </div>
                 <div class="mini-stat-content">
                     <span class="mini-stat-value">${stats.open}</span>
@@ -125,7 +125,7 @@ const TicketsModule = {
             </div>
             <div class="mini-stat">
                 <div class="mini-stat-icon" style="background: rgba(249, 115, 22, 0.1); color: #f97316;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                 </div>
                 <div class="mini-stat-content">
                     <span class="mini-stat-value">${stats.inProgress}</span>
@@ -134,7 +134,7 @@ const TicketsModule = {
             </div>
             <div class="mini-stat">
                 <div class="mini-stat-icon" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                 </div>
                 <div class="mini-stat-content">
                     <span class="mini-stat-value">${stats.resolved}</span>
@@ -277,10 +277,10 @@ const TicketsModule = {
 
     getCategoryIcon(category) {
         const icons = {
-            hardware: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
-            software: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
-            network: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
-            other: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
+            hardware: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
+            software: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
+            network: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+            other: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
         };
         return icons[category] || icons.other;
     },
@@ -648,6 +648,11 @@ const TicketsModule = {
             if (document.getElementById('servicioFilter')) document.getElementById('servicioFilter').value = '';
             if (document.getElementById('priorityFilter')) document.getElementById('priorityFilter').value = '';
             this.applyFilters();
+        });
+
+        // Boton de exportar
+        document.getElementById('exportTicketsBtn')?.addEventListener('click', () => {
+            this.openExportModal();
         });
 
         // Boton de categorias
@@ -2825,6 +2830,310 @@ const TicketsModule = {
                 this.showToast('Error al eliminar la categoria', 'error');
             }
         }
+    },
+
+    // ========================================
+    // EXPORTACION CSV
+    // ========================================
+
+    openExportModal() {
+        // Definir todas las columnas disponibles
+        const availableColumns = [
+            { key: 'folio', label: 'Folio' },
+            { key: 'tipo', label: 'Tipo' },
+            { key: 'title', label: 'Título' },
+            { key: 'categoriaElemento', label: 'Elemento' },
+            { key: 'categoriaClave', label: 'Clave Categoría' },
+            { key: 'description', label: 'Descripción' },
+            { key: 'tema', label: 'Tema' },
+            { key: 'servicio', label: 'Servicio' },
+            { key: 'contactoNombre', label: 'Contacto' },
+            { key: 'machineSerial', label: 'Serial Máquina' },
+            { key: 'priority', label: 'Prioridad' },
+            { key: 'status', label: 'Estado' },
+            { key: 'asignadoNombre', label: 'Asignado a' },
+            { key: 'createdAt', label: 'Fecha Creación' },
+            { key: 'resolvedAt', label: 'Fecha Resolución' },
+            { key: 'resolvedBy', label: 'Resuelto por' },
+            { key: 'resolution', label: 'Solución' }
+        ];
+
+        // Columnas seleccionadas por defecto (las que están visibles en la tabla)
+        const defaultSelected = ['folio', 'tipo', 'title', 'contactoNombre', 'priority', 'status', 'createdAt'];
+        
+        // Cargar selección guardada o usar la predeterminada
+        let selectedColumns = defaultSelected;
+        try {
+            const saved = localStorage.getItem('fixify-export-columns');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                // Validar que las columnas guardadas aún existan
+                selectedColumns = parsed.filter(col => availableColumns.some(ac => ac.key === col));
+                if (selectedColumns.length === 0) {
+                    selectedColumns = defaultSelected;
+                }
+            }
+        } catch (e) {
+            console.warn('Error al cargar columnas guardadas:', e);
+        }
+
+        const modalContent = `
+            <div class="modal-header">
+                <h2 class="modal-title">Exportar Tickets a CSV</h2>
+                <button class="modal-close" data-action="close">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <p style="margin: 0 0 1.5rem 0; color: var(--text-secondary);">
+                    Selecciona las columnas que deseas incluir en la exportación CSV. 
+                    Se exportarán ${this.filteredTickets.length} ticket${this.filteredTickets.length !== 1 ? 's' : ''} (filtros aplicados).
+                </p>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+                    <span style="font-weight: 600; color: var(--text-primary);">Columnas disponibles</span>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-sm" id="selectAllColumns" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                            Seleccionar todas
+                        </button>
+                        <button class="btn btn-sm btn-secondary" id="deselectAllColumns" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                            Deseleccionar todas
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem;">
+                    ${availableColumns.map(col => `
+                        <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 6px; cursor: pointer; transition: background 0.2s; border: 1px solid var(--border-color);"
+                               onmouseover="this.style.background='var(--bg-tertiary)'"
+                               onmouseout="this.style.background='var(--bg-secondary)'">
+                            <input type="checkbox" 
+                                   class="export-column-checkbox" 
+                                   data-column="${col.key}" 
+                                   ${selectedColumns.includes(col.key) ? 'checked' : ''}
+                                   style="width: 18px; height: 18px; cursor: pointer;">
+                            <span style="font-size: 0.9rem; color: var(--text-primary); cursor: pointer;">${col.label}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
+                <button class="btn btn-secondary" data-action="close">Cancelar</button>
+                <button class="btn btn-primary" id="confirmExportBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Exportar CSV
+                </button>
+            </div>
+        `;
+
+        // Crear overlay del modal
+        const overlayId = 'exportTicketsModalOverlay';
+        let overlay = document.getElementById(overlayId);
+        if (overlay) {
+            overlay.remove();
+        }
+
+        overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = overlayId;
+        document.body.appendChild(overlay);
+
+        overlay.innerHTML = `
+            <div class="modal" style="max-width: 800px; width: 95%;">
+                ${modalContent}
+            </div>
+        `;
+
+        // Mostrar modal
+        requestAnimationFrame(() => {
+            overlay.classList.add('active');
+        });
+
+        // Función para cerrar el modal
+        const closeModal = () => {
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                overlay.remove();
+                if (!document.querySelector('.modal-overlay.active')) {
+                    document.body.style.overflow = '';
+                }
+            }, 300);
+        };
+
+        // Event listeners
+        overlay.querySelector('[data-action="close"]')?.addEventListener('click', closeModal);
+        overlay.querySelectorAll('[data-action="close"]').forEach(btn => {
+            btn.addEventListener('click', closeModal);
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeModal();
+            }
+        });
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+
+        // Seleccionar/Deseleccionar todas
+        overlay.querySelector('#selectAllColumns')?.addEventListener('click', () => {
+            overlay.querySelectorAll('.export-column-checkbox').forEach(cb => {
+                cb.checked = true;
+            });
+        });
+
+        overlay.querySelector('#deselectAllColumns')?.addEventListener('click', () => {
+            overlay.querySelectorAll('.export-column-checkbox').forEach(cb => {
+                cb.checked = false;
+            });
+        });
+
+        // Confirmar exportación
+        overlay.querySelector('#confirmExportBtn')?.addEventListener('click', () => {
+            const selected = Array.from(overlay.querySelectorAll('.export-column-checkbox:checked'))
+                .map(cb => cb.dataset.column);
+            
+            if (selected.length === 0) {
+                this.showToast('Por favor selecciona al menos una columna', 'warning');
+                return;
+            }
+
+            // Guardar selección
+            try {
+                localStorage.setItem('fixify-export-columns', JSON.stringify(selected));
+            } catch (e) {
+                console.warn('Error al guardar columnas:', e);
+            }
+
+            closeModal();
+            this.exportToCSV(selected);
+        });
+    },
+
+    exportToCSV(selectedColumns) {
+        if (!selectedColumns || selectedColumns.length === 0) {
+            this.showToast('No se seleccionaron columnas', 'error');
+            return;
+        }
+
+        if (this.filteredTickets.length === 0) {
+            this.showToast('No hay tickets para exportar', 'warning');
+            return;
+        }
+
+        // Mapeo de claves a etiquetas
+        const columnLabels = {
+            'folio': 'Folio',
+            'tipo': 'Tipo',
+            'title': 'Título',
+            'categoriaElemento': 'Elemento',
+            'categoriaClave': 'Clave Categoría',
+            'description': 'Descripción',
+            'tema': 'Tema',
+            'servicio': 'Servicio',
+            'contactoNombre': 'Contacto',
+            'machineSerial': 'Serial Máquina',
+            'priority': 'Prioridad',
+            'status': 'Estado',
+            'asignadoNombre': 'Asignado a',
+            'createdAt': 'Fecha Creación',
+            'resolvedAt': 'Fecha Resolución',
+            'resolvedBy': 'Resuelto por',
+            'resolution': 'Solución'
+        };
+
+        // Mapeo de valores para formateo
+        const formatValue = (key, value) => {
+            if (value === null || value === undefined || value === '') {
+                return '';
+            }
+
+            switch (key) {
+                case 'tipo':
+                    return value === 'requerimiento' ? 'Requerimiento' : 'Incidencia';
+                case 'priority':
+                    const priorityMap = {
+                        'low': 'Baja',
+                        'medium': 'Media',
+                        'high': 'Alta',
+                        'critical': 'Crítica'
+                    };
+                    return priorityMap[value] || value;
+                case 'status':
+                    const statusMap = {
+                        'open': 'Abierto',
+                        'in_progress': 'En Progreso',
+                        'resolved': 'Resuelto',
+                        'closed': 'Cerrado'
+                    };
+                    return statusMap[value] || value;
+                case 'createdAt':
+                case 'resolvedAt':
+                    if (value) {
+                        return new Date(value).toLocaleString('es-MX', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    }
+                    return '';
+                case 'description':
+                case 'resolution':
+                    // Limpiar saltos de línea y comillas para CSV
+                    return String(value).replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '');
+                default:
+                    // Escapar comillas y saltos de línea
+                    return String(value).replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '');
+            }
+        };
+
+        // Crear encabezados
+        const headers = selectedColumns.map(col => columnLabels[col] || col);
+
+        // Crear filas de datos
+        const rows = this.filteredTickets.map(ticket => {
+            return selectedColumns.map(col => {
+                let value = ticket[col];
+                return formatValue(col, value);
+            });
+        });
+
+        // Convertir a CSV
+        const csvContent = [
+            headers.map(h => `"${h}"`).join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        // Crear blob y descargar
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Nombre del archivo con fecha
+        const date = new Date().toISOString().split('T')[0];
+        link.download = `tickets_${date}.csv`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        this.showToast(`Exportados ${this.filteredTickets.length} tickets exitosamente`, 'success');
     },
 
     // ========================================

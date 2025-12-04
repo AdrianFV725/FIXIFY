@@ -779,7 +779,6 @@ const UsersModule = {
     bindEvents() {
         document.getElementById('newUserBtn')?.addEventListener('click', () => this.openForm());
         document.getElementById('manageDepartmentsBtn')?.addEventListener('click', () => this.openDepartmentsManager());
-        document.getElementById('optionsBtn')?.addEventListener('click', () => this.openOptionsManager());
         
         // Toggle de vistas
         const viewToggle = document.getElementById('viewToggle');

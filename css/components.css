@@ -1005,6 +1005,14 @@
     justify-content: center;
     background: var(--bg-tertiary);
     color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.card-icon svg {
+    width: 24px;
+    height: 24px;
+    display: block;
+    flex-shrink: 0;
 }
 
 .card-title {
