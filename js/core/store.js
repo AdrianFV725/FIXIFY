@@ -555,6 +555,7 @@ const Store = {
                 if (!ticket.id) {
                     ticket.folio = await this.generateFolio();
                     ticket.status = ticket.status || 'open';
+                    ticket.createdAt = new Date().toISOString();
                     ticket.comments = [];
                     ticket.history = [{
                         action: 'created',

@@ -51,11 +51,27 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
     const SLACK_BOT_TOKEN = slackBotToken.value();
     const IT_USER_ID = slackItUserId.value();
 
+    // Validar que los secrets estén disponibles
+    if (!SLACK_BOT_TOKEN || !IT_USER_ID) {
+      logger.error("Secrets de Slack no configurados correctamente", {
+        ticketId,
+        hasToken: !!SLACK_BOT_TOKEN,
+        hasUserId: !!IT_USER_ID,
+        tokenLength: SLACK_BOT_TOKEN ? SLACK_BOT_TOKEN.length : 0,
+        userIdLength: IT_USER_ID ? IT_USER_ID.length : 0,
+      });
+      return null;
+    }
+
     try {
       await sendSlackDM(ticket, ticketId, SLACK_BOT_TOKEN, IT_USER_ID);
       logger.info("Notificación enviada exitosamente", { ticketId });
     } catch (error) {
-      logger.error("Error al enviar notificación", { ticketId, error: error.message });
+      logger.error("Error al enviar notificación", { 
+        ticketId, 
+        error: error.message,
+        stack: error.stack 
+      });
       // No lanzar error para que no falle la creación del ticket
     }
 
@@ -68,12 +84,34 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
  */
 async function sendSlackDM(ticket, ticketId, SLACK_BOT_TOKEN, IT_USER_ID) {
   try {
-    // Validar que las variables de entorno estén configuradas
+    // Validar y limpiar las variables de entorno
     if (!SLACK_BOT_TOKEN || !IT_USER_ID) {
       logger.warn("Variables de entorno de Slack no configuradas, saltando notificación", {
         ticketId,
         hasToken: !!SLACK_BOT_TOKEN,
         hasUserId: !!IT_USER_ID,
+      });
+      return;
+    }
+
+    // Limpiar el token de espacios, saltos de línea y caracteres inválidos
+    const cleanToken = SLACK_BOT_TOKEN.trim().replace(/\n/g, '').replace(/\r/g, '');
+    const cleanUserId = IT_USER_ID.trim().replace(/\n/g, '').replace(/\r/g, '');
+
+    if (!cleanToken || !cleanUserId) {
+      logger.error("Token o User ID de Slack están vacíos después de limpiar", {
+        ticketId,
+        tokenLength: cleanToken ? cleanToken.length : 0,
+        userIdLength: cleanUserId ? cleanUserId.length : 0,
+      });
+      return;
+    }
+
+    // Validar formato del token
+    if (!cleanToken.startsWith('xoxb-')) {
+      logger.error("Token de Slack no tiene el formato correcto", {
+        ticketId,
+        tokenPrefix: cleanToken.substring(0, 5),
       });
       return;
     }
@@ -219,7 +257,7 @@ async function sendSlackDM(ticket, ticketId, SLACK_BOT_TOKEN, IT_USER_ID) {
 
     // Construir mensaje completo
     const message = {
-      channel: IT_USER_ID, // Mensaje directo al usuario
+      channel: cleanUserId, // Mensaje directo al usuario
       text: `🎫 Nuevo ticket creado: ${ticket.folio || ticketId}`,
       blocks: blocks,
     };
@@ -230,7 +268,7 @@ async function sendSlackDM(ticket, ticketId, SLACK_BOT_TOKEN, IT_USER_ID) {
       message,
       {
         headers: {
-          Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
+          Authorization: `Bearer ${cleanToken}`,
           "Content-Type": "application/json",
         },
       }
