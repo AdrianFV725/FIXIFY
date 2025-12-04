@@ -80,14 +80,38 @@ const LicensesModule = {
         if (!container) return;
 
         const now = new Date();
-        const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const nextMonth = new Date(currentYear, currentMonth + 1, 1);
         
-        const stats = {
-            total: this.licenses.length,
-            active: this.licenses.filter(l => !l.billingDate || new Date(l.billingDate) > now).length,
-            expiring: this.licenses.filter(l => l.billingDate && new Date(l.billingDate) <= in30Days && new Date(l.billingDate) > now).length,
-            expired: this.licenses.filter(l => l.billingDate && new Date(l.billingDate) < now).length
-        };
+        // Calcular estadísticas basadas en facturación
+        const totalCost = this.licenses.reduce((sum, l) => {
+            if (l.isBilling && l.cost) {
+                // Calcular costo mensual según periodicidad
+                const monthlyCost = this.getMonthlyCost(l);
+                return sum + monthlyCost;
+            }
+            return sum;
+        }, 0);
+        
+        const billingThisMonth = this.licenses.filter(l => {
+            if (!l.billingDate || !l.isBilling) return false;
+            const billDate = new Date(l.billingDate);
+            return billDate.getMonth() === currentMonth && billDate.getFullYear() === currentYear;
+        }).length;
+        
+        const billingNextMonth = this.licenses.filter(l => {
+            if (!l.billingDate || !l.isBilling) return false;
+            const billDate = new Date(l.billingDate);
+            return billDate.getMonth() === nextMonth.getMonth() && billDate.getFullYear() === nextMonth.getFullYear();
+        }).length;
+        
+        const assignedCount = this.licenses.reduce((sum, l) => {
+            const assigned = (this.licenseAssignments || []).filter(a => 
+                a && a.licenseId === l.id && !a.endDate
+            ).length;
+            return sum + assigned;
+        }, 0);
 
         container.innerHTML = `
             <div class="mini-stat">
@@ -95,7 +119,7 @@ const LicensesModule = {
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                 </div>
                 <div class="mini-stat-content">
-                    <span class="mini-stat-value">${stats.total}</span>
+                    <span class="mini-stat-value">${this.licenses.length}</span>
                     <span class="mini-stat-label">Total Licencias</span>
                 </div>
             </div>
@@ -104,8 +128,8 @@ const LicensesModule = {
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
                 <div class="mini-stat-content">
-                    <span class="mini-stat-value">${stats.active}</span>
-                    <span class="mini-stat-label">Activas</span>
+                    <span class="mini-stat-value">${assignedCount}</span>
+                    <span class="mini-stat-label">Asignadas</span>
                 </div>
             </div>
             <div class="mini-stat">
@@ -113,20 +137,43 @@ const LicensesModule = {
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M12 14h.01"></path><path d="M8 18h8"></path></svg>
                 </div>
                 <div class="mini-stat-content">
-                    <span class="mini-stat-value">${stats.expiring}</span>
-                    <span class="mini-stat-label">Por Vencer (30d)</span>
+                    <span class="mini-stat-value">${billingThisMonth}</span>
+                    <span class="mini-stat-label">Facturación Este Mes</span>
                 </div>
             </div>
             <div class="mini-stat">
-                <div class="mini-stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                <div class="mini-stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                 </div>
                 <div class="mini-stat-content">
-                    <span class="mini-stat-value">${stats.expired}</span>
-                    <span class="mini-stat-label">Vencidas</span>
+                    <span class="mini-stat-value">${this.formatCurrency(totalCost)}</span>
+                    <span class="mini-stat-label">Costo Mensual</span>
                 </div>
             </div>
         `;
+    },
+    
+    getMonthlyCost(license) {
+        if (!license.cost || !license.periodicity) return 0;
+        
+        const cost = parseFloat(license.cost) || 0;
+        const periodicity = license.periodicity;
+        
+        switch(periodicity) {
+            case 'monthly': return cost;
+            case 'quarterly': return cost / 3;
+            case 'semiannual': return cost / 6;
+            case 'annual': return cost / 12;
+            case 'one-time': return 0; // Pago único no se cuenta como mensual
+            default: return cost;
+        }
+    },
+    
+    formatCurrency(amount) {
+        if (amount === 0) return '$0';
+        if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+        if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
+        return `$${Math.round(amount).toLocaleString('es-MX')}`;
     },
 
     renderAlerts() {
@@ -134,42 +181,45 @@ const LicensesModule = {
         if (!container) return;
 
         const now = new Date();
-        const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
         
-        const expiring = this.licenses.filter(l => 
-            l.billingDate && 
-            new Date(l.billingDate) <= in30Days && 
-            new Date(l.billingDate) > now
-        );
+        // Mostrar alertas de facturación próxima (próximos 7 días)
+        const upcomingBilling = this.licenses.filter(l => {
+            if (!l.billingDate || !l.isBilling) return false;
+            const billDate = new Date(l.billingDate);
+            return billDate >= now && billDate <= nextWeek;
+        });
         
-        const expired = this.licenses.filter(l => 
-            l.billingDate && 
-            new Date(l.billingDate) < now
+        // Mostrar alertas de facturación sin tarjeta registrada
+        const missingCard = this.licenses.filter(l => 
+            l.isBilling && (!l.cardLastFour || l.cardLastFour.length !== 4)
         );
 
         // Ocultar si no hay alertas
-        if (expiring.length === 0 && expired.length === 0) {
+        if (upcomingBilling.length === 0 && missingCard.length === 0) {
             container.style.display = 'none';
             return;
         }
 
         container.style.display = 'flex';
         
-        if (expired.length > 0) {
-            container.className = 'alerts-banner';
-            container.innerHTML = `
-                <div class="alert-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
-                </div>
-                <span class="alert-text">Tienes ${expired.length} licencia(s) vencida(s) que requieren atencion.</span>
-            `;
-        } else if (expiring.length > 0) {
+        if (missingCard.length > 0) {
             container.className = 'alerts-banner warning';
             container.innerHTML = `
                 <div class="alert-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                 </div>
-                <span class="alert-text">Tienes ${expiring.length} licencia(s) por vencer en los proximos 30 dias.</span>
+                <span class="alert-text">${missingCard.length} licencia(s) en facturación sin tarjeta registrada.</span>
+            `;
+        } else if (upcomingBilling.length > 0) {
+            container.className = 'alerts-banner';
+            container.innerHTML = `
+                <div class="alert-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                </div>
+                <span class="alert-text">${upcomingBilling.length} licencia(s) con facturación en los próximos 7 días.</span>
             `;
         }
     },
@@ -227,15 +277,16 @@ const LicensesModule = {
         
         const formatDate = (date) => date ? new Date(date).toLocaleDateString('es-MX') : '-';
         
-        const getStatus = (billingDate) => {
-            if (!billingDate) return '<span class="badge badge-active">Activa</span>';
-            const bill = new Date(billingDate);
-            const now = new Date();
-            const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const getStatus = (license) => {
+            if (!license.isBilling) return '<span class="badge badge-active">Activa</span>';
+            if (!license.billingDate) return '<span class="badge badge-active">Activa</span>';
             
-            if (bill < now) return '<span class="badge badge-inactive">Vencida</span>';
-            if (bill <= in30Days) return '<span class="badge badge-maintenance">Por Vencer</span>';
-            return '<span class="badge badge-active">Activa</span>';
+            // Verificar si tiene tarjeta registrada
+            if (!license.cardLastFour || license.cardLastFour.length !== 4) {
+                return '<span class="badge badge-maintenance">Sin Tarjeta</span>';
+            }
+            
+            return '<span class="badge badge-active">En Facturación</span>';
         };
 
         tableContainer.innerHTML = `
@@ -284,7 +335,7 @@ const LicensesModule = {
                                 </div>
                             </td>
                             <td>${formatDate(l.billingDate)}</td>
-                            <td>${getStatus(l.billingDate)}</td>
+                            <td>${getStatus(l)}</td>
                             <td onclick="event.stopPropagation();">
                                 <button class="btn-icon sm" onclick="LicensesModule.editLicense('${l.id}')" title="Editar">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>

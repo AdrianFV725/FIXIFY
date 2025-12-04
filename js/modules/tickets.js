@@ -276,23 +276,37 @@ const TicketsModule = {
     },
 
     getCategoryIcon(category) {
+        // Normalizar el valor de category
+        if (!category) return this.getCategoryIcon('other');
+        
+        const normalizedCategory = String(category).toLowerCase().trim();
+        
         const icons = {
             hardware: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
             software: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
             network: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+            red: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+            otro: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
             other: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
         };
-        return icons[category] || icons.other;
+        return icons[normalizedCategory] || icons.other;
     },
 
     getCategoryColor(category) {
+        // Normalizar el valor de category
+        if (!category) return '#6b7280';
+        
+        const normalizedCategory = String(category).toLowerCase().trim();
+        
         const colors = {
             hardware: '#3b82f6',
             software: '#a855f7',
             network: '#22c55e',
+            red: '#22c55e',
+            otro: '#6b7280',
             other: '#6b7280'
         };
-        return colors[category] || colors.other;
+        return colors[normalizedCategory] || colors.other;
     },
 
     getPriorityColor(priority) {
@@ -470,7 +484,7 @@ const TicketsModule = {
             <div class="card ticket-card" data-id="${t.id}" style="border-left: 4px solid ${this.getPriorityColor(t.priority)}; cursor: pointer;" data-ticket-id="${t.id}">
                 <div class="card-header">
                     <div class="card-icon" style="background: ${this.getCategoryColor(t.servicio || t.category)}20; color: ${this.getCategoryColor(t.servicio || t.category)};">
-                        ${this.getCategoryIcon(t.servicio || t.category)}
+                        ${this.getCategoryIcon(t.servicio || t.category || 'other')}
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;">
                         <span class="badge" style="background: ${getTipoColor(t.tipo)}15; color: ${getTipoColor(t.tipo)}; font-size: 0.7rem;">${getTipoLabel(t.tipo)}</span>

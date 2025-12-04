@@ -59,7 +59,7 @@ const DashboardModule = {
                 tickets: { open: 0 },
                 machines: { assigned: 0 },
                 employees: { total: 0 },
-                licenses: { expiring: 0 }
+                licenses: { billing: 0 }
             };
         }
 
@@ -90,7 +90,7 @@ const DashboardModule = {
                 icon: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>`,
                 href: 'licenses.html',
                 shortcut: 'licenses',
-                badge: stats.licenses?.expiring || 0
+                badge: 0
             },
             {
                 label: 'Asignaciones',
@@ -276,21 +276,41 @@ const DashboardModule = {
                 });
             });
 
-            // Licencias próximas a vencer (menos de 7 días)
+            // Licencias con facturación próxima (próximos 7 días) o sin tarjeta
             const licenses = await Store.getLicenses();
-            const expiringSoon = licenses.filter(l => {
-                const date = l.billingDate || l.expirationDate;
-                const daysLeft = this.daysUntil(date);
-                return daysLeft > 0 && daysLeft <= 7;
+            const now = new Date();
+            const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            
+            const upcomingBilling = licenses.filter(l => {
+                if (!l.isBilling) return false;
+                if (l.billingDate) {
+                    const billDate = new Date(l.billingDate);
+                    return billDate >= now && billDate <= nextWeek;
+                }
+                return false;
             }).slice(0, 3);
+            
+            const missingCard = licenses.filter(l => 
+                l.isBilling && (!l.cardLastFour || l.cardLastFour.length !== 4)
+            ).slice(0, 2);
 
-            expiringSoon.forEach(license => {
-                const date = license.billingDate || license.expirationDate;
-                const daysLeft = this.daysUntil(date);
+            upcomingBilling.forEach(license => {
+                const billDate = new Date(license.billingDate);
+                const daysLeft = this.daysUntil(license.billingDate);
                 alerts.push({
                     type: daysLeft <= 3 ? 'urgent' : 'warning',
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`,
+                    title: `Facturación en ${daysLeft} día${daysLeft > 1 ? 's' : ''}`,
+                    description: license.software,
+                    href: `licenses.html#${license.id}`
+                });
+            });
+            
+            missingCard.forEach(license => {
+                alerts.push({
+                    type: 'warning',
                     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`,
-                    title: `Licencia vence en ${daysLeft} día${daysLeft > 1 ? 's' : ''}`,
+                    title: 'Sin tarjeta registrada',
                     description: license.software,
                     href: `licenses.html#${license.id}`
                 });
@@ -403,7 +423,7 @@ const DashboardModule = {
                 tickets: { open: 0 },
                 machines: { assigned: 0, available: 0 },
                 employees: { total: 0, active: 0 },
-                licenses: { expiring: 0 }
+                licenses: { billing: 0 }
             };
         }
 
@@ -429,11 +449,11 @@ const DashboardModule = {
                 color: '#a855f7'
             },
             {
-                label: 'Licencias por Vencer',
-                value: stats.licenses?.expiring || 0,
-                icon: (stats.licenses?.expiring || 0) > 0 ? 'warning' : 'licenses',
-                subtext: 'Proximos 30 dias',
-                color: (stats.licenses?.expiring || 0) > 0 ? '#ef4444' : '#f97316'
+                label: 'En Facturación',
+                value: stats.licenses?.billing || 0,
+                icon: 'licenses',
+                subtext: 'Con tarjeta domiciliada',
+                color: '#8b5cf6'
             }
         ];
 
@@ -613,39 +633,59 @@ const DashboardModule = {
 
         let licenses = [];
         try {
-            licenses = await Store.getExpiringLicenses(30) || [];
+            licenses = await Store.getLicenses() || [];
         } catch (e) {
             console.warn('No se pudieron obtener licencias');
         }
 
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const nextMonth = new Date(currentYear, currentMonth + 1, 1);
+        
+        // Filtrar licencias con facturación este mes o próximo mes
+        const upcomingBilling = licenses
+            .filter(l => {
+                if (!l.isBilling || !l.billingDate) return false;
+                const billDate = new Date(l.billingDate);
+                const billMonth = billDate.getMonth();
+                const billYear = billDate.getFullYear();
+                return (billMonth === currentMonth && billYear === currentYear) || 
+                       (billMonth === nextMonth.getMonth() && billYear === nextMonth.getFullYear());
+            })
+            .sort((a, b) => new Date(a.billingDate) - new Date(b.billingDate))
+            .slice(0, 5);
+
         container.innerHTML = `
             <h3 class="stat-title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #f97316;">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #8b5cf6;">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><line x1="12" y1="14" x2="12" y2="18"></line>
                 </svg>
-                Licencias por Vencer
+                Próximas Facturaciones
             </h3>
-            ${licenses.length === 0 ? `
-                <p style="color: var(--text-tertiary); padding: 1rem 0;">No hay licencias próximas a vencer</p>
+            ${upcomingBilling.length === 0 ? `
+                <p style="color: var(--text-tertiary); padding: 1rem 0;">No hay facturaciones programadas</p>
             ` : `
                 <div class="stat-list">
-                    ${licenses.map(license => {
-                        const date = license.billingDate || license.expirationDate;
-                        const daysLeft = this.daysUntil(date);
+                    ${upcomingBilling.map(license => {
+                        const billDate = new Date(license.billingDate);
+                        const daysLeft = this.daysUntil(license.billingDate);
+                        const isThisMonth = billDate.getMonth() === currentMonth && billDate.getFullYear() === currentYear;
                         const urgency = daysLeft <= 7 ? 'danger' : daysLeft <= 15 ? 'warning' : 'info';
-                        const bgColor = daysLeft <= 7 ? 'rgba(239, 68, 68, 0.15)' : daysLeft <= 15 ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)';
-                        const iconColor = daysLeft <= 7 ? '#ef4444' : daysLeft <= 15 ? '#f97316' : '#3b82f6';
+                        const bgColor = isThisMonth ? 'rgba(139, 92, 246, 0.15)' : 'rgba(59, 130, 246, 0.15)';
+                        const iconColor = isThisMonth ? '#8b5cf6' : '#3b82f6';
+                        const monthlyCost = this.getMonthlyCost(license);
                         
                         return `
                             <a href="licenses.html#${license.id}" class="stat-item" style="text-decoration: none; color: inherit;">
                                 <div class="stat-item-icon" style="background: ${bgColor}; color: ${iconColor};">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                                 </div>
                                 <div class="stat-item-content">
                                     <div class="stat-item-title">${this.escapeHtml(license.software)}</div>
-                                    <div class="stat-item-subtitle">Facturación: ${this.formatDate(date)}</div>
+                                    <div class="stat-item-subtitle">${this.formatDate(license.billingDate)} ${monthlyCost > 0 ? `• ${this.formatCurrency(monthlyCost)}/mes` : ''}</div>
                                 </div>
-                                <span class="badge badge-${urgency === 'danger' ? 'high' : urgency === 'warning' ? 'medium' : 'low'}">${daysLeft} día${daysLeft !== 1 ? 's' : ''}</span>
+                                ${daysLeft >= 0 ? `<span class="badge badge-${urgency === 'danger' ? 'high' : urgency === 'warning' ? 'medium' : 'low'}">${daysLeft === 0 ? 'Hoy' : daysLeft === 1 ? 'Mañana' : `${daysLeft} días`}</span>` : ''}
                             </a>
                         `;
                     }).join('')}
@@ -653,6 +693,29 @@ const DashboardModule = {
                 <a href="licenses.html" class="btn btn-ghost btn-sm" style="width: 100%; margin-top: 1rem;">Ver todas las licencias</a>
             `}
         `;
+    },
+    
+    getMonthlyCost(license) {
+        if (!license.cost || !license.periodicity) return 0;
+        
+        const cost = parseFloat(license.cost) || 0;
+        const periodicity = license.periodicity;
+        
+        switch(periodicity) {
+            case 'monthly': return cost;
+            case 'quarterly': return cost / 3;
+            case 'semiannual': return cost / 6;
+            case 'annual': return cost / 12;
+            case 'one-time': return 0;
+            default: return cost;
+        }
+    },
+    
+    formatCurrency(amount) {
+        if (amount === 0) return '$0';
+        if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+        if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
+        return `$${Math.round(amount).toLocaleString('es-MX')}`;
     },
 
     getStatusLabel(status) {

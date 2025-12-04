@@ -665,9 +665,9 @@ const AnalyticsModule = {
             csv += `RESUMEN DE LICENCIAS\n`;
             csv += `Metrica,Valor\n`;
             csv += `Total Licencias,${licenseMetrics.total}\n`;
-            csv += `Activas,${licenseMetrics.active}\n`;
-            csv += `Por Vencer,${licenseMetrics.expiringSoon}\n`;
-            csv += `Vencidas,${licenseMetrics.expired}\n\n`;
+            csv += `En Facturación,${licenseMetrics.billing}\n`;
+            csv += `Sin Tarjeta,${licenseMetrics.missingCard}\n`;
+            csv += `Costo Mensual,${licenseMetrics.monthlyCost}\n\n`;
         }
 
         if (options.includeInsights && insights.length > 0) {
@@ -764,8 +764,9 @@ const AnalyticsModule = {
             txt += `${'─'.repeat(50)}\n\n`;
             txt += `  Total de Licencias:      ${licenseMetrics.total}\n`;
             txt += `  Activas:                 ${licenseMetrics.active}\n`;
-            txt += `  Por Vencer (30 dias):    ${licenseMetrics.expiringSoon}\n`;
-            txt += `  Vencidas:                ${licenseMetrics.expired}\n\n`;
+            txt += `  En Facturación:          ${licenseMetrics.billing}\n`;
+            txt += `  Sin Tarjeta:             ${licenseMetrics.missingCard}\n`;
+            txt += `  Costo Mensual:           $${licenseMetrics.monthlyCost.toLocaleString('es-MX')}\n\n`;
         }
 
         if (options.includeInsights && insights.length > 0) {
@@ -990,23 +991,45 @@ const AnalyticsModule = {
     getLicenseMetrics() {
         const { licenses = [] } = this.data;
         const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const nextMonth = new Date(currentYear, currentMonth + 1, 1);
 
-        // Licencias por estado de vencimiento
-        const expiringSoon = licenses.filter(l => {
-            if (l.expirationDate) {
-                const expDate = new Date(l.expirationDate);
-                const daysUntilExpiry = (expDate - now) / (1000 * 60 * 60 * 24);
-                return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
-            }
-            return false;
-        });
+        // Licencias en facturación (con tarjeta domiciliada)
+        const billingLicenses = licenses.filter(l => 
+            l.isBilling && l.cardLastFour && l.cardLastFour.length === 4
+        );
 
-        const expired = licenses.filter(l => {
-            if (l.expirationDate) {
-                return new Date(l.expirationDate) < now;
+        // Licencias sin tarjeta registrada pero en facturación
+        const missingCard = licenses.filter(l => 
+            l.isBilling && (!l.cardLastFour || l.cardLastFour.length !== 4)
+        );
+
+        // Próximas facturaciones (este mes o próximo mes)
+        const upcomingBilling = licenses.filter(l => {
+            if (!l.isBilling || !l.billingDate) return false;
+            const billDate = new Date(l.billingDate);
+            const billMonth = billDate.getMonth();
+            const billYear = billDate.getFullYear();
+            return (billMonth === currentMonth && billYear === currentYear) || 
+                   (billMonth === nextMonth.getMonth() && billYear === nextMonth.getFullYear());
+        }).sort((a, b) => new Date(a.billingDate) - new Date(b.billingDate));
+
+        // Calcular costo mensual total
+        const getMonthlyCost = (license) => {
+            if (!license.cost || !license.periodicity) return 0;
+            const cost = parseFloat(license.cost) || 0;
+            switch(license.periodicity) {
+                case 'monthly': return cost;
+                case 'quarterly': return cost / 3;
+                case 'semiannual': return cost / 6;
+                case 'annual': return cost / 12;
+                case 'one-time': return 0;
+                default: return cost;
             }
-            return false;
-        });
+        };
+
+        const monthlyCost = billingLicenses.reduce((sum, l) => sum + getMonthlyCost(l), 0);
 
         // Licencias por tipo
         const byType = {};
@@ -1015,17 +1038,13 @@ const AnalyticsModule = {
             byType[type] = (byType[type] || 0) + 1;
         });
 
-        // Costo total (si hay datos de costo)
-        const totalCost = licenses.reduce((acc, l) => acc + (parseFloat(l.cost) || 0), 0);
-
         return {
             total: licenses.length,
-            expiringSoon: expiringSoon.length,
-            expired: expired.length,
-            active: licenses.length - expired.length,
+            billing: billingLicenses.length,
+            missingCard: missingCard.length,
+            monthlyCost,
             byType,
-            totalCost,
-            expiringList: expiringSoon.slice(0, 5)
+            upcomingBilling: upcomingBilling.slice(0, 5)
         };
     },
 
@@ -1093,25 +1112,31 @@ const AnalyticsModule = {
             });
         }
 
-        // Insight: Licencias por vencer
-        if (licenseMetrics.expiringSoon > 0) {
+        // Insight: Licencias sin tarjeta registrada
+        if (licenseMetrics.missingCard > 0) {
             insights.push({
                 type: 'warning',
-                icon: 'calendar',
-                title: 'Licencias por Vencer',
-                message: `${licenseMetrics.expiringSoon} licencia(s) venceran en los proximos 30 dias.`,
-                metric: licenseMetrics.expiringSoon
+                icon: 'credit-card',
+                title: 'Licencias Sin Tarjeta',
+                message: `${licenseMetrics.missingCard} licencia(s) en facturación sin tarjeta registrada.`,
+                metric: licenseMetrics.missingCard
             });
         }
 
-        // Insight: Licencias vencidas
-        if (licenseMetrics.expired > 0) {
+        // Insight: Costo mensual de licencias
+        if (licenseMetrics.monthlyCost > 0) {
+            const costFormatted = licenseMetrics.monthlyCost >= 1000000 
+                ? `$${(licenseMetrics.monthlyCost / 1000000).toFixed(1)}M`
+                : licenseMetrics.monthlyCost >= 1000
+                ? `$${(licenseMetrics.monthlyCost / 1000).toFixed(1)}K`
+                : `$${Math.round(licenseMetrics.monthlyCost).toLocaleString('es-MX')}`;
+            
             insights.push({
-                type: 'danger',
-                icon: 'x-circle',
-                title: 'Licencias Vencidas',
-                message: `${licenseMetrics.expired} licencia(s) ya estan vencidas y requieren renovacion.`,
-                metric: licenseMetrics.expired
+                type: 'info',
+                icon: 'dollar-sign',
+                title: 'Costo Mensual de Licencias',
+                message: `El costo mensual total de licencias es ${costFormatted}.`,
+                metric: licenseMetrics.monthlyCost
             });
         }
 
@@ -1183,7 +1208,7 @@ const AnalyticsModule = {
                 ${this.renderKPICard('Tiempo Promedio', this.formatTime(ticketMetrics.avgResolutionTime), 'de resolucion', '#f97316', 'clock')}
                 ${this.renderKPICard('Maquinas', machineMetrics.total, machineMetrics.assignedCount + ' asignadas', '#8b5cf6', 'monitor')}
                 ${this.renderKPICard('Empleados', employeeMetrics.total, employeeMetrics.byStatus.active + ' activos', '#ec4899', 'users')}
-                ${this.renderKPICard('Licencias', licenseMetrics.total, licenseMetrics.expiringSoon + ' por vencer', '#14b8a6', 'key')}
+                ${this.renderKPICard('Licencias', licenseMetrics.total, licenseMetrics.billing + ' en facturación', '#14b8a6', 'key')}
             </section>
 
             <!-- Insights y Alertas -->
@@ -1445,16 +1470,16 @@ const AnalyticsModule = {
                         <h3 class="card-title">Estado General</h3>
                         <div class="license-overview">
                             <div class="license-stat">
-                                <div class="license-value" style="color: #22c55e;">${licenseMetrics.active}</div>
-                                <div class="license-label">Activas</div>
+                                <div class="license-value" style="color: #22c55e;">${licenseMetrics.total}</div>
+                                <div class="license-label">Total</div>
                             </div>
                             <div class="license-stat">
-                                <div class="license-value" style="color: #f97316;">${licenseMetrics.expiringSoon}</div>
-                                <div class="license-label">Por Vencer</div>
+                                <div class="license-value" style="color: #8b5cf6;">${licenseMetrics.billing}</div>
+                                <div class="license-label">En Facturación</div>
                             </div>
                             <div class="license-stat">
-                                <div class="license-value" style="color: #ef4444;">${licenseMetrics.expired}</div>
-                                <div class="license-label">Vencidas</div>
+                                <div class="license-value" style="color: ${licenseMetrics.missingCard > 0 ? '#f97316' : '#22c55e'};">${licenseMetrics.missingCard}</div>
+                                <div class="license-label">Sin Tarjeta</div>
                             </div>
                         </div>
                     </div>
@@ -1479,19 +1504,23 @@ const AnalyticsModule = {
                     </div>
 
                     <div class="analytics-card">
-                        <h3 class="card-title">Proximos Vencimientos</h3>
-                        ${licenseMetrics.expiringList.length === 0 ? `
-                            <p class="empty-message success">No hay licencias por vencer pronto</p>
+                        <h3 class="card-title">Próximas Facturaciones</h3>
+                        ${licenseMetrics.upcomingBilling.length === 0 ? `
+                            <p class="empty-message success">No hay facturaciones programadas</p>
                         ` : `
                             <div class="expiring-list">
-                                ${licenseMetrics.expiringList.map(l => `
+                                ${licenseMetrics.upcomingBilling.map(l => {
+                                    const monthlyCost = this.getMonthlyCost(l);
+                                    return `
                                     <div class="expiring-item">
                                         <span class="expiring-name">${this.escapeHtml(l.software || l.name || 'Sin nombre')}</span>
-                                        <span class="expiring-date">${this.formatDate(l.expirationDate)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    `}
+                                        <span class="expiring-date">${this.formatDate(l.billingDate)} ${monthlyCost > 0 ? `• $${Math.round(monthlyCost).toLocaleString('es-MX')}/mes` : ''}</span>
+                                    </div>
+                                `;
+                                }).join('')}
+                            </div>
+                        `}
+                    </div>
                 </div>
             </div>
             </section>
@@ -2044,6 +2073,22 @@ const AnalyticsModule = {
             'user-x': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>'
         };
         return icons[name] || '';
+    },
+
+    getMonthlyCost(license) {
+        if (!license.cost || !license.periodicity) return 0;
+        
+        const cost = parseFloat(license.cost) || 0;
+        const periodicity = license.periodicity;
+        
+        switch(periodicity) {
+            case 'monthly': return cost;
+            case 'quarterly': return cost / 3;
+            case 'semiannual': return cost / 6;
+            case 'annual': return cost / 12;
+            case 'one-time': return 0;
+            default: return cost;
+        }
     },
 
     formatTime(hours) {

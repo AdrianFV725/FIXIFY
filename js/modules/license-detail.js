@@ -88,7 +88,7 @@ const LicenseDetailModule = {
         const totalQuantity = this.license.quantity || 0;
         const available = totalQuantity > 0 ? totalQuantity - assignedCount : 0;
         const usagePercent = totalQuantity > 0 ? (assignedCount / totalQuantity) * 100 : 0;
-        const isExpired = this.license.billingDate && new Date(this.license.billingDate) < new Date();
+        const hasCard = this.license.isBilling && this.license.cardLastFour && this.license.cardLastFour.length === 4;
 
         container.innerHTML = `
             <!-- Información de la licencia -->
@@ -105,10 +105,12 @@ const LicenseDetailModule = {
                                 <span>Tipo: ${this.license.type || 'N/A'}</span>
                             </div>
                             ${this.license.billingDate ? `
-                                <div class="license-meta-item ${isExpired ? 'expired' : ''}">
+                                <div class="license-meta-item">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                                        <line x1="3" y1="10" x2="21" y2="10"></line>
                                     </svg>
                                     <span>Facturación: ${this.formatDate(this.license.billingDate)}</span>
                                 </div>
@@ -189,8 +191,9 @@ const LicenseDetailModule = {
                     <div class="license-stat-card">
                         <div class="license-stat-label">Estado</div>
                         <div class="license-stat-value">
-                            ${isExpired ? '<span style="color: #ef4444;">Expirada</span>' : 
-                              available <= 0 ? '<span style="color: #f97316;">Agotada</span>' : 
+                            ${available <= 0 ? '<span style="color: #f97316;">Agotada</span>' : 
+                              this.license.isBilling && !hasCard ? '<span style="color: #f97316;">Sin Tarjeta</span>' :
+                              this.license.isBilling ? '<span style="color: #8b5cf6;">En Facturación</span>' :
                               '<span style="color: #22c55e;">Activa</span>'}
                         </div>
                     </div>
@@ -220,7 +223,7 @@ const LicenseDetailModule = {
                         Empleados con esta Licencia (${this.activeAssignments.length})
                     </h3>
                     <button class="btn btn-primary" onclick="LicenseDetailModule.showAssignModal()" 
-                            ${available <= 0 || isExpired ? 'disabled' : ''}>
+                            ${available <= 0 ? 'disabled' : ''}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -236,7 +239,7 @@ const LicenseDetailModule = {
                                 <circle cx="11" cy="11" r="8"></circle>
                                 <path d="m21 21-4.35-4.35"></path>
                             </svg>
-                            <input type="text" id="assignmentsSearchInput" class="assignments-search-input" placeholder="Buscar empleado por nombre, email o departamento..." style="width: 100%; padding: 0.75rem 0.75rem 0.75rem 2.5rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.9rem; outline: none; transition: all 0.2s ease;" oninput="LicenseDetailModule.filterAssignments(this.value)">
+                            <input type="text" id="assignmentsSearchInput" class="assignments-search-input" placeholder="Buscar empleado por nombre, email o número de empleado..." style="width: 100%; padding: 0.75rem 0.75rem 0.75rem 2.5rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 0.9rem; outline: none; transition: all 0.2s ease;" oninput="LicenseDetailModule.filterAssignments(this.value)">
                             <button id="clearSearchBtn" onclick="LicenseDetailModule.clearSearch()" style="display: none; position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-tertiary); cursor: pointer; padding: 0.25rem; border-radius: 4px; transition: all 0.2s ease;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -261,7 +264,7 @@ const LicenseDetailModule = {
                             <thead>
                                 <tr>
                                     <th>Empleado</th>
-                                    <th>Departamento</th>
+                                    <th>Número de Empleado</th>
                                     <th>Fecha de Asignación</th>
                                     <th>Asignado por</th>
                                     <th>Acciones</th>
@@ -365,7 +368,7 @@ const LicenseDetailModule = {
                             <select id="employeeSelect" class="form-select">
                                 <option value="">-- Seleccionar empleado --</option>
                                 ${activeEmployees.map(e => `
-                                    <option value="${e.id}">${e.name} ${e.lastName || ''} - ${e.department || 'Sin depto.'}</option>
+                                    <option value="${e.id}">${e.name} ${e.lastName || ''}${e.employeeNumber ? ` - #${e.employeeNumber}` : ''}</option>
                                 `).join('')}
                             </select>
                             ${activeEmployees.length === 0 ? `
@@ -669,7 +672,7 @@ const LicenseDetailModule = {
                             </div>
                         </div>
                     </td>
-                    <td>${this.escapeHtml(employee.department || 'Sin departamento')}</td>
+                    <td style="font-family: monospace;">${this.escapeHtml(employee.employeeNumber || '-')}</td>
                     <td>${this.formatDate(a.startDate)}</td>
                     <td>${this.escapeHtml(a.assignedBy || 'Sistema')}</td>
                     <td>
@@ -703,12 +706,12 @@ const LicenseDetailModule = {
                 
                 const name = `${employee.name || ''} ${employee.lastName || ''}`.toLowerCase();
                 const email = (employee.email || '').toLowerCase();
-                const department = (employee.department || '').toLowerCase();
+                const employeeNumber = (employee.employeeNumber || '').toLowerCase();
                 const assignedBy = (a.assignedBy || '').toLowerCase();
                 
                 return name.includes(term) || 
                        email.includes(term) || 
-                       department.includes(term) ||
+                       employeeNumber.includes(term) ||
                        assignedBy.includes(term);
             });
         }

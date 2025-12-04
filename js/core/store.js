@@ -1139,7 +1139,10 @@ const Store = {
             this.getTickets()
         ]);
 
-        const expiringLicenses = await this.getExpiringLicenses(30);
+        // Calcular licencias en facturación (con tarjeta domiciliada)
+        const billingLicenses = licenses.filter(l => 
+            l.isBilling && l.cardLastFour && l.cardLastFour.length === 4
+        );
 
         return {
             employees: {
@@ -1154,8 +1157,7 @@ const Store = {
             },
             licenses: {
                 total: licenses.length,
-                expiring: expiringLicenses.length,
-                expired: licenses.filter(l => new Date(l.expirationDate) < new Date()).length
+                billing: billingLicenses.length
             },
             tickets: {
                 total: tickets.length,

@@ -230,7 +230,7 @@ const MachineDetailModule = {
                             <thead>
                                 <tr>
                                     <th>Empleado</th>
-                                    <th>Departamento</th>
+                                    <th>Número de Empleado</th>
                                     <th>Fecha de Asignación</th>
                                     <th>Asignado por</th>
                                 </tr>
@@ -246,7 +246,7 @@ const MachineDetailModule = {
                                             </div>
                                         </div>
                                     </td>
-                                    <td>${this.escapeHtml(employee.department || 'Sin departamento')}</td>
+                                    <td style="font-family: monospace;">${this.escapeHtml(employee.employeeNumber || '-')}</td>
                                     <td>${this.formatDate(a.startDate)}</td>
                                     <td>${this.escapeHtml(a.assignedBy || 'Sistema')}</td>
                                 </tr>
@@ -357,7 +357,7 @@ const MachineDetailModule = {
                                         <input type="text" 
                                                id="employeeSearchInput" 
                                                class="form-input" 
-                                               placeholder="Buscar empleado por nombre, apellido o departamento..."
+                                               placeholder="Buscar empleado por nombre, apellido o número de empleado..."
                                                autocomplete="off"
                                                style="padding-left: 2.5rem;">
                                     </div>
@@ -371,12 +371,12 @@ const MachineDetailModule = {
                                                  style="padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;"
                                                  onmouseover="this.style.backgroundColor='var(--hover-bg)'"
                                                  onmouseout="this.style.backgroundColor='transparent'"
-                                                 onclick="MachineDetailModule.selectEmployee('${e.id}', '${this.escapeHtml(e.name)} ${this.escapeHtml(e.lastName || '')} - ${this.escapeHtml(e.department || 'Sin depto.')}')">
+                                                 onclick="MachineDetailModule.selectEmployee('${e.id}', '${this.escapeHtml(e.name)} ${this.escapeHtml(e.lastName || '')}${e.employeeNumber ? ` - #${e.employeeNumber}` : ''}')">
                                                 <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">
                                                     ${this.escapeHtml(e.name)} ${this.escapeHtml(e.lastName || '')}
                                                 </div>
-                                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                                                    ${this.escapeHtml(e.department || 'Sin depto.')}
+                                                <div style="font-size: 0.85rem; color: var(--text-secondary); font-family: monospace;">
+                                                    ${e.employeeNumber ? `#${this.escapeHtml(e.employeeNumber)}` : 'Sin número'}
                                                 </div>
                                             </div>
                                         `).join('')}
@@ -387,7 +387,7 @@ const MachineDetailModule = {
                                     <div style="display: flex; align-items: center; justify-content: space-between;">
                                         <div>
                                             <div style="font-weight: 600; color: var(--text-primary);" id="selectedEmployeeName"></div>
-                                            <div style="font-size: 0.85rem; color: var(--text-secondary);" id="selectedEmployeeDept"></div>
+                                            <div style="font-size: 0.85rem; color: var(--text-secondary); font-family: monospace;" id="selectedEmployeeNumber"></div>
                                         </div>
                                         <button type="button" 
                                                 onclick="MachineDetailModule.clearEmployeeSelection()"
@@ -471,9 +471,9 @@ const MachineDetailModule = {
         
         options.forEach(option => {
             const name = option.dataset.employeeName.toLowerCase();
-            const dept = option.querySelector('div:last-child')?.textContent.toLowerCase() || '';
+            const employeeNumber = option.querySelector('div:last-child')?.textContent.toLowerCase() || '';
             
-            if (name.includes(searchTerm) || dept.includes(searchTerm)) {
+            if (name.includes(searchTerm) || employeeNumber.includes(searchTerm)) {
                 option.style.display = '';
             } else {
                 option.style.display = 'none';
@@ -506,9 +506,9 @@ const MachineDetailModule = {
         const dropdown = document.getElementById('employeeDropdown');
         const displayDiv = document.getElementById('selectedEmployeeDisplay');
         const nameDiv = document.getElementById('selectedEmployeeName');
-        const deptDiv = document.getElementById('selectedEmployeeDept');
+        const numberDiv = document.getElementById('selectedEmployeeNumber');
         
-        if (searchInput && dropdown && displayDiv && nameDiv && deptDiv) {
+        if (searchInput && dropdown && displayDiv && nameDiv && numberDiv) {
             // Ocultar dropdown y limpiar búsqueda
             dropdown.style.display = 'none';
             searchInput.value = '';
@@ -516,7 +516,7 @@ const MachineDetailModule = {
             // Mostrar empleado seleccionado
             const parts = displayText.split(' - ');
             nameDiv.textContent = parts[0];
-            deptDiv.textContent = parts[1] || '';
+            numberDiv.textContent = parts[1] ? `#${parts[1]}` : '';
             displayDiv.style.display = 'block';
         }
     },

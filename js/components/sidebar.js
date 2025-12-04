@@ -448,23 +448,27 @@ const Sidebar = {
                 }
             }
 
-            // Badge de licencias por vencer
-            const expiringLicenses = await Store.getExpiringLicenses(30);
-            const expiringCount = expiringLicenses?.length || 0;
+            // Badge de licencias sin tarjeta registrada (solo si están en facturación)
+            const licenses = await Store.getLicenses();
+            const missingCardCount = licenses.filter(l => 
+                l.isBilling && (!l.cardLastFour || l.cardLastFour.length !== 4)
+            ).length;
+            
             const licenseBadge = this.container.querySelector('[data-nav="licenses"] .nav-item-badge');
             
             if (licenseBadge) {
-                if (expiringCount > 0) {
-                    licenseBadge.textContent = expiringCount;
+                if (missingCardCount > 0) {
+                    licenseBadge.textContent = missingCardCount;
+                    licenseBadge.className = 'nav-item-badge warning';
                     licenseBadge.style.display = 'flex';
                 } else {
                     licenseBadge.style.display = 'none';
                 }
-            } else if (expiringCount > 0) {
+            } else if (missingCardCount > 0) {
                 const licenseItem = this.container.querySelector('[data-nav="licenses"]');
                 if (licenseItem) {
                     licenseItem.insertAdjacentHTML('beforeend', 
-                        `<span class="nav-item-badge warning">${expiringCount}</span>`
+                        `<span class="nav-item-badge warning">${missingCardCount}</span>`
                     );
                 }
             }
