@@ -1213,6 +1213,46 @@ const Store = {
         }
 
         console.log('Datos de demo cargados');
+    },
+
+    // ========================================
+    // METODOS PARA CONFIGURACION DE SLACK
+    // ========================================
+
+    async getSlackSettings() {
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                const settings = await FirestoreService.getById(this.KEYS.SETTINGS, 'slack');
+                return settings || { slackUserIds: [], customMessage: '' };
+            } catch (e) {
+                console.error('Error al obtener configuración de Slack:', e);
+            }
+        }
+        
+        const settings = this.getLocal('slack_settings');
+        return settings || { slackUserIds: [], customMessage: '' };
+    },
+
+    async saveSlackSettings(settings) {
+        const slackSettings = {
+            id: 'slack',
+            slackUserIds: settings.slackUserIds || [],
+            customMessage: settings.customMessage || '',
+            updatedAt: new Date().toISOString(),
+            updatedBy: Auth?.getCurrentUser()?.name || 'Admin'
+        };
+
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.save(this.KEYS.SETTINGS, slackSettings, 'slack');
+            } catch (e) {
+                console.error('Error al guardar configuración de Slack:', e);
+            }
+        }
+        
+        this.setLocal('slack_settings', slackSettings);
+        await this.logActivity('slack_settings_updated', {});
+        return slackSettings;
     }
 };
 

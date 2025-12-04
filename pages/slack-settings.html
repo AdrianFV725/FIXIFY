@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIXIFY - Configuración de Slack</title>
+    
+    <!-- Control de cache para desarrollo -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <script>(function(){const t=localStorage.getItem('fixify-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        .slack-config-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .config-section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+        
+        .config-section h2 {
+            margin: 0 0 1.5rem 0;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .config-section p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+        
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 0.5rem;
+            color: var(--text-tertiary);
+            font-size: 0.85rem;
+        }
+        
+        .help-text {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            padding: 1rem 1.25rem;
+            background: var(--info-bg, rgba(59, 130, 246, 0.08));
+            border-left: 3px solid var(--primary-color);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        
+        .help-text-icon {
+            flex-shrink: 0;
+            margin-top: 0.1rem;
+            color: var(--primary-color);
+        }
+        
+        .help-text strong {
+            color: var(--text-primary);
+            font-weight: 500;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+        
+        .help-text code {
+            background: var(--code-bg, rgba(0, 0, 0, 0.1));
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+        
+        .add-user-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .users-list {
+            margin-top: 1rem;
+        }
+        
+        .user-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 0.75rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .user-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15);
+        }
+        
+        .user-item input {
+            flex: 1;
+            margin: 0;
+            padding: 0.625rem 0.875rem;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+        
+        .user-item input:focus {
+            outline: none;
+            background: var(--bg-primary);
+        }
+        
+        .user-item:focus-within {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .user-item-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        
+        .btn-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            color: var(--text-secondary);
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .btn-icon:hover {
+            background: var(--hover-bg);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+            transform: scale(1.05);
+        }
+        
+        .btn-icon.danger {
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+        
+        .btn-icon.danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+        
+        .btn-icon.success {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+        }
+        
+        .user-item.added {
+            border-color: rgba(34, 197, 94, 0.5);
+            background: rgba(34, 197, 94, 0.03);
+        }
+        
+        .user-item.added .slack-user-input {
+            color: var(--text-primary);
+        }
+        
+        @keyframes checkAnimation {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .check-icon {
+            animation: checkAnimation 0.3s ease;
+        }
+        
+        .user-confirmation {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--success-color, #22c55e);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 10000;
+            animation: slideInUp 0.3s ease;
+        }
+        
+        @keyframes slideInUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .users-list {
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+        
+        .users-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .users-list::-webkit-scrollbar-track {
+            background: var(--input-bg);
+            border-radius: 3px;
+        }
+        
+        .users-list::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+        
+        .users-list::-webkit-scrollbar-thumb:hover {
+            background: var(--text-tertiary);
+        }
+        
+        .message-preview {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            color: var(--text-secondary);
+        }
+        
+        .message-preview-label {
+            font-size: 0.85rem;
+            color: var(--text-tertiary);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        
+        .variables-help {
+            margin-top: 0.5rem;
+            padding: 1rem;
+            background: var(--info-bg, rgba(59, 130, 246, 0.1));
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+        
+        .variables-help h4 {
+            margin: 0 0 0.5rem 0;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        
+        .variables-help ul {
+            margin: 0.5rem 0 0 0;
+            padding-left: 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .variables-help code {
+            background: var(--code-bg, rgba(0, 0, 0, 0.1));
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="main-content">
+        <header class="main-header">
+            <div class="header-left">
+                <button class="menu-toggle" id="menuToggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <h1 class="page-title">Configuración de Slack</h1>
+            </div>
+            <div class="header-right">
+                <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema">
+                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                </button>
+                <div class="user-menu" id="userMenu"></div>
+            </div>
+        </header>
+
+        <div class="page-content">
+            <div class="slack-config-container">
+                <!-- Sección de Usuarios de Slack -->
+                <section class="config-section">
+                    <h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Usuarios de Slack
+                    </h2>
+                    <p>Agrega los IDs de usuarios de Slack que recibirán notificaciones cuando se cree un nuevo ticket. Puedes agregar múltiples usuarios.</p>
+                    
+                    <div class="users-list" id="usersList">
+                        <!-- Los usuarios se agregarán aquí dinámicamente -->
+                    </div>
+                    
+                    <div class="add-user-container">
+                        <button class="btn btn-secondary" id="addUserBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Agregar Usuario
+                        </button>
+                    </div>
+                    
+                    <div class="help-text">
+                        <svg class="help-text-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <div>
+                            <strong>¿Cómo obtener el User ID de Slack?</strong><br>
+                            Ve al perfil del usuario en Slack y copia el ID de la URL, o úsalo directamente en un mensaje directo. El formato típico es algo como <code>U06L3SJANAD</code>.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sección de Mensaje Personalizado -->
+                <section class="config-section">
+                    <h2>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        Mensaje Personalizado
+                    </h2>
+                    <p>Personaliza el mensaje que se enviará a Slack cuando se cree un ticket. Puedes usar variables para incluir información dinámica del ticket.</p>
+                    
+                    <div class="form-group">
+                        <label for="customMessage">Plantilla del Mensaje</label>
+                        <textarea id="customMessage" placeholder="Escribe tu mensaje personalizado aquí..."></textarea>
+                        <small>Puedes usar variables como {folio}, {solicitante}, {prioridad}, {categoria}, {descripcion}, etc.</small>
+                    </div>
+                    
+                    <div class="variables-help">
+                        <h4>Variables disponibles:</h4>
+                        <ul>
+                            <li><code>{folio}</code> - Número de folio del ticket</li>
+                            <li><code>{ticketId}</code> - ID del ticket</li>
+                            <li><code>{solicitante}</code> - Nombre del solicitante</li>
+                            <li><code>{email}</code> - Email del solicitante</li>
+                            <li><code>{prioridad}</code> - Prioridad del ticket</li>
+                            <li><code>{categoria}</code> - Categoría del ticket</li>
+                            <li><code>{descripcion}</code> - Descripción del ticket</li>
+                            <li><code>{maquina}</code> - Máquina relacionada (si aplica)</li>
+                            <li><code>{elemento}</code> - Elemento relacionado (si aplica)</li>
+                            <li><code>{url}</code> - URL para ver el ticket</li>
+                        </ul>
+                        <p style="margin-top: 0.5rem; margin-bottom: 0;">Si dejas este campo vacío, se usará el mensaje predeterminado del sistema.</p>
+                    </div>
+                    
+                    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                        <button class="btn btn-primary" id="saveMessageBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            Guardar Mensaje
+                        </button>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Scripts del sistema -->
+    <script src="../js/core/version.js"></script>
+    <script src="../js/core/firebase-config.js"></script>
+    <script src="../js/core/firestore.js"></script>
+    <script src="../js/core/utils.js"></script>
+    <script src="../js/core/store.js"></script>
+    <script src="../js/core/auth.js"></script>
+    <script src="../js/components/sidebar.js"></script>
+    <script src="../js/components/notifications.js"></script>
+    <script src="../js/modules/slack-settings.js"></script>
+    
+    <script>
+        document.getElementById('themeToggle')?.addEventListener('click', () => {
+            const html = document.documentElement;
+            const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('fixify-theme', newTheme);
+        });
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (typeof initFirebase === 'function') {
+                initFirebase();
+                await Store.init();
+                Auth.init();
+            }
+            if (window.Auth) Auth.renderUserMenu(document.getElementById('userMenu'));
+            if (window.Sidebar) await Sidebar.init('sidebar');
+            
+            // Inicializar menu toggle
+            document.getElementById('menuToggle')?.addEventListener('click', () => {
+                if (window.Sidebar) Sidebar.toggle();
+            });
+            
+            // Inicializar módulo de configuración de Slack
+            if (window.SlackSettingsModule) {
+                await SlackSettingsModule.init();
+            }
+        });
+    </script>
+</body>
+</html>
+

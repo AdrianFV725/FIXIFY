@@ -51,21 +51,61 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
     const SLACK_BOT_TOKEN = slackBotToken.value();
     const IT_USER_ID = slackItUserId.value();
 
-    // Validar que los secrets estén disponibles
-    if (!SLACK_BOT_TOKEN || !IT_USER_ID) {
-      logger.error("Secrets de Slack no configurados correctamente", {
+    // Validar que el token esté disponible
+    if (!SLACK_BOT_TOKEN) {
+      logger.error("Token de Slack no configurado", {
         ticketId,
         hasToken: !!SLACK_BOT_TOKEN,
-        hasUserId: !!IT_USER_ID,
-        tokenLength: SLACK_BOT_TOKEN ? SLACK_BOT_TOKEN.length : 0,
-        userIdLength: IT_USER_ID ? IT_USER_ID.length : 0,
       });
       return null;
     }
 
     try {
-      await sendSlackDM(ticket, ticketId, SLACK_BOT_TOKEN, IT_USER_ID);
-      logger.info("Notificación enviada exitosamente", { ticketId });
+      // Obtener configuración de Slack desde Firestore
+      let slackConfig = null;
+      try {
+        const configDoc = await admin.firestore().collection("settings").doc("slack").get();
+        if (configDoc.exists) {
+          slackConfig = configDoc.data();
+        }
+      } catch (configError) {
+        logger.warn("No se pudo obtener configuración de Slack, usando valores por defecto", {
+          error: configError.message,
+        });
+      }
+
+      // Determinar usuarios a notificar
+      let slackUserIds = [];
+      if (slackConfig && slackConfig.slackUserIds && slackConfig.slackUserIds.length > 0) {
+        slackUserIds = slackConfig.slackUserIds;
+      } else if (IT_USER_ID) {
+        // Fallback al usuario del secret si no hay configuración
+        const cleanUserId = IT_USER_ID.trim().replace(/\n/g, '').replace(/\r/g, '');
+        if (cleanUserId) {
+          slackUserIds = [cleanUserId];
+        }
+      }
+
+      if (slackUserIds.length === 0) {
+        logger.warn("No hay usuarios de Slack configurados, saltando notificación", { ticketId });
+        return null;
+      }
+
+      // Enviar notificaciones a todos los usuarios configurados
+      const customMessage = slackConfig?.customMessage || '';
+      const results = await sendSlackNotifications(
+        ticket,
+        ticketId,
+        SLACK_BOT_TOKEN,
+        slackUserIds,
+        customMessage
+      );
+
+      logger.info("Notificaciones enviadas", {
+        ticketId,
+        sent: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length,
+      });
     } catch (error) {
       logger.error("Error al enviar notificación", { 
         ticketId, 
@@ -80,7 +120,261 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
 );
 
 /**
- * Envía un mensaje directo a Slack con la información del ticket
+ * Envía notificaciones de Slack a múltiples usuarios
+ */
+async function sendSlackNotifications(ticket, ticketId, SLACK_BOT_TOKEN, slackUserIds, customMessage = '') {
+  const results = [];
+  
+  // Limpiar el token
+  const cleanToken = SLACK_BOT_TOKEN.trim().replace(/\n/g, '').replace(/\r/g, '');
+
+  if (!cleanToken || !cleanToken.startsWith('xoxb-')) {
+    logger.error("Token de Slack inválido", { ticketId });
+    return [{ success: false, error: "Token inválido" }];
+  }
+
+  // Preparar datos del ticket
+  const ticketData = await prepareTicketData(ticket, ticketId);
+
+  // Construir mensaje (personalizado o predeterminado)
+  const messageBlocks = customMessage
+    ? buildCustomMessage(customMessage, ticketData)
+    : buildDefaultMessage(ticketData);
+
+  // Enviar a cada usuario
+  for (const userId of slackUserIds) {
+    const cleanUserId = userId.trim().replace(/\n/g, '').replace(/\r/g, '');
+    if (!cleanUserId) continue;
+
+    try {
+      const result = await sendSingleSlackMessage(cleanToken, cleanUserId, messageBlocks, ticketData);
+      results.push({ success: true, userId: cleanUserId });
+    } catch (error) {
+      logger.error(`Error al enviar a usuario ${cleanUserId}`, {
+        ticketId,
+        userId: cleanUserId,
+        error: error.message,
+      });
+      results.push({ success: false, userId: cleanUserId, error: error.message });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Prepara los datos del ticket para usar en el mensaje
+ */
+async function prepareTicketData(ticket, ticketId) {
+  let employeeName = ticket.contactoNombre || "Usuario desconocido";
+  let employeeEmail = ticket.contactoEmail || "";
+
+  if (ticket.contactoId) {
+    try {
+      const employeeDoc = await admin
+        .firestore()
+        .collection("employees")
+        .doc(ticket.contactoId)
+        .get();
+
+      if (employeeDoc.exists) {
+        const employee = employeeDoc.data();
+        employeeName = `${employee.name || ""} ${employee.lastName || ""}`.trim() || employeeName;
+        employeeEmail = employee.email || employeeEmail;
+      }
+    } catch (e) {
+      logger.warn("No se pudo obtener info del empleado", { error: e.message });
+    }
+  }
+
+  const priorityConfig = {
+    critical: { emoji: "🔴", label: "Crítica" },
+    high: { emoji: "🟠", label: "Alta" },
+    medium: { emoji: "🟡", label: "Media" },
+    low: { emoji: "🟢", label: "Baja" },
+  };
+
+  const categoryLabels = {
+    hardware: "Hardware",
+    software: "Software",
+    network: "Red",
+    other: "Otro",
+  };
+
+  const statusLabels = {
+    open: "🔓 Abierto",
+    in_progress: "⏳ En Progreso",
+    resolved: "✅ Resuelto",
+    closed: "🔒 Cerrado",
+  };
+
+  const priority = ticket.priority || "medium";
+  const priorityInfo = priorityConfig[priority] || priorityConfig.medium;
+
+  const ticketUrl = `https://adrianfv725.github.io/FIXIFY/pages/tickets.html?id=${ticketId}`;
+
+  return {
+    folio: ticket.folio || ticketId,
+    ticketId: ticketId,
+    solicitante: employeeName,
+    email: employeeEmail,
+    prioridad: `${priorityInfo.emoji} ${priorityInfo.label}`,
+    categoria: categoryLabels[ticket.category] || ticket.category || "N/A",
+    descripcion: ticket.description || "",
+    maquina: ticket.machineSerial || ticket.machineId || "",
+    elemento: ticket.elementoNombre || "",
+    url: ticketUrl,
+    estado: statusLabels[ticket.status] || ticket.status || "Abierto",
+  };
+}
+
+/**
+ * Construye mensaje personalizado reemplazando variables
+ */
+function buildCustomMessage(customMessage, ticketData) {
+  let message = customMessage;
+  
+  // Reemplazar variables
+  message = message.replace(/\{folio\}/g, ticketData.folio);
+  message = message.replace(/\{ticketId\}/g, ticketData.ticketId);
+  message = message.replace(/\{solicitante\}/g, ticketData.solicitante);
+  message = message.replace(/\{email\}/g, ticketData.email);
+  message = message.replace(/\{prioridad\}/g, ticketData.prioridad);
+  message = message.replace(/\{categoria\}/g, ticketData.categoria);
+  message = message.replace(/\{descripcion\}/g, ticketData.descripcion);
+  message = message.replace(/\{maquina\}/g, ticketData.maquina);
+  message = message.replace(/\{elemento\}/g, ticketData.elemento);
+  message = message.replace(/\{url\}/g, ticketData.url);
+
+  // Convertir a bloques de Slack simples
+  return [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: message,
+      },
+    },
+  ];
+}
+
+/**
+ * Construye el mensaje predeterminado
+ */
+function buildDefaultMessage(ticketData) {
+  const blocks = [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: `🎫 Nuevo Ticket: ${ticketData.folio}`,
+      },
+    },
+    {
+      type: "section",
+      fields: [
+        {
+          type: "mrkdwn",
+          text: `*Solicitante:*\n${ticketData.solicitante}${ticketData.email ? `\n<mailto:${ticketData.email}|${ticketData.email}>` : ""}`,
+        },
+        {
+          type: "mrkdwn",
+          text: `*Prioridad:*\n${ticketData.prioridad}`,
+        },
+        {
+          type: "mrkdwn",
+          text: `*Categoría:*\n${ticketData.categoria}`,
+        },
+        {
+          type: "mrkdwn",
+          text: `*Estado:*\n${ticketData.estado}`,
+        },
+      ],
+    },
+  ];
+
+  if (ticketData.descripcion) {
+    const description = ticketData.descripcion.length > 500
+      ? ticketData.descripcion.substring(0, 500) + "..."
+      : ticketData.descripcion;
+
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Descripción:*\n${description.replace(/\n/g, "\n")}`,
+      },
+    });
+  }
+
+  if (ticketData.maquina) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Máquina relacionada:*\n${ticketData.maquina}`,
+      },
+    });
+  }
+
+  if (ticketData.elemento) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Elemento:*\n${ticketData.elemento}`,
+      },
+    });
+  }
+
+  blocks.push({
+    type: "actions",
+    elements: [
+      {
+        type: "button",
+        text: {
+          type: "plain_text",
+          text: "Ver Ticket en FIXIFY",
+        },
+        url: ticketData.url,
+        style: "primary",
+      },
+    ],
+  });
+
+  return blocks;
+}
+
+/**
+ * Envía un mensaje individual a Slack
+ */
+async function sendSingleSlackMessage(cleanToken, userId, blocks, ticketData) {
+  const message = {
+    channel: userId,
+    text: `🎫 Nuevo ticket creado: ${ticketData.folio}`,
+    blocks: blocks,
+  };
+
+  const response = await axios.post(
+    "https://slack.com/api/chat.postMessage",
+    message,
+    {
+      headers: {
+        Authorization: `Bearer ${cleanToken}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.data.ok) {
+    throw new Error(`Slack API error: ${response.data.error}`);
+  }
+
+  return response.data;
+}
+
+/**
+ * Envía un mensaje directo a Slack con la información del ticket (función legacy - mantener por compatibilidad)
  */
 async function sendSlackDM(ticket, ticketId, SLACK_BOT_TOKEN, IT_USER_ID) {
   try {
