@@ -5,6 +5,7 @@
 
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {setGlobalOptions} = require("firebase-functions/v2");
+const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const axios = require("axios");
 const logger = require("firebase-functions/logger");
@@ -15,9 +16,9 @@ admin.initializeApp();
 // Configuración global
 setGlobalOptions({ maxInstances: 10 });
 
-// Configuración de Slack - Usar variables de entorno
-const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || "";
-const IT_USER_ID = process.env.SLACK_IT_USER_ID || "";
+// Configuración de Slack - Usar Secrets
+const slackBotToken = defineSecret("SLACK_BOT_TOKEN");
+const slackItUserId = defineSecret("SLACK_IT_USER_ID");
 
 /**
  * Función que se ejecuta cuando se crea un nuevo ticket en Firestore
@@ -26,6 +27,7 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
   {
     document: "tickets/{ticketId}",
     region: "us-central1",
+    secrets: [slackBotToken, slackItUserId],
   },
   async (event) => {
     const ticket = event.data.data();
@@ -45,8 +47,12 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
       return null;
     }
 
+    // Obtener valores de los secrets
+    const SLACK_BOT_TOKEN = slackBotToken.value();
+    const IT_USER_ID = slackItUserId.value();
+
     try {
-      await sendSlackDM(ticket, ticketId);
+      await sendSlackDM(ticket, ticketId, SLACK_BOT_TOKEN, IT_USER_ID);
       logger.info("Notificación enviada exitosamente", { ticketId });
     } catch (error) {
       logger.error("Error al enviar notificación", { ticketId, error: error.message });
@@ -60,7 +66,7 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
 /**
  * Envía un mensaje directo a Slack con la información del ticket
  */
-async function sendSlackDM(ticket, ticketId) {
+async function sendSlackDM(ticket, ticketId, SLACK_BOT_TOKEN, IT_USER_ID) {
   try {
     // Validar que las variables de entorno estén configuradas
     if (!SLACK_BOT_TOKEN || !IT_USER_ID) {
