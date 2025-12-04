@@ -279,12 +279,14 @@ const DashboardModule = {
             // Licencias próximas a vencer (menos de 7 días)
             const licenses = await Store.getLicenses();
             const expiringSoon = licenses.filter(l => {
-                const daysLeft = this.daysUntil(l.expirationDate);
+                const date = l.billingDate || l.expirationDate;
+                const daysLeft = this.daysUntil(date);
                 return daysLeft > 0 && daysLeft <= 7;
             }).slice(0, 3);
 
             expiringSoon.forEach(license => {
-                const daysLeft = this.daysUntil(license.expirationDate);
+                const date = license.billingDate || license.expirationDate;
+                const daysLeft = this.daysUntil(date);
                 alerts.push({
                     type: daysLeft <= 3 ? 'urgent' : 'warning',
                     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`,
@@ -628,7 +630,8 @@ const DashboardModule = {
             ` : `
                 <div class="stat-list">
                     ${licenses.map(license => {
-                        const daysLeft = this.daysUntil(license.expirationDate);
+                        const date = license.billingDate || license.expirationDate;
+                        const daysLeft = this.daysUntil(date);
                         const urgency = daysLeft <= 7 ? 'danger' : daysLeft <= 15 ? 'warning' : 'info';
                         const bgColor = daysLeft <= 7 ? 'rgba(239, 68, 68, 0.15)' : daysLeft <= 15 ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)';
                         const iconColor = daysLeft <= 7 ? '#ef4444' : daysLeft <= 15 ? '#f97316' : '#3b82f6';
@@ -640,7 +643,7 @@ const DashboardModule = {
                                 </div>
                                 <div class="stat-item-content">
                                     <div class="stat-item-title">${this.escapeHtml(license.software)}</div>
-                                    <div class="stat-item-subtitle">Vence: ${this.formatDate(license.expirationDate)}</div>
+                                    <div class="stat-item-subtitle">Facturación: ${this.formatDate(date)}</div>
                                 </div>
                                 <span class="badge badge-${urgency === 'danger' ? 'high' : urgency === 'warning' ? 'medium' : 'low'}">${daysLeft} día${daysLeft !== 1 ? 's' : ''}</span>
                             </a>

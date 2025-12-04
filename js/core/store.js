@@ -762,20 +762,32 @@ const Store = {
 
     async assignMachineToEmployee(machineId, employeeId, notes = '') {
         const assignments = await this.getMachineAssignments();
+        const now = new Date().toISOString();
+        const assignedBy = Auth?.getCurrentUser()?.name || 'Admin';
         
-        const existing = assignments.find(a => a.machineId === machineId && !a.endDate);
-        if (existing) {
-            existing.endDate = new Date().toISOString();
-        }
+        // IMPORTANTE: Cerrar TODAS las asignaciones activas de esta máquina (no solo la primera)
+        // Esto previene inconsistencias donde hay múltiples asignaciones activas
+        const activeAssignments = assignments.filter(a => a.machineId === machineId && !a.endDate);
+        activeAssignments.forEach(existing => {
+            existing.endDate = now;
+            existing.unassignedBy = assignedBy;
+            
+            // Guardar en Firestore si está disponible
+            if (this.useFirestore && window.FirestoreService) {
+                try {
+                    FirestoreService.saveMachineAssignment(existing).catch(e => console.error('Error guardando asignación en Firestore:', e));
+                } catch (e) {}
+            }
+        });
         
         const assignment = {
             id: this.generateId('ASM'),
             machineId,
             employeeId,
-            startDate: new Date().toISOString(),
+            startDate: now,
             endDate: null,
             notes,
-            assignedBy: Auth?.getCurrentUser()?.name || 'Admin'
+            assignedBy
         };
         
         assignments.push(assignment);
@@ -800,32 +812,39 @@ const Store = {
 
     async unassignMachine(machineId) {
         const assignments = await this.getMachineAssignments();
-        const assignment = assignments.find(a => a.machineId === machineId && !a.endDate);
         
-        if (assignment) {
-            assignment.endDate = new Date().toISOString();
-            assignment.unassignedBy = Auth?.getCurrentUser()?.name || 'Admin';
+        // IMPORTANTE: Cerrar TODAS las asignaciones activas de esta máquina, no solo la primera
+        // Esto previene inconsistencias donde hay múltiples asignaciones activas
+        const activeAssignments = assignments.filter(a => a.machineId === machineId && !a.endDate);
+        
+        const now = new Date().toISOString();
+        const unassignedBy = Auth?.getCurrentUser()?.name || 'Admin';
+        
+        // Marcar todas las asignaciones activas como finalizadas
+        activeAssignments.forEach(assignment => {
+            assignment.endDate = now;
+            assignment.unassignedBy = unassignedBy;
             
             // Guardar en Firestore si está disponible
             if (this.useFirestore && window.FirestoreService) {
                 try {
-                    await FirestoreService.saveMachineAssignment(assignment);
+                    FirestoreService.saveMachineAssignment(assignment).catch(e => console.error('Error guardando asignación en Firestore:', e));
                 } catch (e) {}
             }
-            
-            this.setLocal(this.KEYS.ASSIGNMENTS_MACHINES, assignments);
-            
-            const machine = await this.getMachineById(machineId);
-            if (machine) {
-                machine.assignedTo = null;
-                machine.status = 'available';
-                await this.saveMachine(machine);
-            }
-            
-            await this.logActivity('machine_unassigned', { machineId });
+        });
+        
+        this.setLocal(this.KEYS.ASSIGNMENTS_MACHINES, assignments);
+        
+        const machine = await this.getMachineById(machineId);
+        if (machine) {
+            machine.assignedTo = null;
+            machine.status = 'available';
+            await this.saveMachine(machine);
         }
         
-        return assignment;
+        await this.logActivity('machine_unassigned', { machineId });
+        
+        return activeAssignments[0] || null;
     },
 
     async getMachinesByEmployee(employeeId) {

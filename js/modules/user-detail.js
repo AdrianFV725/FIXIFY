@@ -79,9 +79,23 @@ const UserDetailModule = {
 
     getUserAssignments() {
         // Buscar asignaciones por employeeId (el campo correcto) o userId (por compatibilidad)
-        const activeMachineAssignments = this.machineAssignments.filter(a => 
-            (a.employeeId === this.employeeId || a.userId === this.userId) && !a.endDate
-        );
+        // IMPORTANTE: Solo considerar asignaciones activas si la máquina realmente tiene assignedTo correcto
+        const activeMachineAssignments = this.machineAssignments.filter(a => {
+            // Verificar que la asignación esté activa (sin endDate)
+            if (a.endDate) return false;
+            
+            // Verificar que coincida con el empleado/usuario
+            const matchesEmployee = a.employeeId === this.employeeId || a.userId === this.userId;
+            if (!matchesEmployee) return false;
+            
+            // Verificar que la máquina realmente tenga assignedTo igual al employeeId
+            const machine = this.machines.find(m => m.id === a.machineId);
+            if (!machine) return false;
+            
+            // La máquina debe tener assignedTo igual al employeeId de la asignación
+            return machine.assignedTo === a.employeeId;
+        });
+        
         const allMachineAssignments = this.machineAssignments.filter(a => 
             a.employeeId === this.employeeId || a.userId === this.userId
         ).sort((a, b) => {

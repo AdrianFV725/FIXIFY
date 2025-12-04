@@ -84,9 +84,9 @@ const LicensesModule = {
         
         const stats = {
             total: this.licenses.length,
-            active: this.licenses.filter(l => !l.expirationDate || new Date(l.expirationDate) > now).length,
-            expiring: this.licenses.filter(l => l.expirationDate && new Date(l.expirationDate) <= in30Days && new Date(l.expirationDate) > now).length,
-            expired: this.licenses.filter(l => l.expirationDate && new Date(l.expirationDate) < now).length
+            active: this.licenses.filter(l => !l.billingDate || new Date(l.billingDate) > now).length,
+            expiring: this.licenses.filter(l => l.billingDate && new Date(l.billingDate) <= in30Days && new Date(l.billingDate) > now).length,
+            expired: this.licenses.filter(l => l.billingDate && new Date(l.billingDate) < now).length
         };
 
         container.innerHTML = `
@@ -137,14 +137,14 @@ const LicensesModule = {
         const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
         
         const expiring = this.licenses.filter(l => 
-            l.expirationDate && 
-            new Date(l.expirationDate) <= in30Days && 
-            new Date(l.expirationDate) > now
+            l.billingDate && 
+            new Date(l.billingDate) <= in30Days && 
+            new Date(l.billingDate) > now
         );
         
         const expired = this.licenses.filter(l => 
-            l.expirationDate && 
-            new Date(l.expirationDate) < now
+            l.billingDate && 
+            new Date(l.billingDate) < now
         );
 
         // Ocultar si no hay alertas
@@ -227,14 +227,14 @@ const LicensesModule = {
         
         const formatDate = (date) => date ? new Date(date).toLocaleDateString('es-MX') : '-';
         
-        const getStatus = (expirationDate) => {
-            if (!expirationDate) return '<span class="badge badge-active">Activa</span>';
-            const exp = new Date(expirationDate);
+        const getStatus = (billingDate) => {
+            if (!billingDate) return '<span class="badge badge-active">Activa</span>';
+            const bill = new Date(billingDate);
             const now = new Date();
             const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
             
-            if (exp < now) return '<span class="badge badge-inactive">Vencida</span>';
-            if (exp <= in30Days) return '<span class="badge badge-maintenance">Por Vencer</span>';
+            if (bill < now) return '<span class="badge badge-inactive">Vencida</span>';
+            if (bill <= in30Days) return '<span class="badge badge-maintenance">Por Vencer</span>';
             return '<span class="badge badge-active">Activa</span>';
         };
 
@@ -247,7 +247,7 @@ const LicensesModule = {
                         <th>Cantidad</th>
                         <th>Asignadas</th>
                         <th>Uso</th>
-                        <th>Vencimiento</th>
+                        <th>Facturación</th>
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
@@ -283,8 +283,8 @@ const LicensesModule = {
                                     <span class="license-progress-text">${assignedCount}/${totalQuantity}</span>
                                 </div>
                             </td>
-                            <td>${formatDate(l.expirationDate)}</td>
-                            <td>${getStatus(l.expirationDate)}</td>
+                            <td>${formatDate(l.billingDate)}</td>
+                            <td>${getStatus(l.billingDate)}</td>
                             <td onclick="event.stopPropagation();">
                                 <button class="btn-icon sm" onclick="LicensesModule.editLicense('${l.id}')" title="Editar">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -345,7 +345,7 @@ const LicensesModule = {
 
         const modalHtml = `
             <div class="modal-overlay active" id="licenseModal">
-                <div class="modal" style="max-width: 600px;">
+                <div class="modal" style="max-width: 700px;">
                     <div class="modal-header">
                         <h2>${isEdit ? 'Editar Licencia' : 'Nueva Licencia'}</h2>
                         <button class="modal-close" onclick="document.getElementById('licenseModal').remove()">&times;</button>
@@ -369,12 +369,56 @@ const LicensesModule = {
                                 <input type="number" name="quantity" min="1" value="${license?.quantity || 1}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
                             </div>
                             <div class="form-group">
-                                <label>Fecha de Vencimiento</label>
-                                <input type="date" name="expirationDate" value="${license?.expirationDate?.split('T')[0] || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                <label>Fecha de Facturación</label>
+                                <input type="date" name="billingDate" value="${license?.billingDate?.split('T')[0] || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
                             </div>
                             <div class="form-group">
-                                <label>Costo</label>
-                                <input type="number" name="cost" min="0" step="0.01" value="${license?.cost || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                <label>Costo *</label>
+                                <input type="number" name="cost" min="0" step="0.01" required value="${license?.cost || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo de Moneda *</label>
+                                <select name="currency" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="MXN" ${license?.currency === 'MXN' ? 'selected' : ''}>MXN - Peso Mexicano</option>
+                                    <option value="USD" ${license?.currency === 'USD' ? 'selected' : ''}>USD - Dólar Estadounidense</option>
+                                    <option value="EUR" ${license?.currency === 'EUR' ? 'selected' : ''}>EUR - Euro</option>
+                                    <option value="GBP" ${license?.currency === 'GBP' ? 'selected' : ''}>GBP - Libra Esterlina</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Periodicidad *</label>
+                                <select name="periodicity" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    <option value="monthly" ${license?.periodicity === 'monthly' ? 'selected' : ''}>Mensual</option>
+                                    <option value="quarterly" ${license?.periodicity === 'quarterly' ? 'selected' : ''}>Trimestral</option>
+                                    <option value="semiannual" ${license?.periodicity === 'semiannual' ? 'selected' : ''}>Semestral</option>
+                                    <option value="annual" ${license?.periodicity === 'annual' ? 'selected' : ''}>Anual</option>
+                                    <option value="one-time" ${license?.periodicity === 'one-time' ? 'selected' : ''}>Pago Único</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label>Link de Inicio de Sesión</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="url" name="loginUrl" placeholder="https://ejemplo.com/login" value="${license?.loginUrl || ''}" style="flex: 1; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                    ${license?.loginUrl ? `
+                                        <a href="${license.loginUrl}" target="_blank" class="btn btn-primary" style="white-space: nowrap;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                                <polyline points="15 3 21 3 21 9"></polyline>
+                                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                                            </svg>
+                                            Abrir
+                                        </a>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Terminación de Tarjeta</label>
+                                <input type="text" name="cardLastFour" maxlength="4" pattern="[0-9]{4}" placeholder="1234" value="${license?.cardLastFour || ''}" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                                <small style="color: var(--text-tertiary); font-size: 0.8rem;">Últimos 4 dígitos de la tarjeta de pago</small>
+                            </div>
+                            <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1.5rem;">
+                                <input type="checkbox" name="isBilling" id="isBilling" ${license?.isBilling ? 'checked' : ''} style="width: auto;">
+                                <label for="isBilling" style="margin: 0; cursor: pointer;">Se está facturando</label>
                             </div>
                         </div>
                         <input type="hidden" name="id" value="${license?.id || ''}">
@@ -389,6 +433,48 @@ const LicensesModule = {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
+        // Agregar listener para mostrar botón de link dinámicamente
+        const loginUrlInput = document.querySelector('input[name="loginUrl"]');
+        const loginUrlContainer = loginUrlInput?.parentElement;
+        
+        if (loginUrlInput && loginUrlContainer) {
+            const updateLinkButton = () => {
+                const url = loginUrlInput.value.trim();
+                let existingBtn = loginUrlContainer.querySelector('a.btn');
+                
+                if (url && url.startsWith('http')) {
+                    if (!existingBtn) {
+                        const btn = document.createElement('a');
+                        btn.href = url;
+                        btn.target = '_blank';
+                        btn.className = 'btn btn-primary';
+                        btn.style.cssText = 'white-space: nowrap;';
+                        btn.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                            Abrir
+                        `;
+                        loginUrlContainer.appendChild(btn);
+                    } else {
+                        existingBtn.href = url;
+                    }
+                } else if (existingBtn) {
+                    existingBtn.remove();
+                }
+            };
+            
+            loginUrlInput.addEventListener('input', updateLinkButton);
+            loginUrlInput.addEventListener('blur', updateLinkButton);
+            
+            // Inicializar si ya hay un valor
+            if (loginUrlInput.value) {
+                updateLinkButton();
+            }
+        }
+
         document.getElementById('licenseForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
@@ -396,6 +482,19 @@ const LicensesModule = {
             
             if (data.quantity) data.quantity = parseInt(data.quantity);
             if (data.cost) data.cost = parseFloat(data.cost);
+            
+            // Manejar checkbox de facturación
+            data.isBilling = document.getElementById('isBilling')?.checked || false;
+            
+            // Validar y formatear terminación de tarjeta (solo números, máximo 4 dígitos)
+            if (data.cardLastFour) {
+                data.cardLastFour = data.cardLastFour.replace(/\D/g, '').substring(0, 4);
+            }
+            
+            // Agregar botón de link dinámicamente si hay URL
+            if (data.loginUrl && data.loginUrl.trim()) {
+                // El link ya está guardado, se mostrará en el detalle
+            }
             
             if (data.id) {
                 const existing = this.getById(data.id);

@@ -1094,6 +1094,17 @@ const MachinesModule = {
         const warnings = [];
         const existingSerials = this.machines.map(m => m.serialNumber?.toLowerCase());
 
+        // Mapeo de estados en español a valores en inglés
+        const statusMap = {
+            'disponible': 'available',
+            'asignada': 'assigned',
+            'asignado': 'assigned',
+            'mantenimiento': 'maintenance',
+            'dada de baja': 'retired',
+            'retirada': 'retired',
+            'retirado': 'retired'
+        };
+
         machines.forEach((machine, index) => {
             const row = index + 2; // +2 porque la fila 1 es el encabezado
 
@@ -1111,24 +1122,53 @@ const MachinesModule = {
                 errors.push(`Fila ${row}: El nombre es requerido`);
             }
 
-            // Validar estado
+            // Detectar si status y year están intercambiados
+            const statusValue = machine.status ? machine.status.trim() : '';
+            const yearValue = machine.year ? machine.year.trim() : '';
+            
+            const statusIsNumber = !isNaN(parseInt(statusValue)) && statusValue.length <= 4;
+            const yearIsText = isNaN(parseInt(yearValue)) && yearValue.length > 0;
+
+            // Si están intercambiados, corregirlos
+            if (statusIsNumber && yearIsText) {
+                const temp = machine.status;
+                machine.status = machine.year;
+                machine.year = temp;
+                warnings.push(`Fila ${row}: Se detectó que las columnas "status" y "year" estaban intercambiadas. Se corrigieron automáticamente.`);
+            }
+
+            // Validar estado (ahora con el valor correcto)
             if (machine.status) {
+                const statusLower = machine.status.toLowerCase().trim();
                 const validStatuses = ['available', 'assigned', 'maintenance', 'retired'];
-                const statusLower = machine.status.toLowerCase();
-                if (!validStatuses.includes(statusLower)) {
+                
+                // Verificar si es un estado válido en inglés
+                if (validStatuses.includes(statusLower)) {
+                    machine.status = statusLower;
+                } 
+                // Verificar si es un estado en español
+                else if (statusMap[statusLower]) {
+                    machine.status = statusMap[statusLower];
+                }
+                // Si no es válido, intentar usar "available" por defecto
+                else {
                     warnings.push(`Fila ${row}: Estado "${machine.status}" no es válido. Se usará "available" por defecto.`);
                     machine.status = 'available';
-                } else {
-                    machine.status = statusLower;
                 }
             } else {
                 machine.status = 'available';
             }
 
             // Validar año si existe
-            if (machine.year && isNaN(parseInt(machine.year))) {
-                warnings.push(`Fila ${row}: El año "${machine.year}" no es válido. Se ignorará.`);
-                delete machine.year;
+            if (machine.year) {
+                const yearNum = parseInt(machine.year);
+                if (isNaN(yearNum)) {
+                    warnings.push(`Fila ${row}: El año "${machine.year}" no es válido. Se ignorará.`);
+                    delete machine.year;
+                } else {
+                    // Asegurar que el año sea un número
+                    machine.year = yearNum;
+                }
             }
 
             // Validar costo si existe
@@ -1251,8 +1291,9 @@ const MachinesModule = {
                     };
 
                     // Agregar campos opcionales solo si tienen valor
-                    if (machineData.year && machineData.year.trim()) {
-                        const year = parseInt(machineData.year);
+                    if (machineData.year !== undefined && machineData.year !== null && machineData.year !== '') {
+                        // Si ya es un número (después de la corrección en validateMachines), usarlo directamente
+                        const year = typeof machineData.year === 'number' ? machineData.year : parseInt(machineData.year);
                         if (!isNaN(year)) machine.year = year;
                     }
                     

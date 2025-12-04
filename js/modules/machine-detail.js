@@ -316,6 +316,10 @@ const MachineDetailModule = {
 
     showAssignModal() {
         const activeEmployees = this.employees.filter(e => e.status === 'active');
+        
+        // Guardar empleados para usar en la búsqueda
+        this._modalEmployees = activeEmployees;
+        this._selectedEmployeeId = null;
 
         const modalHtml = `
             <div class="modal-overlay active" id="assignModal">
@@ -341,17 +345,62 @@ const MachineDetailModule = {
                         
                         <div class="form-group">
                             <label class="form-label">Seleccionar Empleado <span class="required">*</span></label>
-                            <select id="employeeSelect" class="form-select">
-                                <option value="">-- Seleccionar empleado --</option>
-                                ${activeEmployees.map(e => `
-                                    <option value="${e.id}">${e.name} ${e.lastName || ''} - ${e.department || 'Sin depto.'}</option>
-                                `).join('')}
-                            </select>
                             ${activeEmployees.length === 0 ? `
-                                <div class="form-hint" style="color: #f97316; margin-top: 0.5rem;">
-                                    No hay empleados activos disponibles
+                                <div class="form-hint" style="color: #f97316; margin-bottom: 0.5rem;">No hay empleados activos disponibles</div>
+                            ` : `
+                                <div style="position: relative;">
+                                    <div class="search-group" style="margin-bottom: 0;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="11" cy="11" r="8"></circle>
+                                            <path d="m21 21-4.35-4.35"></path>
+                                        </svg>
+                                        <input type="text" 
+                                               id="employeeSearchInput" 
+                                               class="form-input" 
+                                               placeholder="Buscar empleado por nombre, apellido o departamento..."
+                                               autocomplete="off"
+                                               style="padding-left: 2.5rem;">
+                                    </div>
+                                    <div id="employeeDropdown" 
+                                         class="employee-dropdown" 
+                                         style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; margin-top: 0.25rem; max-height: 250px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                        ${activeEmployees.map(e => `
+                                            <div class="employee-option" 
+                                                 data-employee-id="${e.id}"
+                                                 data-employee-name="${this.escapeHtml(e.name)} ${this.escapeHtml(e.lastName || '')}"
+                                                 style="padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;"
+                                                 onmouseover="this.style.backgroundColor='var(--hover-bg)'"
+                                                 onmouseout="this.style.backgroundColor='transparent'"
+                                                 onclick="MachineDetailModule.selectEmployee('${e.id}', '${this.escapeHtml(e.name)} ${this.escapeHtml(e.lastName || '')} - ${this.escapeHtml(e.department || 'Sin depto.')}')">
+                                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.25rem;">
+                                                    ${this.escapeHtml(e.name)} ${this.escapeHtml(e.lastName || '')}
+                                                </div>
+                                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                                    ${this.escapeHtml(e.department || 'Sin depto.')}
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
                                 </div>
-                            ` : ''}
+                                <input type="hidden" id="employeeSelect" value="">
+                                <div id="selectedEmployeeDisplay" style="margin-top: 0.5rem; padding: 0.75rem; background: var(--hover-bg); border-radius: 6px; display: none;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                        <div>
+                                            <div style="font-weight: 600; color: var(--text-primary);" id="selectedEmployeeName"></div>
+                                            <div style="font-size: 0.85rem; color: var(--text-secondary);" id="selectedEmployeeDept"></div>
+                                        </div>
+                                        <button type="button" 
+                                                onclick="MachineDetailModule.clearEmployeeSelection()"
+                                                style="background: none; border: none; color: var(--text-tertiary); cursor: pointer; padding: 0.25rem;"
+                                                title="Limpiar selección">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `}
                         </div>
                         
                         <div class="form-group">
@@ -373,10 +422,124 @@ const MachineDetailModule = {
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+        if (activeEmployees.length > 0) {
+            this.bindEmployeeSearchEvents();
+        }
+    },
+    
+    bindEmployeeSearchEvents() {
+        const searchInput = document.getElementById('employeeSearchInput');
+        const dropdown = document.getElementById('employeeDropdown');
+        
+        if (!searchInput || !dropdown) return;
+        
+        // Mostrar dropdown al hacer focus
+        searchInput.addEventListener('focus', () => {
+            if (!this._selectedEmployeeId) {
+                dropdown.style.display = 'block';
+                this.filterEmployeeOptions('');
+            }
+        });
+        
+        // Filtrar mientras se escribe
+        searchInput.addEventListener('input', (e) => {
+            if (!this._selectedEmployeeId) {
+                this.filterEmployeeOptions(e.target.value);
+                dropdown.style.display = 'block';
+            }
+        });
+        
+        // Ocultar dropdown al hacer click fuera
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    },
+    
+    filterEmployeeOptions(query) {
+        const dropdown = document.getElementById('employeeDropdown');
+        if (!dropdown || !this._modalEmployees) return;
+        
+        const searchTerm = query.toLowerCase().trim();
+        const options = dropdown.querySelectorAll('.employee-option');
+        
+        if (!searchTerm) {
+            options.forEach(opt => opt.style.display = '');
+            return;
+        }
+        
+        options.forEach(option => {
+            const name = option.dataset.employeeName.toLowerCase();
+            const dept = option.querySelector('div:last-child')?.textContent.toLowerCase() || '';
+            
+            if (name.includes(searchTerm) || dept.includes(searchTerm)) {
+                option.style.display = '';
+            } else {
+                option.style.display = 'none';
+            }
+        });
+        
+        // Mostrar mensaje si no hay resultados
+        const visibleOptions = Array.from(options).filter(opt => opt.style.display !== 'none');
+        let noResultsMsg = dropdown.querySelector('.no-results');
+        
+        if (visibleOptions.length === 0 && searchTerm) {
+            if (!noResultsMsg) {
+                noResultsMsg = document.createElement('div');
+                noResultsMsg.className = 'no-results';
+                noResultsMsg.style.cssText = 'padding: 1rem; text-align: center; color: var(--text-tertiary);';
+                noResultsMsg.textContent = 'No se encontraron empleados';
+                dropdown.appendChild(noResultsMsg);
+            }
+            noResultsMsg.style.display = 'block';
+        } else if (noResultsMsg) {
+            noResultsMsg.style.display = 'none';
+        }
+    },
+    
+    selectEmployee(employeeId, displayText) {
+        this._selectedEmployeeId = employeeId;
+        document.getElementById('employeeSelect').value = employeeId;
+        
+        const searchInput = document.getElementById('employeeSearchInput');
+        const dropdown = document.getElementById('employeeDropdown');
+        const displayDiv = document.getElementById('selectedEmployeeDisplay');
+        const nameDiv = document.getElementById('selectedEmployeeName');
+        const deptDiv = document.getElementById('selectedEmployeeDept');
+        
+        if (searchInput && dropdown && displayDiv && nameDiv && deptDiv) {
+            // Ocultar dropdown y limpiar búsqueda
+            dropdown.style.display = 'none';
+            searchInput.value = '';
+            
+            // Mostrar empleado seleccionado
+            const parts = displayText.split(' - ');
+            nameDiv.textContent = parts[0];
+            deptDiv.textContent = parts[1] || '';
+            displayDiv.style.display = 'block';
+        }
+    },
+    
+    clearEmployeeSelection() {
+        this._selectedEmployeeId = null;
+        document.getElementById('employeeSelect').value = '';
+        
+        const searchInput = document.getElementById('employeeSearchInput');
+        const dropdown = document.getElementById('employeeDropdown');
+        const displayDiv = document.getElementById('selectedEmployeeDisplay');
+        
+        if (searchInput && dropdown && displayDiv) {
+            searchInput.value = '';
+            displayDiv.style.display = 'none';
+            searchInput.focus();
+            dropdown.style.display = 'block';
+            this.filterEmployeeOptions('');
+        }
     },
 
     async confirmAssign() {
-        const employeeId = document.getElementById('employeeSelect')?.value;
+        const employeeId = document.getElementById('employeeSelect')?.value || this._selectedEmployeeId;
         const notes = document.getElementById('assignNotes')?.value || '';
 
         if (!employeeId) {
@@ -387,6 +550,8 @@ const MachineDetailModule = {
         try {
             await Store.assignMachineToEmployee(this.machineId, employeeId, notes);
             document.getElementById('assignModal')?.remove();
+            this._selectedEmployeeId = null;
+            this._modalEmployees = null;
             await this.loadData();
             this.render();
             this.showToast('Máquina asignada correctamente', 'success');
