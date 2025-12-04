@@ -1,0 +1,13 @@
+serialNumber,name,status,year,cost,model,diskType,disk,ramType,ram,operatingSystem,osVersion,monitor,openCoreVersion,comments
+SN-001234,MacBook Pro IT-01,available,2023,25000,MacBook Pro 16 M2 Max,ssd,1TB,lpddr5,32GB,macos,Sonoma 14.2,Retina 16,0.9.7,Máquina nueva para desarrollo
+SN-001235,Dell XPS IT-02,available,2023,18000,Dell XPS 15,nvme,512GB,ddr5,16GB,windows,Windows 11 Pro,15.6 4K,,Laptop para diseño gráfico
+SN-001236,HP EliteBook IT-03,assigned,2022,15000,HP EliteBook 840,ssd,256GB,ddr4,8GB,windows,Windows 10 Pro,14 FHD,,Asignada a departamento de desarrollo
+SN-001237,iMac IT-04,maintenance,2021,35000,iMac 24 M1,ssd,512GB,unified,16GB,macos,Ventura 13.5,24 4.5K,,En reparación de pantalla
+SN-001238,Lenovo ThinkPad IT-05,available,2023,12000,ThinkPad X1 Carbon,ssd,512GB,ddr5,16GB,linux,Ubuntu 22.04 LTS,14 FHD,,Para desarrollo Linux
+SN-001239,MacBook Air IT-06,available,2022,20000,MacBook Air M2,ssd,256GB,lpddr5,8GB,macos,Monterey 12.6,13.3 Retina,,Laptop ligera para movilidad
+SN-001240,Dell Precision IT-07,assigned,2023,28000,Dell Precision 5570,nvme,1TB,ddr5,32GB,windows,Windows 11 Pro,15.6 4K,,Workstation para ingeniería
+SN-001241,Surface Pro IT-08,available,2022,16000,Surface Pro 9,ssd,256GB,lpddr5,16GB,windows,Windows 11 Pro,13 2K,,Tablet convertible
+SN-001242,Mac Mini IT-09,available,2023,15000,Mac Mini M2 Pro,ssd,512GB,unified,16GB,macos,Sonoma 14.1,27 4K,,Desktop compacto
+SN-001243,HP ZBook IT-10,maintenance,2021,22000,HP ZBook Studio G8,ssd,512GB,ddr4,32GB,windows,Windows 10 Pro,15.6 4K,,En mantenimiento preventivo
+
+

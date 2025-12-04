@@ -32,14 +32,14 @@ const AnalyticsModule = {
         // Filtros de tiempo
         const dateRangePicker = document.getElementById('dateRangePicker');
         if (dateRangePicker) {
-            dateRangePicker.addEventListener('click', (e) => {
+            dateRangePicker.addEventListener('click', async (e) => {
                 const btn = e.target.closest('.date-btn');
                 if (btn) {
                     const range = btn.dataset.range;
                     if (range === 'custom') {
                         this.showCustomDateModal();
                     } else {
-                        this.setDateRange(range);
+                        await this.setDateRange(range);
                     }
                 }
             });
@@ -50,9 +50,43 @@ const AnalyticsModule = {
         if (exportBtn) {
             exportBtn.addEventListener('click', () => this.showExportModal());
         }
+
+        // Boton recargar datos
+        const refreshBtn = document.getElementById('refreshDataBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async () => {
+                refreshBtn.disabled = true;
+                refreshBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    Cargando...
+                `;
+                try {
+                    await this.loadAllData();
+                    await this.renderDashboard();
+                    this.showToast('Datos recargados correctamente', 'success');
+                } catch (e) {
+                    console.error('Error recargando datos:', e);
+                    this.showToast('Error al recargar datos', 'error');
+                } finally {
+                    refreshBtn.disabled = false;
+                    refreshBtn.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        Recargar
+                    `;
+                }
+            });
+        }
     },
 
-    setDateRange(range) {
+    async setDateRange(range) {
         this.dateRange = range;
         this.customDateStart = null;
         this.customDateEnd = null;
@@ -62,8 +96,9 @@ const AnalyticsModule = {
             btn.classList.toggle('active', btn.dataset.range === range);
         });
 
-        // Re-renderizar dashboard
-        this.renderDashboard();
+        // Recargar datos y re-renderizar dashboard
+        await this.loadAllData();
+        await this.renderDashboard();
     },
 
     getDateRangeFilter() {
@@ -98,16 +133,24 @@ const AnalyticsModule = {
     },
 
     filterByDateRange(items, dateField = 'createdAt') {
+        if (!items || items.length === 0) return [];
         const { start, end } = this.getDateRangeFilter();
         return items.filter(item => {
-            if (!item[dateField]) return true;
-            const itemDate = new Date(item[dateField]);
-            return itemDate >= start && itemDate <= end;
+            if (!item || !item[dateField]) return false; // Solo incluir items con fecha válida
+            try {
+                const itemDate = new Date(item[dateField]);
+                if (isNaN(itemDate.getTime())) return false; // Fecha inválida
+                return itemDate >= start && itemDate <= end;
+            } catch (e) {
+                console.warn('Error filtrando fecha:', item[dateField], e);
+                return false;
+            }
         });
     },
 
     async loadAllData() {
         try {
+            console.log('Analytics: Cargando datos desde Store...');
             const [tickets, machines, employees, licenses, assignments, categories] = await Promise.all([
                 Store.getTickets() || [],
                 Store.getMachines() || [],
@@ -117,9 +160,25 @@ const AnalyticsModule = {
                 Store.getCategories() || []
             ]);
             
-            this.data = { tickets, machines, employees, licenses, assignments, categories };
+            console.log('Analytics: Datos cargados:', {
+                tickets: tickets.length,
+                machines: machines.length,
+                employees: employees.length,
+                licenses: licenses.length,
+                assignments: assignments.length,
+                categories: categories.length
+            });
+            
+            this.data = { 
+                tickets: tickets || [], 
+                machines: machines || [], 
+                employees: employees || [], 
+                licenses: licenses || [], 
+                assignments: assignments || [], 
+                categories: categories || [] 
+            };
         } catch (e) {
-            console.error('Error cargando datos:', e);
+            console.error('Error cargando datos en Analytics:', e);
             this.data = { tickets: [], machines: [], employees: [], licenses: [], assignments: [], categories: [] };
         }
     },
@@ -133,39 +192,46 @@ const AnalyticsModule = {
         const now = new Date();
         
         // Filtrar tickets por rango de fecha seleccionado
-        const tickets = this.filterByDateRange(allTickets);
+        const tickets = this.filterByDateRange(allTickets || []);
         
         const last7Days = new Date(now - 7 * 24 * 60 * 60 * 1000);
-        const thisWeekTickets = tickets.filter(t => new Date(t.createdAt) >= last7Days);
+        const thisWeekTickets = tickets.filter(t => {
+            if (!t || !t.createdAt) return false;
+            try {
+                return new Date(t.createdAt) >= last7Days;
+            } catch (e) {
+                return false;
+            }
+        });
 
-        // Tickets por estado
+        // Tickets por estado - usando todos los tickets disponibles
         const byStatus = {
-            open: tickets.filter(t => t.status === 'open').length,
-            in_progress: tickets.filter(t => t.status === 'in_progress').length,
-            resolved: tickets.filter(t => t.status === 'resolved').length,
-            closed: tickets.filter(t => t.status === 'closed').length
+            open: tickets.filter(t => t && (t.status === 'open' || t.status === 'Open')).length,
+            in_progress: tickets.filter(t => t && (t.status === 'in_progress' || t.status === 'In Progress' || t.status === 'in-progress')).length,
+            resolved: tickets.filter(t => t && (t.status === 'resolved' || t.status === 'Resolved')).length,
+            closed: tickets.filter(t => t && (t.status === 'closed' || t.status === 'Closed')).length
         };
 
         // Tickets por prioridad
         const byPriority = {
-            critical: tickets.filter(t => t.priority === 'critical').length,
-            high: tickets.filter(t => t.priority === 'high').length,
-            medium: tickets.filter(t => t.priority === 'medium').length,
-            low: tickets.filter(t => t.priority === 'low').length
+            critical: tickets.filter(t => t && (t.priority === 'critical' || t.priority === 'Critical')).length,
+            high: tickets.filter(t => t && (t.priority === 'high' || t.priority === 'High')).length,
+            medium: tickets.filter(t => t && (t.priority === 'medium' || t.priority === 'Medium')).length,
+            low: tickets.filter(t => t && (t.priority === 'low' || t.priority === 'Low')).length
         };
 
         // Tickets por tipo (incidencia/requerimiento)
         const byType = {
-            incidencia: tickets.filter(t => t.tipo === 'incidencia').length,
-            requerimiento: tickets.filter(t => t.tipo === 'requerimiento').length
+            incidencia: tickets.filter(t => t && (t.tipo === 'incidencia' || t.tipo === 'Incidencia' || t.type === 'incidencia')).length,
+            requerimiento: tickets.filter(t => t && (t.tipo === 'requerimiento' || t.tipo === 'Requerimiento' || t.type === 'requerimiento')).length
         };
 
         // Tickets por servicio/categoria
         const byService = {
-            hardware: tickets.filter(t => t.servicio === 'hardware' || t.category === 'hardware').length,
-            software: tickets.filter(t => t.servicio === 'software' || t.category === 'software').length,
-            network: tickets.filter(t => t.servicio === 'network' || t.category === 'network').length,
-            other: tickets.filter(t => t.servicio === 'other' || t.category === 'other').length
+            hardware: tickets.filter(t => t && (t.servicio === 'hardware' || t.category === 'hardware' || t.service === 'hardware')).length,
+            software: tickets.filter(t => t && (t.servicio === 'software' || t.category === 'software' || t.service === 'software')).length,
+            network: tickets.filter(t => t && (t.servicio === 'network' || t.category === 'network' || t.service === 'network' || t.servicio === 'red')).length,
+            other: tickets.filter(t => t && (t.servicio === 'other' || t.category === 'other' || t.service === 'other')).length
         };
 
         // Tiempo promedio de resolucion (en horas)
@@ -246,7 +312,7 @@ const AnalyticsModule = {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        document.getElementById('customDateForm').addEventListener('submit', (e) => {
+            document.getElementById('customDateForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             this.customDateStart = formData.get('startDate');
@@ -258,7 +324,8 @@ const AnalyticsModule = {
             });
 
             document.getElementById('customDateModal').remove();
-            this.renderDashboard();
+            await this.loadAllData();
+            await this.renderDashboard();
         });
     },
 
@@ -761,37 +828,39 @@ const AnalyticsModule = {
     },
 
     getMachineMetrics() {
-        const { machines, assignments, tickets } = this.data;
+        const { machines = [], assignments = [], tickets = [] } = this.data;
         
-        // Estado de maquinas
+        // Estado de maquinas - considerar diferentes valores de estado
         const byStatus = {
-            active: machines.filter(m => m.status === 'active').length,
-            maintenance: machines.filter(m => m.status === 'maintenance').length,
-            inactive: machines.filter(m => m.status === 'inactive').length
+            active: machines.filter(m => m && (m.status === 'active' || m.status === 'Active' || m.status === 'available' || m.status === 'assigned')).length,
+            maintenance: machines.filter(m => m && (m.status === 'maintenance' || m.status === 'Maintenance')).length,
+            inactive: machines.filter(m => m && (m.status === 'inactive' || m.status === 'Inactive' || m.status === 'retired' || m.status === 'Retired')).length
         };
 
         // Maquinas por tipo
         const byType = {};
-        machines.forEach(m => {
-            const type = m.type || 'Sin tipo';
+        (machines || []).forEach(m => {
+            if (!m) return;
+            const type = m.type || m.kind || 'Sin tipo';
             byType[type] = (byType[type] || 0) + 1;
         });
 
         // Asignaciones activas
-        const activeAssignments = assignments.filter(a => !a.endDate);
-        const assignedMachineIds = new Set(activeAssignments.map(a => a.machineId));
+        const activeAssignments = (assignments || []).filter(a => a && !a.endDate);
+        const assignedMachineIds = new Set(activeAssignments.map(a => a.machineId).filter(Boolean));
         const assignedCount = assignedMachineIds.size;
-        const unassignedCount = machines.length - assignedCount;
+        const unassignedCount = Math.max(0, machines.length - assignedCount);
 
-        // Maquinas con tickets (problematicas)
+        // Maquinas con tickets (problematicas) - usar todos los tickets, no solo filtrados
         const machineTicketCount = {};
-        tickets.forEach(t => {
-            if (t.machineId) {
+        (tickets || []).forEach(t => {
+            if (t && t.machineId) {
                 machineTicketCount[t.machineId] = (machineTicketCount[t.machineId] || 0) + 1;
             }
         });
 
-        const problematicMachines = machines
+        const problematicMachines = (machines || [])
+            .filter(m => m && m.id)
             .map(m => ({
                 ...m,
                 ticketCount: machineTicketCount[m.id] || 0
@@ -802,22 +871,39 @@ const AnalyticsModule = {
 
         // Antiguedad de maquinas
         const now = new Date();
-        const machineAges = machines.map(m => {
-            if (m.purchaseDate) {
-                const purchaseDate = new Date(m.purchaseDate);
-                return (now - purchaseDate) / (1000 * 60 * 60 * 24 * 365); // años
-            }
-            return 0;
-        }).filter(age => age > 0);
+        const machineAges = (machines || [])
+            .filter(m => m && (m.purchaseDate || m.acquisitionDate || m.datePurchased))
+            .map(m => {
+                const purchaseDate = m.purchaseDate || m.acquisitionDate || m.datePurchased;
+                try {
+                    const date = new Date(purchaseDate);
+                    if (!isNaN(date.getTime())) {
+                        return (now - date) / (1000 * 60 * 60 * 24 * 365); // años
+                    }
+                } catch (e) {
+                    console.warn('Error calculando edad de máquina:', purchaseDate, e);
+                }
+                return 0;
+            })
+            .filter(age => age > 0);
 
         const avgAge = machineAges.length > 0 
             ? (machineAges.reduce((a, b) => a + b, 0) / machineAges.length).toFixed(1)
             : 0;
 
-        const oldMachines = machines.filter(m => {
-            if (m.purchaseDate) {
-                const age = (now - new Date(m.purchaseDate)) / (1000 * 60 * 60 * 24 * 365);
-                return age > 3; // mas de 3 años
+        const oldMachines = (machines || []).filter(m => {
+            if (!m) return false;
+            const purchaseDate = m.purchaseDate || m.acquisitionDate || m.datePurchased;
+            if (purchaseDate) {
+                try {
+                    const date = new Date(purchaseDate);
+                    if (!isNaN(date.getTime())) {
+                        const age = (now - date) / (1000 * 60 * 60 * 24 * 365);
+                        return age > 3; // mas de 3 años
+                    }
+                } catch (e) {
+                    return false;
+                }
             }
             return false;
         });
@@ -836,30 +922,34 @@ const AnalyticsModule = {
     },
 
     getEmployeeMetrics() {
-        const { employees, assignments, tickets } = this.data;
+        const { employees = [], assignments = [], tickets = [] } = this.data;
 
         // Empleados por estado
         const byStatus = {
-            active: employees.filter(e => e.status === 'active').length,
-            inactive: employees.filter(e => e.status === 'inactive').length
+            active: employees.filter(e => e && (e.status === 'active' || e.status === 'Active')).length,
+            inactive: employees.filter(e => e && (e.status === 'inactive' || e.status === 'Inactive')).length
         };
 
         // Empleados por departamento
         const byDepartment = {};
-        employees.forEach(e => {
-            const dept = e.department || 'Sin departamento';
+        (employees || []).forEach(e => {
+            if (!e) return;
+            const dept = e.department || e.departamento || 'Sin departamento';
             byDepartment[dept] = (byDepartment[dept] || 0) + 1;
         });
 
         // Empleados con maquina asignada
-        const activeAssignments = assignments.filter(a => !a.endDate);
-        const employeesWithMachine = new Set(activeAssignments.map(a => a.employeeId)).size;
+        const activeAssignments = (assignments || []).filter(a => a && !a.endDate);
+        const employeesWithMachine = new Set(activeAssignments.map(a => a.employeeId).filter(Boolean)).size;
 
-        // Empleados que mas tickets generan
+        // Empleados que mas tickets generan - usar todos los tickets
         const employeeTicketCount = {};
-        tickets.forEach(t => {
-            if (t.contactoId) {
-                employeeTicketCount[t.contactoId] = (employeeTicketCount[t.contactoId] || 0) + 1;
+        (tickets || []).forEach(t => {
+            if (t) {
+                const employeeId = t.contactoId || t.employeeId || t.contactId;
+                if (employeeId) {
+                    employeeTicketCount[employeeId] = (employeeTicketCount[employeeId] || 0) + 1;
+                }
             }
         });
 
@@ -872,13 +962,15 @@ const AnalyticsModule = {
             .sort((a, b) => b.ticketCount - a.ticketCount)
             .slice(0, 5);
 
-        // Tickets por departamento
+        // Tickets por departamento - usar todos los tickets
         const ticketsByDepartment = {};
-        tickets.forEach(t => {
-            if (t.contactoId) {
-                const employee = employees.find(e => e.id === t.contactoId);
+        (tickets || []).forEach(t => {
+            if (!t) return;
+            const employeeId = t.contactoId || t.employeeId || t.contactId;
+            if (employeeId) {
+                const employee = (employees || []).find(e => e && e.id === employeeId);
                 if (employee) {
-                    const dept = employee.department || 'Sin departamento';
+                    const dept = employee.department || employee.departamento || 'Sin departamento';
                     ticketsByDepartment[dept] = (ticketsByDepartment[dept] || 0) + 1;
                 }
             }
@@ -896,7 +988,7 @@ const AnalyticsModule = {
     },
 
     getLicenseMetrics() {
-        const { licenses } = this.data;
+        const { licenses = [] } = this.data;
         const now = new Date();
 
         // Licencias por estado de vencimiento
@@ -1060,11 +1152,21 @@ const AnalyticsModule = {
         const container = document.querySelector('.page-content');
         if (!container) return;
 
+        // Asegurarse de que los datos estén actualizados antes de renderizar
+        await this.loadAllData();
+
         const ticketMetrics = this.getTicketMetrics();
         const machineMetrics = this.getMachineMetrics();
         const employeeMetrics = this.getEmployeeMetrics();
         const licenseMetrics = this.getLicenseMetrics();
         const insights = this.generateInsights();
+
+        console.log('Analytics: Renderizando dashboard con métricas:', {
+            tickets: ticketMetrics.total,
+            machines: machineMetrics.total,
+            employees: employeeMetrics.total,
+            licenses: licenseMetrics.total
+        });
 
         container.innerHTML = `
             <!-- Indicador de rango de fechas -->
@@ -1820,6 +1922,10 @@ const AnalyticsModule = {
                 @media (max-width: 600px) {
                     .analytics-kpis-grid { grid-template-columns: 1fr; }
                 }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
             </style>
         `;
     },
@@ -1974,6 +2080,17 @@ const AnalyticsModule = {
 
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => AnalyticsModule.init(), 100);
+});
+
+// Recargar datos cuando la página vuelve a tener foco (útil si hay cambios en otras pestañas)
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && window.AnalyticsModule) {
+        // Recargar datos después de 1 segundo para dar tiempo a que termine cualquier operación pendiente
+        setTimeout(async () => {
+            await window.AnalyticsModule.loadAllData();
+            await window.AnalyticsModule.renderDashboard();
+        }, 1000);
+    }
 });
 
 window.AnalyticsModule = AnalyticsModule;

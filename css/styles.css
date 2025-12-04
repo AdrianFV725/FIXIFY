@@ -256,6 +256,10 @@ body {
         0 10px 40px var(--shadow-color);
     border: 1px solid var(--border-color);
     transition: all var(--transition-normal);
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .login-card:hover {
@@ -873,6 +877,40 @@ body {
         width: 300px;
         height: 300px;
     }
+    
+    /* Ajustes para pantalla de éxito en móvil */
+    .success-screen {
+        min-height: 450px;
+        padding: 2rem 1.5rem;
+    }
+    
+    .success-icon-container {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .success-title {
+        font-size: 1.75rem;
+    }
+    
+    .success-subtitle {
+        font-size: 0.95rem;
+    }
+    
+    .success-progress-container {
+        max-width: 100%;
+        width: 100%;
+    }
+    
+    .success-user-greeting {
+        max-width: 100%;
+        padding: 0.75rem 1.25rem;
+    }
+    
+    .success-user-name {
+        max-width: 150px;
+    }
 }
 
 /* ========================================
@@ -937,8 +975,10 @@ body {
     align-items: center;
     justify-content: center;
     padding: 3rem 2rem;
-    min-height: 400px;
+    min-height: 500px;
+    width: 100%;
     overflow: hidden;
+    text-align: center;
 }
 
 /* Fondo con gradiente animado */
@@ -1012,6 +1052,10 @@ body {
     width: 120px;
     height: 120px;
     margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 /* Anillo exterior animado */
@@ -1144,9 +1188,12 @@ body {
     position: relative;
     z-index: 1;
     width: 100%;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 .success-title {
@@ -1158,6 +1205,8 @@ body {
     opacity: 0;
     transform: translateY(20px);
     animation: slideUp 0.6s ease-out 0.9s forwards;
+    width: 100%;
+    text-align: center;
 }
 
 .success-subtitle {
@@ -1167,6 +1216,8 @@ body {
     opacity: 0;
     transform: translateY(15px);
     animation: slideUp 0.5s ease-out 1.1s forwards;
+    width: 100%;
+    text-align: center;
 }
 
 .success-redirect-text {
@@ -1175,6 +1226,8 @@ body {
     opacity: 0;
     transform: translateY(10px);
     animation: slideUp 0.5s ease-out 1.3s forwards;
+    width: 100%;
+    text-align: center;
 }
 
 @keyframes slideUp {
@@ -1188,7 +1241,7 @@ body {
 .success-progress-container {
     margin-top: 2rem;
     width: 100%;
-    max-width: 200px;
+    max-width: 280px;
     margin-left: auto;
     margin-right: auto;
     opacity: 0;
@@ -1196,6 +1249,8 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    gap: 1rem;
 }
 
 @keyframes fadeIn {
@@ -1205,20 +1260,48 @@ body {
 }
 
 .success-progress-bar {
-    height: 4px;
+    height: 5px;
     background: var(--border-color);
-    border-radius: 4px;
+    border-radius: 10px;
     overflow: hidden;
     position: relative;
     width: 100%;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .success-progress-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
-    border-radius: 4px;
+    border-radius: 10px;
     width: 0;
     animation: fillProgress 2s ease-out 1.6s forwards;
+    box-shadow: 0 0 10px rgba(201, 168, 108, 0.4);
+    position: relative;
+}
+
+.success-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
 }
 
 @keyframes fillProgress {
@@ -1230,19 +1313,21 @@ body {
 /* Puntos de carga animados */
 .success-dots {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     justify-content: center;
-    margin-top: 1rem;
+    align-items: center;
+    margin-top: 0;
     opacity: 0;
     animation: fadeIn 0.3s ease-out 1.7s forwards;
 }
 
 .success-dot {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     background: var(--accent-primary);
     border-radius: 50%;
     animation: dotBounce 1.4s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(201, 168, 108, 0.5);
 }
 
 .success-dot:nth-child(2) {
@@ -1356,18 +1441,19 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
     margin-top: 1.5rem;
-    padding: 0.75rem 1.25rem;
+    padding: 0.875rem 1.5rem;
     background: var(--accent-light);
     border-radius: 100px;
     opacity: 0;
     transform: scale(0.9);
     animation: popUp 0.5s ease-out 1.2s forwards;
-    max-width: 100%;
+    max-width: 90%;
     width: fit-content;
     margin-left: auto;
     margin-right: auto;
+    box-shadow: 0 2px 8px rgba(201, 168, 108, 0.15);
 }
 
 @keyframes popUp {
@@ -1378,26 +1464,28 @@ body {
 }
 
 .success-user-avatar {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: white;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(201, 168, 108, 0.3);
 }
 
 .success-user-name {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 500;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 200px;
+    max-width: 220px;
 }
 
 /* Transicion de salida */

@@ -43,6 +43,32 @@ const AssignmentsModule = {
             this.licenses = licenses || [];
             this.machineAssignments = machineAssignments || [];
             this.licenseAssignments = licenseAssignments || [];
+            
+            // Logging para diagnóstico
+            console.log('AssignmentsModule - Datos cargados:', {
+                employees: this.employees.length,
+                machines: this.machines.length,
+                licenses: this.licenses.length,
+                machineAssignments: this.machineAssignments.length,
+                licenseAssignments: this.licenseAssignments.length
+            });
+            
+            // Verificar asignaciones de licencias
+            const activeLicenseAssignments = this.licenseAssignments.filter(a => !a.endDate);
+            console.log('AssignmentsModule - Asignaciones activas de licencias:', activeLicenseAssignments.length);
+            
+            // Verificar coincidencias de empleados
+            activeLicenseAssignments.forEach(a => {
+                const employee = this.employees.find(e => e.id === a.employeeId);
+                if (!employee) {
+                    console.warn('AssignmentsModule - Asignación sin empleado encontrado:', {
+                        assignmentId: a.id,
+                        licenseId: a.licenseId,
+                        employeeId: a.employeeId,
+                        assignment: a
+                    });
+                }
+            });
         } catch (e) {
             console.error('Error cargando datos:', e);
         }
@@ -56,8 +82,12 @@ const AssignmentsModule = {
         const assignedMachines = this.machines.filter(m => m.assignedTo);
         const availableMachines = this.machines.filter(m => !m.assignedTo && m.status === 'available');
         
-        // Obtener licencias asignadas activas
+        // Obtener licencias asignadas activas y filtrar solo las válidas (con empleado encontrado)
         const activeLicenseAssignments = this.licenseAssignments.filter(a => !a.endDate);
+        const validActiveLicenseAssignments = activeLicenseAssignments.filter(a => {
+            const employee = this.employees.find(e => e.id === a.employeeId);
+            return !!employee;
+        });
         
         container.innerHTML = `
             <!-- Tabs principales -->
@@ -77,7 +107,7 @@ const AssignmentsModule = {
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                     </svg>
                     <span>Licencias</span>
-                    <span class="tab-badge">${activeLicenseAssignments.length}</span>
+                    <span class="tab-badge">${validActiveLicenseAssignments.length}</span>
                 </button>
                 <button class="assignment-tab ${this.currentTab === 'history' ? 'active' : ''}" data-tab="history">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -95,7 +125,7 @@ const AssignmentsModule = {
 
             <!-- Panel de Licencias -->
             <div id="licensesPanel" class="assignment-panel ${this.currentTab === 'licenses' ? '' : 'hidden'}">
-                ${this.renderLicensesPanel(activeEmployees, activeLicenseAssignments)}
+                ${this.renderLicensesPanel(activeEmployees, validActiveLicenseAssignments)}
             </div>
 
             <!-- Panel de Historial -->
@@ -237,7 +267,13 @@ const AssignmentsModule = {
     renderLicensesPanel(activeEmployees, activeLicenseAssignments) {
         // Calcular asignaciones por licencia dinámicamente
         const licensesWithStats = this.licenses.map(l => {
-            const assignedCount = activeLicenseAssignments.filter(a => a.licenseId === l.id).length;
+            const allAssignments = activeLicenseAssignments.filter(a => a.licenseId === l.id);
+            // Contar solo asignaciones donde se encuentra el empleado
+            const validAssignments = allAssignments.filter(a => {
+                const employee = this.employees.find(e => e.id === a.employeeId);
+                return !!employee;
+            });
+            const assignedCount = validAssignments.length;
             const totalQuantity = l.quantity || 0;
             const available = totalQuantity > 0 ? totalQuantity - assignedCount : 0;
             const isExpired = l.expirationDate && new Date(l.expirationDate) < new Date();
@@ -248,7 +284,9 @@ const AssignmentsModule = {
                 assignedCount,
                 available,
                 isExpired,
-                usagePercent
+                usagePercent,
+                allAssignments, // Guardar todas las asignaciones para renderizar
+                validAssignments // Guardar asignaciones válidas
             };
         });
 
@@ -274,8 +312,14 @@ const AssignmentsModule = {
                             <p>No hay licencias registradas</p>
                         </div>
                     ` : licensesWithStats.map(l => {
-                        const assignmentsForLicense = activeLicenseAssignments.filter(a => a.licenseId === l.id);
+                        // Usar las asignaciones válidas que ya calculamos
+                        const assignmentsForLicense = l.validAssignments || [];
                         const canAssign = l.available > 0 && !l.isExpired;
+                        
+                        // Logging para diagnóstico
+                        if (l.allAssignments && l.allAssignments.length > assignmentsForLicense.length) {
+                            console.warn(`Licencia ${l.software}: ${l.allAssignments.length} asignaciones totales, ${assignmentsForLicense.length} válidas (empleados encontrados)`);
+                        }
                         
                         return `
                             <div class="license-card ${!canAssign ? 'depleted' : ''}" data-license-id="${l.id}">
@@ -322,10 +366,33 @@ const AssignmentsModule = {
                                         <div class="no-assignments">
                                             <span>No hay asignaciones activas</span>
                                         </div>
-                                    ` : assignmentsForLicense.map(a => {
-                                        const employee = this.employees.find(e => e.id === a.employeeId);
-                                        if (!employee) return '';
-                                        return `
+                                    ` : (() => {
+                                        // Filtrar asignaciones válidas y mapear
+                                        const validAssignments = assignmentsForLicense.map(a => {
+                                            const employee = this.employees.find(e => e.id === a.employeeId);
+                                            return { assignment: a, employee };
+                                        }).filter(item => item.employee); // Solo incluir si se encontró el empleado
+                                        
+                                        // Si hay asignaciones pero ninguna válida, mostrar mensaje
+                                        if (assignmentsForLicense.length > 0 && validAssignments.length === 0) {
+                                            return `
+                                                <div class="no-assignments" style="color: #f97316;">
+                                                    <span>${assignmentsForLicense.length} asignación(es) con empleado no encontrado</span>
+                                                </div>
+                                            `;
+                                        }
+                                        
+                                        // Si no hay asignaciones válidas, mostrar mensaje
+                                        if (validAssignments.length === 0) {
+                                            return `
+                                                <div class="no-assignments">
+                                                    <span>No hay asignaciones activas</span>
+                                                </div>
+                                            `;
+                                        }
+                                        
+                                        // Renderizar asignaciones válidas
+                                        return validAssignments.map(({ assignment: a, employee }) => `
                                             <div class="license-assignment-item">
                                                 <div class="assignment-employee">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -341,8 +408,8 @@ const AssignmentsModule = {
                                                     </svg>
                                                 </button>
                                             </div>
-                                        `;
-                                    }).join('')}
+                                        `).join('');
+                                    })()}
                                 </div>
                                 
                                 <div class="license-card-actions">

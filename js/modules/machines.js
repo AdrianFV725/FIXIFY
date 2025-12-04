@@ -489,6 +489,9 @@ const MachinesModule = {
 
         // Boton exportar
         document.getElementById('exportBtn')?.addEventListener('click', () => this.exportMachines());
+        
+        // Boton importar CSV
+        document.getElementById('importBtn')?.addEventListener('click', () => this.openImportModal());
     },
 
     async openForm(machine = null) {
@@ -618,18 +621,21 @@ const MachinesModule = {
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
             
+            // Limpiar datos antes de guardar (eliminar campos vacíos/undefined)
+            const cleanedData = this.cleanMachineData(data);
+            
             try {
-                if (data.id) {
-                    const existing = this.getMachineById(data.id);
+                if (cleanedData.id) {
+                    const existing = this.getMachineById(cleanedData.id);
                     if (existing) {
-                        Object.assign(existing, data);
+                        Object.assign(existing, cleanedData);
                         await Store.saveMachine(existing);
                     } else {
-                        await Store.saveMachine(data);
+                        await Store.saveMachine(cleanedData);
                     }
                 } else {
-                    delete data.id;
-                    await Store.saveMachine(data);
+                    delete cleanedData.id;
+                    await Store.saveMachine(cleanedData);
                 }
 
                 document.getElementById('machineModal').remove();
@@ -918,6 +924,464 @@ const MachinesModule = {
             retired: 'Dada de baja'
         };
         return labels[status] || status || '-';
+    },
+
+    // ========================================
+    // IMPORTAR CSV
+    // ========================================
+
+    openImportModal() {
+        const modalHtml = `
+            <div class="modal-overlay active" id="importModal">
+                <div class="modal modal-lg" style="max-width: 900px;">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Importar Máquinas desde CSV</h2>
+                        <button class="modal-close" onclick="document.getElementById('importModal').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <div style="margin-bottom: 1.5rem;">
+                            <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                                Sube un archivo CSV con las máquinas a importar. El archivo debe incluir las columnas requeridas.
+                            </p>
+                            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                                <strong style="display: block; margin-bottom: 0.5rem;">Columnas requeridas:</strong>
+                                <code style="font-size: 0.85rem; color: var(--text-secondary);">
+                                    serialNumber, name, status
+                                </code>
+                                <strong style="display: block; margin-top: 1rem; margin-bottom: 0.5rem;">Columnas opcionales:</strong>
+                                <code style="font-size: 0.85rem; color: var(--text-secondary);">
+                                    year, cost, model, diskType, disk, ramType, ram, operatingSystem, osVersion, monitor, openCoreVersion, comments
+                                </code>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="MachinesModule.downloadExampleCSV()" style="margin-bottom: 1rem;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Descargar CSV de Ejemplo
+                            </button>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Seleccionar archivo CSV <span class="required">*</span></label>
+                            <input type="file" id="csvFileInput" accept=".csv" class="form-input" style="padding: 0.5rem;">
+                        </div>
+                        <div id="importPreview" style="margin-top: 1.5rem; display: none;">
+                            <h3 style="font-size: 1rem; margin-bottom: 1rem;">Vista Previa de Datos</h3>
+                            <div id="importPreviewContent"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('importModal').remove()">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="importConfirmBtn" onclick="MachinesModule.confirmImport()" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            Importar Máquinas
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        const fileInput = document.getElementById('csvFileInput');
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.processCSVFile(file);
+            }
+        });
+    },
+
+    async processCSVFile(file) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const csvText = e.target.result;
+                const machines = this.parseCSV(csvText);
+                
+                if (machines.length === 0) {
+                    this.showToast('El archivo CSV está vacío o no tiene el formato correcto', 'error');
+                    return;
+                }
+
+                // Validar datos
+                const validation = this.validateMachines(machines);
+                
+                if (validation.errors.length > 0) {
+                    this.showPreview(machines, validation);
+                } else {
+                    this.showPreview(machines, validation);
+                    document.getElementById('importConfirmBtn').disabled = false;
+                }
+            } catch (error) {
+                console.error('Error procesando CSV:', error);
+                this.showToast('Error al procesar el archivo CSV: ' + error.message, 'error');
+            }
+        };
+        reader.readAsText(file, 'UTF-8');
+    },
+
+    parseCSV(csvText) {
+        const lines = csvText.split('\n').filter(line => line.trim());
+        if (lines.length < 2) return [];
+
+        // Parsear encabezados
+        const headers = this.parseCSVLine(lines[0]);
+        const machines = [];
+
+        // Parsear filas
+        for (let i = 1; i < lines.length; i++) {
+            const values = this.parseCSVLine(lines[i]);
+            if (values.length === 0) continue;
+
+            const machine = {};
+            headers.forEach((header, index) => {
+                const key = header.trim().toLowerCase();
+                const value = values[index] ? values[index].trim() : '';
+                machine[key] = value;
+            });
+
+            machines.push(machine);
+        }
+
+        return machines;
+    },
+
+    parseCSVLine(line) {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+            
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    // Comilla escapada
+                    current += '"';
+                    i++; // Saltar la siguiente comilla
+                } else {
+                    // Inicio o fin de campo entre comillas
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                values.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        values.push(current);
+
+        return values.map(v => v.replace(/^"|"$/g, '').replace(/""/g, '"').trim());
+    },
+
+    validateMachines(machines) {
+        const errors = [];
+        const warnings = [];
+        const existingSerials = this.machines.map(m => m.serialNumber?.toLowerCase());
+
+        machines.forEach((machine, index) => {
+            const row = index + 2; // +2 porque la fila 1 es el encabezado
+
+            // Validar campos requeridos
+            if (!machine.serialnumber || !machine.serialnumber.trim()) {
+                errors.push(`Fila ${row}: El número de serie es requerido`);
+            } else {
+                const serialLower = machine.serialnumber.toLowerCase();
+                if (existingSerials.includes(serialLower)) {
+                    warnings.push(`Fila ${row}: El número de serie "${machine.serialnumber}" ya existe. Se actualizará la máquina existente.`);
+                }
+            }
+
+            if (!machine.name || !machine.name.trim()) {
+                errors.push(`Fila ${row}: El nombre es requerido`);
+            }
+
+            // Validar estado
+            if (machine.status) {
+                const validStatuses = ['available', 'assigned', 'maintenance', 'retired'];
+                const statusLower = machine.status.toLowerCase();
+                if (!validStatuses.includes(statusLower)) {
+                    warnings.push(`Fila ${row}: Estado "${machine.status}" no es válido. Se usará "available" por defecto.`);
+                    machine.status = 'available';
+                } else {
+                    machine.status = statusLower;
+                }
+            } else {
+                machine.status = 'available';
+            }
+
+            // Validar año si existe
+            if (machine.year && isNaN(parseInt(machine.year))) {
+                warnings.push(`Fila ${row}: El año "${machine.year}" no es válido. Se ignorará.`);
+                delete machine.year;
+            }
+
+            // Validar costo si existe
+            if (machine.cost && isNaN(parseFloat(machine.cost))) {
+                warnings.push(`Fila ${row}: El costo "${machine.cost}" no es válido. Se ignorará.`);
+                delete machine.cost;
+            }
+        });
+
+        return { errors, warnings, valid: errors.length === 0 };
+    },
+
+    showPreview(machines, validation) {
+        const previewDiv = document.getElementById('importPreview');
+        const previewContent = document.getElementById('importPreviewContent');
+        
+        previewDiv.style.display = 'block';
+
+        let html = '';
+
+        // Mostrar errores
+        if (validation.errors.length > 0) {
+            html += `
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <strong style="color: #ef4444; display: block; margin-bottom: 0.5rem;">Errores encontrados:</strong>
+                    <ul style="margin: 0; padding-left: 1.5rem; color: #ef4444;">
+                        ${validation.errors.map(e => `<li>${this.escapeHtml(e)}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Mostrar advertencias
+        if (validation.warnings.length > 0) {
+            html += `
+                <div style="background: rgba(249, 115, 22, 0.1); border: 1px solid #f97316; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <strong style="color: #f97316; display: block; margin-bottom: 0.5rem;">Advertencias:</strong>
+                    <ul style="margin: 0; padding-left: 1.5rem; color: #f97316;">
+                        ${validation.warnings.map(w => `<li>${this.escapeHtml(w)}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Mostrar resumen
+        html += `
+            <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                <strong>Resumen:</strong> ${machines.length} máquina(s) encontrada(s)
+            </div>
+        `;
+
+        // Mostrar tabla de vista previa
+        html += `
+            <div style="overflow-x: auto;">
+                <table class="data-table" style="font-size: 0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Serie</th>
+                            <th>Nombre</th>
+                            <th>Modelo</th>
+                            <th>Año</th>
+                            <th>Estado</th>
+                            <th>RAM</th>
+                            <th>Disco</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${machines.slice(0, 10).map(m => `
+                            <tr>
+                                <td>${this.escapeHtml(m.serialnumber || '-')}</td>
+                                <td>${this.escapeHtml(m.name || '-')}</td>
+                                <td>${this.escapeHtml(m.model || '-')}</td>
+                                <td>${m.year || '-'}</td>
+                                <td>${this.escapeHtml(m.status || 'available')}</td>
+                                <td>${this.escapeHtml(m.ram || '-')}</td>
+                                <td>${this.escapeHtml(m.disk || '-')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                ${machines.length > 10 ? `<p style="text-align: center; margin-top: 0.5rem; color: var(--text-tertiary);">Mostrando 10 de ${machines.length} máquinas</p>` : ''}
+            </div>
+        `;
+
+        previewContent.innerHTML = html;
+        
+        // Guardar máquinas para importación
+        this.pendingImport = { machines, validation };
+    },
+
+    async confirmImport() {
+        if (!this.pendingImport || !this.pendingImport.validation.valid) {
+            this.showToast('No se pueden importar máquinas con errores', 'error');
+            return;
+        }
+
+        const { machines } = this.pendingImport;
+        let successCount = 0;
+        let errorCount = 0;
+
+        // Deshabilitar botón durante importación
+        const importBtn = document.getElementById('importConfirmBtn');
+        importBtn.disabled = true;
+        importBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 6v6l4 2"></path>
+            </svg>
+            Importando...
+        `;
+
+        try {
+            for (const machineData of machines) {
+                try {
+                    // Normalizar campos
+                    const machine = {
+                        serialNumber: machineData.serialnumber || machineData.serialNumber,
+                        name: machineData.name,
+                        status: machineData.status || 'available'
+                    };
+
+                    // Agregar campos opcionales solo si tienen valor
+                    if (machineData.year && machineData.year.trim()) {
+                        const year = parseInt(machineData.year);
+                        if (!isNaN(year)) machine.year = year;
+                    }
+                    
+                    if (machineData.cost && machineData.cost.trim()) {
+                        const cost = parseFloat(machineData.cost);
+                        if (!isNaN(cost)) machine.cost = cost;
+                    }
+                    
+                    if (machineData.model && machineData.model.trim()) {
+                        machine.model = machineData.model.trim();
+                    }
+                    
+                    if (machineData.disktype || machineData.diskType) {
+                        machine.diskType = (machineData.disktype || machineData.diskType).trim();
+                    }
+                    
+                    if (machineData.disk && machineData.disk.trim()) {
+                        machine.disk = machineData.disk.trim();
+                    }
+                    
+                    if (machineData.ramtype || machineData.ramType) {
+                        machine.ramType = (machineData.ramtype || machineData.ramType).trim();
+                    }
+                    
+                    if (machineData.ram && machineData.ram.trim()) {
+                        machine.ram = machineData.ram.trim();
+                    }
+                    
+                    if (machineData.operatingsystem || machineData.operatingSystem) {
+                        machine.operatingSystem = (machineData.operatingsystem || machineData.operatingSystem).trim();
+                    }
+                    
+                    if (machineData.osversion || machineData.osVersion) {
+                        machine.osVersion = (machineData.osversion || machineData.osVersion).trim();
+                    }
+                    
+                    if (machineData.monitor && machineData.monitor.trim()) {
+                        machine.monitor = machineData.monitor.trim();
+                    }
+                    
+                    if (machineData.opencoreversion || machineData.openCoreVersion) {
+                        machine.openCoreVersion = (machineData.opencoreversion || machineData.openCoreVersion).trim();
+                    }
+                    
+                    if (machineData.comments && machineData.comments.trim()) {
+                        machine.comments = machineData.comments.trim();
+                    }
+
+                    // Eliminar campos undefined/vacíos para Firestore
+                    const cleanedMachine = this.cleanMachineData(machine);
+
+                    // Verificar si ya existe
+                    const existing = await Store.getMachineBySerial(cleanedMachine.serialNumber);
+                    if (existing) {
+                        // Actualizar máquina existente
+                        Object.assign(existing, cleanedMachine);
+                        await Store.saveMachine(existing);
+                    } else {
+                        // Crear nueva máquina
+                        await Store.saveMachine(cleanedMachine);
+                    }
+                    successCount++;
+                } catch (error) {
+                    console.error('Error importando máquina:', error);
+                    errorCount++;
+                }
+            }
+
+            // Cerrar modal y actualizar vista
+            document.getElementById('importModal').remove();
+            await this.loadData();
+            this.filteredMachines = [...this.machines];
+            this.renderStats();
+            this.applyFilters();
+            
+            if (errorCount === 0) {
+                this.showToast(`${successCount} máquina(s) importada(s) correctamente`, 'success');
+            } else {
+                this.showToast(`${successCount} máquina(s) importada(s), ${errorCount} error(es)`, 'warning');
+            }
+        } catch (error) {
+            console.error('Error en importación:', error);
+            this.showToast('Error al importar máquinas', 'error');
+        } finally {
+            this.pendingImport = null;
+        }
+    },
+
+    cleanMachineData(machine) {
+        // Eliminar campos undefined, null o cadenas vacías para Firestore
+        const cleaned = {};
+        for (const [key, value] of Object.entries(machine)) {
+            // Saltar campos especiales que deben manejarse por separado
+            if (key === 'id' && value) {
+                cleaned[key] = value;
+                continue;
+            }
+            
+            // Solo incluir si el valor no es undefined, null o cadena vacía
+            if (value !== undefined && value !== null && value !== '') {
+                // Para campos numéricos, asegurar que sean números válidos
+                if ((key === 'year' || key === 'cost') && typeof value === 'string') {
+                    const numValue = key === 'year' ? parseInt(value) : parseFloat(value);
+                    if (!isNaN(numValue)) {
+                        cleaned[key] = numValue;
+                    }
+                } else {
+                    cleaned[key] = value;
+                }
+            }
+        }
+        return cleaned;
+    },
+
+    downloadExampleCSV() {
+        const exampleData = [
+            ['serialNumber', 'name', 'status', 'year', 'cost', 'model', 'diskType', 'disk', 'ramType', 'ram', 'operatingSystem', 'osVersion', 'monitor', 'openCoreVersion', 'comments'],
+            ['SN-001234', 'MacBook Pro IT-01', 'available', '2023', '25000', 'MacBook Pro 16 M2 Max', 'ssd', '1TB', 'lpddr5', '32GB', 'macos', 'Sonoma 14.2', 'Retina 16', '0.9.7', 'Máquina nueva para desarrollo'],
+            ['SN-001235', 'Dell XPS IT-02', 'available', '2023', '18000', 'Dell XPS 15', 'nvme', '512GB', 'ddr5', '16GB', 'windows', 'Windows 11 Pro', '15.6 4K', '', 'Laptop para diseño'],
+            ['SN-001236', 'HP EliteBook IT-03', 'assigned', '2022', '15000', 'HP EliteBook 840', 'ssd', '256GB', 'ddr4', '8GB', 'windows', 'Windows 10 Pro', '14 FHD', '', 'Asignada a desarrollo'],
+            ['SN-001237', 'iMac IT-04', 'maintenance', '2021', '35000', 'iMac 24 M1', 'ssd', '512GB', 'unified', '16GB', 'macos', 'Ventura 13.5', '24 4.5K', '', 'En reparación de pantalla']
+        ];
+
+        const csvContent = exampleData.map(row => 
+            row.map(cell => `"${cell}"`).join(',')
+        ).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'ejemplo_maquinas.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        this.showToast('CSV de ejemplo descargado', 'success');
     },
 
     // ========================================

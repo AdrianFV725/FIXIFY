@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirigiendo...</title>
+    <script>
+        // Script que se ejecuta inmediatamente para redirigir desde la página intermedia de Firebase
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const mode = params.get('mode');
+            const oobCode = params.get('oobCode');
+            const continueUrl = params.get('continueUrl');
+            
+            if (mode === 'resetPassword' && oobCode) {
+                let targetUrl;
+                
+                if (continueUrl) {
+                    try {
+                        const decoded = decodeURIComponent(continueUrl);
+                        const url = new URL(decoded);
+                        url.searchParams.set('mode', mode);
+                        url.searchParams.set('oobCode', oobCode);
+                        targetUrl = url.toString();
+                    } catch (e) {
+                        // Si falla, construir la URL manualmente
+                        targetUrl = `https://adrianfv725.github.io/FIXIFY/pages/reset-password.html?mode=${mode}&oobCode=${oobCode}`;
+                    }
+                } else {
+                    targetUrl = `https://adrianfv725.github.io/FIXIFY/pages/reset-password.html?mode=${mode}&oobCode=${oobCode}`;
+                }
+                
+                // Redirigir inmediatamente
+                window.location.replace(targetUrl);
+            }
+        })();
+    </script>
+</head>
+<body>
+    <p>Redirigiendo...</p>
+</body>
+</html>
+
+
