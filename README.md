@@ -90,6 +90,70 @@ El sistema ayuda a mantener el cumplimiento legal mediante el control preciso de
 
 FIXIFY transforma la gestión de activos tecnológicos de una tarea administrativa compleja en un proceso fluido y eficiente, liberando tiempo y recursos que pueden dedicarse a actividades de mayor valor estratégico. La plataforma no solo gestiona activos, sino que proporciona la inteligencia necesaria para optimizar operaciones y maximizar el retorno de inversión en tecnología.
 
+## Configuración de Firebase Functions
+
+FIXIFY incluye Firebase Functions (v2) para notificaciones automáticas de Slack cuando se crean nuevos tickets. Para que estas funciones funcionen correctamente, es necesario configurar las siguientes variables de entorno.
+
+### Variables de Entorno Requeridas
+
+1. **SLACK_BOT_TOKEN**: Token del bot de Slack para enviar notificaciones
+2. **SLACK_IT_USER_ID**: ID del usuario de Slack que recibirá las notificaciones
+
+### Opción 1: Usar Secrets (Recomendado para producción)
+
+Para información sensible como tokens, es recomendable usar Firebase Secrets:
+
+```bash
+# Configurar el token del bot de Slack como secret
+firebase functions:secrets:set SLACK_BOT_TOKEN
+
+# Configurar el ID del usuario de IT como secret
+firebase functions:secrets:set SLACK_IT_USER_ID
+
+# Desplegar las funciones (se pedirá acceso a los secrets)
+firebase deploy --only functions
+```
+
+Luego, actualiza el código para acceder a los secrets:
+
+```javascript
+const { defineSecret } = require("firebase-functions/params");
+const slackBotToken = defineSecret("SLACK_BOT_TOKEN");
+const slackItUserId = defineSecret("SLACK_IT_USER_ID");
+```
+
+### Opción 2: Variables de Entorno (Para desarrollo)
+
+Para desarrollo, puedes configurar variables de entorno directamente:
+
+1. Ve a la [Consola de Firebase](https://console.firebase.google.com/)
+2. Selecciona tu proyecto
+3. Ve a Functions > Configuración
+4. Agrega las variables de entorno:
+   - `SLACK_BOT_TOKEN`: tu token de Slack
+   - `SLACK_IT_USER_ID`: tu User ID de Slack
+
+O usa la CLI de Firebase:
+
+```bash
+firebase functions:config:set slack.bot_token="tu-token" slack.it_user_id="tu-user-id"
+firebase deploy --only functions
+```
+
+**Nota de Seguridad**: Por razones de seguridad, los tokens y credenciales sensibles nunca deben estar hardcodeados en el código ni subidos al repositorio. Siempre usa variables de entorno o secrets para manejar información sensible.
+
+### Obtener Credenciales de Slack
+
+1. **Slack Bot Token**: 
+   - Ve a [api.slack.com/apps](https://api.slack.com/apps)
+   - Crea una nueva aplicación o selecciona una existente
+   - Ve a "OAuth & Permissions" y genera un Bot Token
+   - Asegúrate de tener los permisos: `chat:write`, `im:write`
+
+2. **Slack User ID**: 
+   - En Slack, ve a tu perfil y copia el User ID de la URL
+   - O usa la API de Slack para obtenerlo
+
 ---
 
 Desarrollado con excelencia para IT Brands&People
