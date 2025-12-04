@@ -43,8 +43,13 @@ const LicenseDetailModule = {
             }
 
             this.license = license;
-            this.employees = employees || [];
-            this.licenseAssignments = assignments || [];
+            this.employees = Array.isArray(employees) ? employees : [];
+            this.licenseAssignments = Array.isArray(assignments) ? assignments : [];
+            
+            // Limpiar asignaciones inválidas (sin licenseId o employeeId)
+            this.licenseAssignments = this.licenseAssignments.filter(a => {
+                return a && a.licenseId && a.employeeId && typeof a.licenseId === 'string' && typeof a.employeeId === 'string';
+            });
         } catch (e) {
             console.error('Error cargando datos:', e);
             this.showError('Error al cargar los datos de la licencia');
@@ -55,17 +60,25 @@ const LicenseDetailModule = {
         const container = document.getElementById('licenseDetailContent');
         if (!container || !this.license) return;
 
-        const activeAssignments = this.licenseAssignments.filter(a => 
-            a.licenseId === this.licenseId && !a.endDate
-        );
+        // Filtrar asignaciones activas y válidas (que tengan empleado existente)
+        const activeAssignments = this.licenseAssignments.filter(a => {
+            // Validar que la asignación sea para esta licencia y esté activa
+            if (!a || a.licenseId !== this.licenseId || a.endDate) return false;
+            // Validar que tenga un employeeId válido
+            if (!a.employeeId) return false;
+            // Validar que el empleado exista
+            return this.employees.some(e => e && e.id === a.employeeId);
+        });
+        
         const allAssignments = this.licenseAssignments.filter(a => 
-            a.licenseId === this.licenseId
+            a && a.licenseId === this.licenseId
         ).sort((a, b) => {
             const dateA = new Date(a.endDate || a.startDate);
             const dateB = new Date(b.endDate || b.startDate);
             return dateB - dateA;
         });
 
+        // El conteo solo incluye asignaciones válidas con empleados existentes
         const assignedCount = activeAssignments.length;
         const totalQuantity = this.license.quantity || 0;
         const available = totalQuantity > 0 ? totalQuantity - assignedCount : 0;
@@ -193,9 +206,16 @@ const LicenseDetailModule = {
                             </tr>
                         </thead>
                         <tbody>
-                            ${activeAssignments.map(a => {
+                            ${activeAssignments.length === 0 ? `
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">
+                                        No hay empleados asignados a esta licencia
+                                    </td>
+                                </tr>
+                            ` : activeAssignments.map(a => {
+                                // Ya validamos que el empleado existe en el filtro anterior
                                 const employee = this.employees.find(e => e.id === a.employeeId);
-                                if (!employee) return '';
+                                if (!employee) return ''; // Esto no debería pasar, pero por seguridad
                                 
                                 const initials = `${employee.name?.charAt(0) || ''}${employee.lastName?.charAt(0) || ''}`.toUpperCase();
                                 
@@ -205,7 +225,7 @@ const LicenseDetailModule = {
                                             <div class="employee-cell">
                                                 <div class="employee-avatar">${initials}</div>
                                                 <div class="employee-info">
-                                                    <div class="employee-name">${this.escapeHtml(employee.name)} ${this.escapeHtml(employee.lastName || '')}</div>
+                                                    <div class="employee-name">${this.escapeHtml(employee.name || '')} ${this.escapeHtml(employee.lastName || '')}</div>
                                                     <div class="employee-department">${this.escapeHtml(employee.email || '')}</div>
                                                 </div>
                                             </div>
@@ -223,7 +243,7 @@ const LicenseDetailModule = {
                                         </td>
                                     </tr>
                                 `;
-                            }).join('')}
+                            }).filter(row => row !== '').join('')}
                         </tbody>
                     </table>
                 `}

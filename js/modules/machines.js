@@ -310,10 +310,18 @@ const MachinesModule = {
             return;
         }
 
-        container.innerHTML = this.filteredMachines.map(m => `
+        container.innerHTML = this.filteredMachines.map(m => {
+            const osColor = this.getOSColor(m.operatingSystem);
+            const isMacOS = m.operatingSystem === 'macos';
+            // Para macOS, usar un estilo especial que se adapte mejor al tema
+            const iconStyle = isMacOS 
+                ? 'background: rgba(107, 114, 128, 0.15); color: var(--text-primary);' 
+                : `background: ${osColor}20; color: ${osColor};`;
+            
+            return `
             <div class="card machine-card" data-id="${m.id}">
                 <div class="card-header">
-                    <div class="card-icon" style="background: ${this.getOSColor(m.operatingSystem)}20; color: ${this.getOSColor(m.operatingSystem)};">
+                    <div class="card-icon" style="${iconStyle}">
                         ${this.getOSIcon(m.operatingSystem)}
                     </div>
                     ${this.getStatusBadge(m.status)}
@@ -355,7 +363,8 @@ const MachinesModule = {
                     </button>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
     },
 
     getTypeColor(type) {
@@ -371,7 +380,7 @@ const MachinesModule = {
 
     getOSColor(os) {
         const colors = {
-            macos: '#000000',
+            macos: '#6b7280', // Gris medio que funciona bien en ambos temas (se adapta mejor)
             windows: '#0078d4',
             linux: '#f97316',
             chromeos: '#4285f4',
@@ -382,7 +391,7 @@ const MachinesModule = {
 
     getOSIcon(os) {
         const icons = {
-            macos: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 4-3 4-6 0-4.5-2.5-6-4.5-6-.5 0-1.5.5-2.5.5s-2-.5-2.5-.5c-2 0-4.5 1.5-4.5 6 0 3 1 6 4 6 1.25 0 2.5-1.06 4-1.06z"/><path d="M12 7c1.5 0 3-1.5 3-3.5 0-.5 0-1-.5-1.5-1.5 0-3 1.5-3 3.5 0 .5 0 1 .5 1.5z"/></svg>',
+            macos: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>',
             windows: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"></rect><rect x="13" y="3" width="8" height="8"></rect><rect x="3" y="13" width="8" height="8"></rect><rect x="13" y="13" width="8" height="8"></rect></svg>',
             linux: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"></circle><path d="M3 21v-2a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v2"></path></svg>',
             chromeos: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>',

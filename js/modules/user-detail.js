@@ -11,7 +11,9 @@ const UserDetailModule = {
     machineAssignments: [],
     licenseAssignments: [],
     departments: [],
+    employees: [],
     userId: null,
+    employeeId: null,
 
     async init() {
         if (!Auth.isAuthenticated()) {
@@ -35,14 +37,15 @@ const UserDetailModule = {
 
     async loadData() {
         try {
-            const [user, machines, licenses, tickets, machineAssignments, licenseAssignments, departments] = await Promise.all([
+            const [user, machines, licenses, tickets, machineAssignments, licenseAssignments, departments, employees] = await Promise.all([
                 Store.getUserById(this.userId),
                 Store.getMachines(),
                 Store.getLicenses(),
                 Store.getTickets(),
                 Store.getMachineAssignments(),
                 Store.getLicenseAssignments(),
-                Store.getDepartments()
+                Store.getDepartments(),
+                Store.getEmployees()
             ]);
 
             if (!user) {
@@ -57,6 +60,17 @@ const UserDetailModule = {
             this.machineAssignments = machineAssignments || [];
             this.licenseAssignments = licenseAssignments || [];
             this.departments = departments || [];
+            this.employees = employees || [];
+
+            // Buscar el empleado correspondiente al usuario por email
+            if (this.user.email) {
+                const employee = this.employees.find(e => 
+                    e.email && e.email.toLowerCase() === this.user.email.toLowerCase()
+                );
+                if (employee) {
+                    this.employeeId = employee.id;
+                }
+            }
         } catch (e) {
             console.error('Error cargando datos:', e);
             this.showError('Error al cargar los datos del usuario');
@@ -64,11 +78,12 @@ const UserDetailModule = {
     },
 
     getUserAssignments() {
+        // Buscar asignaciones por employeeId (el campo correcto) o userId (por compatibilidad)
         const activeMachineAssignments = this.machineAssignments.filter(a => 
-            a.userId === this.userId && !a.endDate
+            (a.employeeId === this.employeeId || a.userId === this.userId) && !a.endDate
         );
         const allMachineAssignments = this.machineAssignments.filter(a => 
-            a.userId === this.userId
+            a.employeeId === this.employeeId || a.userId === this.userId
         ).sort((a, b) => {
             const dateA = new Date(a.endDate || a.startDate);
             const dateB = new Date(b.endDate || b.startDate);
@@ -76,10 +91,10 @@ const UserDetailModule = {
         });
 
         const activeLicenseAssignments = this.licenseAssignments.filter(a => 
-            a.userId === this.userId && !a.endDate
+            (a.employeeId === this.employeeId || a.userId === this.userId) && !a.endDate
         );
         const allLicenseAssignments = this.licenseAssignments.filter(a => 
-            a.userId === this.userId
+            a.employeeId === this.employeeId || a.userId === this.userId
         ).sort((a, b) => {
             const dateA = new Date(a.endDate || a.startDate);
             const dateB = new Date(b.endDate || b.startDate);
@@ -88,7 +103,7 @@ const UserDetailModule = {
 
         // Obtener tickets del usuario (solo si es employee)
         const userTickets = this.user.role === 'employee' 
-            ? this.tickets.filter(t => t.contactoId === this.userId || t.contactoEmail === this.user.email)
+            ? this.tickets.filter(t => t.contactoId === this.userId || t.contactoId === this.employeeId || t.contactoEmail === this.user.email)
             : [];
 
         return {

@@ -6,6 +6,7 @@ const LicensesModule = {
     licenses: [],
     filteredLicenses: [],
     licenseAssignments: [],
+    employees: [],
 
     async init() {
         if (!Auth.isAuthenticated()) {
@@ -21,15 +22,38 @@ const LicensesModule = {
         this.bindEvents();
     },
 
+    async refresh() {
+        // Método público para refrescar los datos y la vista
+        await this.loadData();
+        this.renderStats();
+        this.renderAlerts();
+        this.renderTable();
+    },
+
     async loadData() {
         try {
-            this.licenses = await Store.getLicenses() || [];
-            this.licenseAssignments = await Store.getLicenseAssignments() || [];
+            // Cargar datos frescos desde el store
+            const [licenses, assignments, employees] = await Promise.all([
+                Store.getLicenses(),
+                Store.getLicenseAssignments(),
+                Store.getEmployees()
+            ]);
+            
+            // Asegurar que siempre sean arrays
+            this.licenses = Array.isArray(licenses) ? licenses : [];
+            this.licenseAssignments = Array.isArray(assignments) ? assignments : [];
+            this.employees = Array.isArray(employees) ? employees : [];
             this.filteredLicenses = [...this.licenses];
+            
+            // Limpiar asignaciones inválidas (sin licenseId, sin employeeId o con datos corruptos)
+            this.licenseAssignments = this.licenseAssignments.filter(a => {
+                return a && a.licenseId && a.employeeId && typeof a.licenseId === 'string' && typeof a.employeeId === 'string';
+            });
         } catch (e) {
             console.error('Error cargando licencias:', e);
             this.licenses = [];
             this.licenseAssignments = [];
+            this.employees = [];
             this.filteredLicenses = [];
         }
     },
@@ -183,7 +207,23 @@ const LicensesModule = {
         }
 
         // Calcular asignaciones activas por licencia dinámicamente
-        const activeAssignments = this.licenseAssignments.filter(a => !a.endDate);
+        // Filtrar solo asignaciones que:
+        // 1. Tienen un licenseId válido
+        // 2. Tienen un employeeId válido
+        // 3. No tienen endDate (asignación activa)
+        // 4. El licenseId coincide con una licencia existente
+        // 5. El employeeId coincide con un empleado existente
+        const activeAssignments = (this.licenseAssignments || []).filter(a => {
+            // Validar que la asignación tenga los campos necesarios
+            if (!a || !a.licenseId || !a.employeeId) return false;
+            // Solo asignaciones activas (sin endDate)
+            if (a.endDate) return false;
+            // Verificar que el licenseId coincida con una licencia existente
+            const hasValidLicense = this.licenses.some(l => l && l.id === a.licenseId);
+            if (!hasValidLicense) return false;
+            // Verificar que el employeeId coincida con un empleado existente
+            return this.employees.some(e => e && e.id === a.employeeId);
+        });
         
         const formatDate = (date) => date ? new Date(date).toLocaleDateString('es-MX') : '-';
         
@@ -216,10 +256,16 @@ const LicensesModule = {
                     ${this.filteredLicenses.length === 0 ? `
                         <tr><td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-tertiary);">${this.licenses.length === 0 ? 'No hay licencias registradas' : 'No se encontraron resultados'}</td></tr>
                     ` : this.filteredLicenses.map(l => {
-                        // Calcular asignaciones activas para esta licencia
-                        const assignedCount = activeAssignments.filter(a => a.licenseId === l.id).length;
+                        if (!l || !l.id) return '';
+                        
+                        // Calcular asignaciones activas para esta licencia específica
+                        // Filtrar por licenseId exacto y asegurar que no tenga endDate
+                        const assignedCount = activeAssignments.filter(a => {
+                            return a && a.licenseId === l.id && !a.endDate;
+                        }).length;
+                        
                         const totalQuantity = l.quantity || 0;
-                        const usagePercent = totalQuantity > 0 ? (assignedCount / totalQuantity) * 100 : 0;
+                        const usagePercent = totalQuantity > 0 ? Math.min(100, (assignedCount / totalQuantity) * 100) : 0;
                         
                         return `
                         <tr data-id="${l.id}" class="license-row-clickable" style="cursor: pointer;" onclick="LicensesModule.viewLicenseDetail('${l.id}')">
@@ -361,6 +407,7 @@ const LicensesModule = {
             }
 
             document.getElementById('licenseModal').remove();
+            // Recargar datos frescos antes de renderizar
             await this.loadData();
             this.renderStats();
             this.renderAlerts();
@@ -376,6 +423,7 @@ const LicensesModule = {
         const confirmed = await Modal.confirmDelete(name, 'licencia');
         if (confirmed) {
             await Store.deleteLicense(id);
+            // Recargar datos frescos antes de renderizar
             await this.loadData();
             this.renderStats();
             this.renderAlerts();
