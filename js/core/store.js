@@ -972,10 +972,26 @@ const Store = {
     // ========================================
 
     async getDepartments() {
-        const saved = this.getLocal(this.KEYS.DEPARTMENTS);
-        if (saved) return saved;
+        // Intentar obtener de Firestore primero
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                const departments = await FirestoreService.getDepartments();
+                if (departments && departments.length > 0) {
+                    // Sincronizar con localStorage como backup
+                    this.setLocal(this.KEYS.DEPARTMENTS, departments);
+                    return departments;
+                }
+            } catch (e) {
+                console.warn('Error al obtener departamentos de Firestore, usando localStorage:', e);
+            }
+        }
         
-        return [
+        // Intentar obtener de localStorage
+        const saved = this.getLocal(this.KEYS.DEPARTMENTS);
+        if (saved && saved.length > 0) return saved;
+        
+        // Si no hay datos, crear departamentos por defecto
+        const defaultDepartments = [
             { id: 'DEP001', name: 'TI', color: '#3b82f6' },
             { id: 'DEP002', name: 'Recursos Humanos', color: '#22c55e' },
             { id: 'DEP003', name: 'Finanzas', color: '#f97316' },
@@ -983,16 +999,53 @@ const Store = {
             { id: 'DEP005', name: 'Operaciones', color: '#ef4444' },
             { id: 'DEP006', name: 'Ventas', color: '#eab308' }
         ];
+        
+        // Guardar departamentos por defecto
+        this.setLocal(this.KEYS.DEPARTMENTS, defaultDepartments);
+        
+        // Si estamos usando Firestore, intentar sincronizar los departamentos por defecto
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                for (const dept of defaultDepartments) {
+                    await FirestoreService.saveDepartment(dept);
+                }
+            } catch (e) {
+                console.warn('Error al sincronizar departamentos por defecto en Firestore:', e);
+            }
+        }
+        
+        return defaultDepartments;
     },
 
     async saveDepartment(department) {
+        // Intentar guardar en Firestore primero
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                const saved = await FirestoreService.saveDepartment(department);
+                // Sincronizar con localStorage como backup
+                const departments = await this.getDepartments();
+                const index = departments.findIndex(d => d.id === saved.id);
+                if (index >= 0) {
+                    departments[index] = saved;
+                } else {
+                    departments.push(saved);
+                }
+                this.setLocal(this.KEYS.DEPARTMENTS, departments);
+                return saved;
+            } catch (e) {
+                console.warn('Error Firestore, guardando departamento localmente:', e);
+            }
+        }
+        
+        // Fallback a localStorage
         const departments = await this.getDepartments();
         const index = departments.findIndex(d => d.id === department.id);
         
         if (index >= 0) {
-            departments[index] = department;
+            departments[index] = { ...departments[index], ...department, updatedAt: new Date().toISOString() };
         } else {
             department.id = this.generateId('DEP');
+            department.createdAt = new Date().toISOString();
             departments.push(department);
         }
         
@@ -1001,10 +1054,36 @@ const Store = {
     },
 
     async deleteDepartment(id) {
-        const departments = await this.getDepartments();
-        const filtered = departments.filter(d => d.id !== id);
-        this.setLocal(this.KEYS.DEPARTMENTS, filtered);
-        return filtered;
+        // Verificar si hay usuarios o empleados usando este departamento
+        const users = await this.getUsers() || [];
+        const employees = await this.getEmployees() || [];
+        const usingDept = [...users, ...employees].filter(u => u.department === id);
+        
+        if (usingDept.length > 0) {
+            throw new Error(`No se puede eliminar el departamento: ${usingDept.length} usuario(s) o empleado(s) lo están usando`);
+        }
+        
+        // Intentar eliminar de Firestore primero
+        if (this.useFirestore && window.FirestoreService) {
+            try {
+                await FirestoreService.deleteDepartment(id);
+                // Sincronizar con localStorage
+                const departments = (await this.getDepartments()).filter(d => d.id !== id);
+                this.setLocal(this.KEYS.DEPARTMENTS, departments);
+                return departments;
+            } catch (e) {
+                console.warn('Error al eliminar departamento de Firestore, usando localStorage:', e);
+                // Si el error es porque hay usuarios usando el departamento, propagar el error
+                if (e.message && e.message.includes('usando')) {
+                    throw e;
+                }
+            }
+        }
+        
+        // Fallback a localStorage
+        const departments = (await this.getDepartments()).filter(d => d.id !== id);
+        this.setLocal(this.KEYS.DEPARTMENTS, departments);
+        return departments;
     },
 
     // ========================================

@@ -723,7 +723,7 @@ const TicketsModule = {
         };
 
         const modalContent = `
-            <div class="ticket-detail-container" style="max-height: 80vh; overflow-y: auto;">
+            <div class="ticket-detail-container">
                 <!-- Header con información principal -->
                 <div style="background: var(--bg-secondary); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; border-left: 4px solid ${this.getPriorityColor(ticket.priority)};">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">

@@ -1766,19 +1766,21 @@ body.dashboard-body {
 
 .filter-input-wrapper .search-icon {
     position: absolute;
-    left: 0.625rem;
+    left: 0.75rem;
     top: 50%;
     transform: translateY(-50%);
     color: var(--text-tertiary);
     pointer-events: none;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
+    display: block;
+    z-index: 1;
 }
 
 .filter-input-wrapper .filter-input {
     width: 100%;
-    padding: 0.5rem 0.625rem 0.5rem 2rem;
+    padding: 0.5rem 0.625rem 0.5rem 2.5rem;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     background: var(--input-bg);

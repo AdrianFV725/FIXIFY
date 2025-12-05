@@ -266,13 +266,7 @@ const UsersModule = {
             <div class="filters-wrapper">
                 <div class="filters-grid">
                     <div class="filter-group">
-                        <div class="filter-input-wrapper">
-                            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <path d="M21 21l-4.35-4.35"></path>
-                            </svg>
-                            <input type="text" class="filter-input" id="searchInput" placeholder="Nombre, correo...">
-                        </div>
+                        <input type="text" class="filter-input" id="searchInput" placeholder="Nombre, correo...">
                     </div>
                     <div class="filter-group">
                         <label class="filter-label">Rol</label>
@@ -1287,31 +1281,94 @@ const UsersModule = {
 
     async openDepartmentsManager() {
         const departments = await Store.getDepartments();
+        
+        // Verificar cuántos usuarios/empleados usan cada departamento
+        const users = await Store.getUsers() || [];
+        const employees = await Store.getEmployees() || [];
+        const departmentUsage = {};
+        
+        [...users, ...employees].forEach(u => {
+            if (u.department) {
+                departmentUsage[u.department] = (departmentUsage[u.department] || 0) + 1;
+            }
+        });
+
+        // Agregar estilos para animaciones si no existen
+        if (!document.getElementById('departmentStyles')) {
+            const style = document.createElement('style');
+            style.id = 'departmentStyles';
+            style.textContent = `
+                @keyframes fadeOut {
+                    from {
+                        opacity: 1;
+                        transform: translateX(0);
+                    }
+                    to {
+                        opacity: 0;
+                        transform: translateX(-20px);
+                    }
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                .department-item:hover {
+                    border-color: var(--accent-primary);
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                }
+            `;
+            document.head.appendChild(style);
+        }
 
         const modalHtml = `
             <div class="modal-overlay active" id="departmentsModal">
-                <div class="modal" style="max-width: 700px;">
+                <div class="modal" style="max-width: 800px;">
                     <div class="modal-header">
                         <h2>Gestionar Departamentos</h2>
                         <button class="modal-close" onclick="document.getElementById('departmentsModal').remove()">&times;</button>
                     </div>
                     <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <div style="margin-bottom: 1rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border-left: 4px solid #3b82f6;">
+                            <p style="margin: 0; color: var(--text-primary); font-size: 0.875rem; line-height: 1.5;">
+                                <strong>Información:</strong> Puedes editar directamente el nombre o color de cada departamento. Los cambios se guardan automáticamente. Si un departamento está en uso, no podrás eliminarlo hasta que se reasignen los usuarios.
+                            </p>
+                        </div>
                         <div style="margin-bottom: 2rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                <h3 style="margin: 0; color: var(--text-primary);">Departamentos</h3>
-                                <button type="button" class="btn btn-primary sm" onclick="UsersModule.addDepartment()">Agregar</button>
+                                <h3 style="margin: 0; color: var(--text-primary);">Departamentos (${departments.length})</h3>
+                                <button type="button" class="btn btn-primary sm" onclick="UsersModule.addDepartment()">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.25rem;">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                    Agregar
+                                </button>
                             </div>
-                            <div id="departmentsList" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                ${departments.map(d => `
-                                    <div style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color);">
-                                        <div style="width: 20px; height: 20px; border-radius: 4px; background: ${d.color || '#3b82f6'};"></div>
-                                        <input type="text" value="${this.escapeHtml(d.name)}" data-id="${d.id}" data-field="name" style="flex: 1; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-primary);" onchange="UsersModule.updateDepartment('${d.id}', 'name', this.value)">
-                                        <input type="color" value="${d.color || '#3b82f6'}" data-id="${d.id}" data-field="color" style="width: 50px; height: 38px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;" onchange="UsersModule.updateDepartment('${d.id}', 'color', this.value)">
-                                        <button type="button" class="btn-icon sm" onclick="UsersModule.deleteDepartment('${d.id}')" title="Eliminar">
+                            <div id="departmentsList" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                ${departments.length === 0 ? `
+                                    <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                        <p>No hay departamentos. Haz clic en "Agregar" para crear uno.</p>
+                                    </div>
+                                ` : departments.map(d => {
+                                    const usageCount = departmentUsage[d.id] || 0;
+                                    return `
+                                    <div class="department-item" data-id="${d.id}" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); transition: all 0.2s ease;">
+                                        <div style="width: 24px; height: 24px; border-radius: 6px; background: ${d.color || '#3b82f6'}; border: 2px solid ${d.color || '#3b82f6'}40; flex-shrink: 0;"></div>
+                                        <input type="text" value="${this.escapeHtml(d.name)}" data-id="${d.id}" data-field="name" class="department-name-input" style="flex: 1; padding: 0.625rem 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 0.9rem;" placeholder="Nombre del departamento">
+                                        <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.75rem; background: var(--bg-tertiary); border-radius: 6px; font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                                <circle cx="9" cy="7" r="4"></circle>
+                                            </svg>
+                                            ${usageCount} ${usageCount === 1 ? 'usuario' : 'usuarios'}
+                                        </div>
+                                        <input type="color" value="${d.color || '#3b82f6'}" data-id="${d.id}" data-field="color" class="department-color-input" style="width: 48px; height: 40px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; flex-shrink: 0;" title="Cambiar color">
+                                        <button type="button" class="btn-icon sm department-delete-btn" data-id="${d.id}" data-usage="${usageCount}" title="${usageCount > 0 ? 'No se puede eliminar: está en uso' : 'Eliminar departamento'}" ${usageCount > 0 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                         </button>
                                     </div>
-                                `).join('')}
+                                `;
+                                }).join('')}
                             </div>
                         </div>
                     </div>
@@ -1323,32 +1380,146 @@ const UsersModule = {
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Agregar event listeners para edición en tiempo real
+        this.setupDepartmentEditListeners();
+    },
+    
+    setupDepartmentEditListeners() {
+        const modal = document.getElementById('departmentsModal');
+        if (!modal) return;
+        
+        // Debounce para evitar muchas actualizaciones
+        let saveTimeout = {};
+        
+        // Manejar cambios en nombre
+        modal.querySelectorAll('.department-name-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const id = e.target.dataset.id;
+                const value = e.target.value.trim();
+                
+                // Mostrar indicador de guardando
+                const item = e.target.closest('.department-item');
+                if (!item.querySelector('.saving-indicator')) {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'saving-indicator';
+                    indicator.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>';
+                    indicator.style.cssText = 'position: absolute; right: 60px; color: var(--text-tertiary);';
+                    item.style.position = 'relative';
+                    item.appendChild(indicator);
+                }
+                
+                // Limpiar timeout anterior
+                if (saveTimeout[id]) {
+                    clearTimeout(saveTimeout[id]);
+                }
+                
+                // Guardar después de 1 segundo de inactividad
+                saveTimeout[id] = setTimeout(async () => {
+                    try {
+                        await this.updateDepartment(id, 'name', value);
+                        const indicator = item.querySelector('.saving-indicator');
+                        if (indicator) {
+                            indicator.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                            setTimeout(() => indicator.remove(), 1000);
+                        }
+                    } catch (error) {
+                        console.error('Error al guardar:', error);
+                        const indicator = item.querySelector('.saving-indicator');
+                        if (indicator) indicator.remove();
+                        this.showToast('Error al guardar cambios', 'error');
+                    }
+                }, 1000);
+            });
+            
+            // Guardar al perder el foco
+            input.addEventListener('blur', async (e) => {
+                const id = e.target.dataset.id;
+                const value = e.target.value.trim();
+                
+                // Cancelar timeout si existe
+                if (saveTimeout[id]) {
+                    clearTimeout(saveTimeout[id]);
+                    delete saveTimeout[id];
+                }
+                
+                if (value) {
+                    await this.updateDepartment(id, 'name', value);
+                }
+            });
+        });
+        
+        // Manejar cambios en color
+        modal.querySelectorAll('.department-color-input').forEach(input => {
+            input.addEventListener('change', async (e) => {
+                const id = e.target.dataset.id;
+                const value = e.target.value;
+                
+                // Actualizar indicador de color
+                const item = e.target.closest('.department-item');
+                const colorIndicator = item.querySelector('div[style*="border-radius: 6px"]');
+                if (colorIndicator) {
+                    colorIndicator.style.background = value;
+                    colorIndicator.style.borderColor = value + '40';
+                }
+                
+                try {
+                    await this.updateDepartment(id, 'color', value);
+                } catch (error) {
+                    console.error('Error al guardar color:', error);
+                    this.showToast('Error al guardar cambios', 'error');
+                }
+            });
+        });
+        
+        // Manejar eliminación
+        modal.querySelectorAll('.department-delete-btn').forEach(btn => {
+            if (!btn.disabled) {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.target.closest('.department-delete-btn').dataset.id;
+                    await this.deleteDepartment(id);
+                });
+            }
+        });
     },
 
     async addDepartment() {
+        const departments = await Store.getDepartments();
+        
         const modalHtml = `
             <div class="modal-overlay active" id="addDepartmentModal">
-                <div class="modal" style="max-width: 400px;">
+                <div class="modal" style="max-width: 450px;">
                     <div class="modal-header">
                         <h2>Agregar Departamento</h2>
                         <button class="modal-close" onclick="document.getElementById('addDepartmentModal').remove()">&times;</button>
                     </div>
                     <form id="addDepartmentForm" class="modal-body">
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label>Nombre del Departamento *</label>
-                            <input type="text" name="name" required placeholder="Ej: Recursos Humanos" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary);">
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-primary);">Nombre del Departamento *</label>
+                            <input type="text" name="name" id="newDeptName" required placeholder="Ej: Recursos Humanos, TI, Marketing..." style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-size: 1rem;" autofocus>
+                            <small style="display: block; margin-top: 0.5rem; color: var(--text-tertiary); font-size: 0.8rem;">El nombre debe ser único</small>
+                            <div id="nameError" style="display: none; margin-top: 0.5rem; color: #ef4444; font-size: 0.875rem;"></div>
                         </div>
                         <div class="form-group">
-                            <label>Color</label>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-primary);">Color</label>
                             <div style="display: flex; align-items: center; gap: 1rem;">
-                                <input type="color" name="color" value="#3b82f6" style="width: 60px; height: 40px; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer;">
-                                <input type="text" id="colorHex" value="#3b82f6" readonly style="flex: 1; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-family: monospace;">
+                                <input type="color" name="color" id="newDeptColor" value="#3b82f6" style="width: 70px; height: 50px; border: 2px solid var(--border-color); border-radius: 8px; cursor: pointer; flex-shrink: 0;">
+                                <input type="text" id="colorHex" value="#3B82F6" pattern="^#[0-9A-F]{6}$" style="flex: 1; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-family: 'Monaco', 'Menlo', monospace; font-size: 0.9rem; text-transform: uppercase;">
+                                <div style="width: 40px; height: 40px; border-radius: 8px; background: #3b82f6; border: 2px solid var(--border-color); flex-shrink: 0;" id="colorPreview"></div>
                             </div>
+                            <small style="display: block; margin-top: 0.5rem; color: var(--text-tertiary); font-size: 0.8rem;">Selecciona un color para identificar este departamento</small>
                         </div>
                     </form>
                     <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);">
                         <button type="button" class="btn btn-secondary" onclick="document.getElementById('addDepartmentModal').remove()">Cancelar</button>
-                        <button type="submit" form="addDepartmentForm" class="btn btn-primary">Agregar</button>
+                        <button type="submit" form="addDepartmentForm" class="btn btn-primary" id="submitDeptBtn">
+                            <span class="btn-text">Agregar</span>
+                            <span class="btn-loader" style="display: none;">
+                                <svg class="spinner" viewBox="0 0 50 50" style="width: 16px; height: 16px;">
+                                    <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                                </svg>
+                            </span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1356,22 +1527,51 @@ const UsersModule = {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        // Sincronizar color picker con input de texto
         const colorInput = document.querySelector('#addDepartmentModal input[type="color"]');
         const colorHex = document.getElementById('colorHex');
+        const colorPreview = document.getElementById('colorPreview');
+        const nameInput = document.getElementById('newDeptName');
+        const nameError = document.getElementById('nameError');
+        const submitBtn = document.getElementById('submitDeptBtn');
         
-        if (colorInput && colorHex) {
+        // Sincronizar color picker con input de texto y preview
+        if (colorInput && colorHex && colorPreview) {
+            const updateColor = (color) => {
+                colorHex.value = color.toUpperCase();
+                colorPreview.style.background = color;
+            };
+            
             colorInput.addEventListener('input', (e) => {
-                colorHex.value = e.target.value.toUpperCase();
+                updateColor(e.target.value);
             });
 
             colorHex.addEventListener('input', (e) => {
                 const value = e.target.value;
                 if (/^#[0-9A-F]{6}$/i.test(value)) {
                     colorInput.value = value;
+                    updateColor(value);
                 }
             });
         }
+        
+        // Validar nombre único mientras se escribe
+        nameInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            if (value) {
+                const existing = departments.find(d => d.name.toLowerCase() === value.toLowerCase());
+                if (existing) {
+                    nameError.textContent = 'Ya existe un departamento con ese nombre';
+                    nameError.style.display = 'block';
+                    nameInput.style.borderColor = '#ef4444';
+                } else {
+                    nameError.style.display = 'none';
+                    nameInput.style.borderColor = '';
+                }
+            } else {
+                nameError.style.display = 'none';
+                nameInput.style.borderColor = '';
+            }
+        });
 
         document.getElementById('addDepartmentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1379,45 +1579,184 @@ const UsersModule = {
             const name = formData.get('name').trim();
             const color = formData.get('color');
 
+            // Validaciones
             if (!name) {
                 this.showToast('El nombre es requerido', 'error');
+                nameInput.focus();
+                return;
+            }
+            
+            // Verificar duplicados
+            const existing = departments.find(d => d.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                nameError.textContent = 'Ya existe un departamento con ese nombre';
+                nameError.style.display = 'block';
+                nameInput.style.borderColor = '#ef4444';
+                nameInput.focus();
                 return;
             }
 
-            const department = {
-                name: name,
-                color: color
-            };
+            // Mostrar loading
+            submitBtn.disabled = true;
+            submitBtn.querySelector('.btn-text').style.display = 'none';
+            submitBtn.querySelector('.btn-loader').style.display = 'inline-block';
 
-            await Store.saveDepartment(department);
-            await this.loadData();
-            document.getElementById('addDepartmentModal').remove();
-            document.getElementById('departmentsModal').remove();
-            await this.openDepartmentsManager();
-            this.showToast('Departamento agregado');
+            try {
+                const department = {
+                    name: name,
+                    color: color
+                };
+
+                await Store.saveDepartment(department);
+                await this.loadData();
+                
+                // Actualizar filtros
+                this.renderFilters();
+                
+                document.getElementById('addDepartmentModal').remove();
+                
+                // Recargar el modal de departamentos para mostrar el nuevo
+                const deptModal = document.getElementById('departmentsModal');
+                if (deptModal) {
+                    deptModal.remove();
+                    await this.openDepartmentsManager();
+                }
+                
+                this.showToast('Departamento agregado exitosamente');
+            } catch (error) {
+                console.error('Error al agregar departamento:', error);
+                this.showToast(error.message || 'Error al agregar departamento', 'error');
+                submitBtn.disabled = false;
+                submitBtn.querySelector('.btn-text').style.display = 'inline';
+                submitBtn.querySelector('.btn-loader').style.display = 'none';
+            }
         });
     },
 
     async updateDepartment(id, field, value) {
-        const departments = await Store.getDepartments();
-        const department = departments.find(d => d.id === id);
-        if (department) {
-            department[field] = value;
+        try {
+            const departments = await Store.getDepartments();
+            const department = departments.find(d => d.id === id);
+            if (!department) {
+                throw new Error('Departamento no encontrado');
+            }
+            
+            // Validar nombre
+            if (field === 'name') {
+                const trimmedValue = value.trim();
+                if (!trimmedValue) {
+                    throw new Error('El nombre no puede estar vacío');
+                }
+                
+                // Verificar duplicados
+                const existing = departments.find(d => d.id !== id && d.name.toLowerCase() === trimmedValue.toLowerCase());
+                if (existing) {
+                    throw new Error('Ya existe un departamento con ese nombre');
+                }
+            }
+            
+            department[field] = field === 'name' ? value.trim() : value;
             await Store.saveDepartment(department);
+            
+            // Actualizar datos locales
             await this.loadData();
-            document.getElementById('departmentsModal').remove();
-            await this.openDepartmentsManager();
+            
+            // Si el modal está abierto, actualizar solo el departamento específico
+            const modal = document.getElementById('departmentsModal');
+            if (modal) {
+                // Actualizar el color del indicador si cambió el color
+                if (field === 'color') {
+                    const item = modal.querySelector(`.department-item[data-id="${id}"]`);
+                    if (item) {
+                        const colorIndicator = item.querySelector('div[style*="border-radius: 6px"]');
+                        if (colorIndicator) {
+                            colorIndicator.style.background = value;
+                            colorIndicator.style.borderColor = value + '40';
+                        }
+                    }
+                }
+            }
+            
+            // Actualizar filtros si están visibles
+            this.renderFilters();
+            
+            return department;
+        } catch (error) {
+            console.error('Error al actualizar departamento:', error);
+            throw error;
         }
     },
 
     async deleteDepartment(id) {
-        const confirmed = await Modal.confirmDelete('este departamento', 'departamento');
-        if (confirmed) {
+        try {
+            // Verificar si está en uso
+            const users = await Store.getUsers() || [];
+            const employees = await Store.getEmployees() || [];
+            const usingDept = [...users, ...employees].filter(u => u.department === id);
+            
+            if (usingDept.length > 0) {
+                await Modal.alert({
+                    title: 'No se puede eliminar',
+                    message: `Este departamento está siendo usado por ${usingDept.length} usuario(s) o empleado(s). Por favor, reasigna los usuarios antes de eliminar el departamento.`,
+                    type: 'warning'
+                });
+                return;
+            }
+            
+            const confirmed = await Modal.confirmDelete('este departamento', 'departamento');
+            if (!confirmed) return;
+            
             await Store.deleteDepartment(id);
             await this.loadData();
-            document.getElementById('departmentsModal').remove();
-            await this.openDepartmentsManager();
+            
+            // Actualizar filtros
+            this.renderFilters();
+            
+            // Remover el elemento del modal si está abierto
+            const modal = document.getElementById('departmentsModal');
+            if (modal) {
+                const item = modal.querySelector(`.department-item[data-id="${id}"]`);
+                if (item) {
+                    item.style.animation = 'fadeOut 0.3s ease';
+                    setTimeout(() => {
+                        item.remove();
+                        
+                        // Actualizar contador
+                        const header = modal.querySelector('h3');
+                        if (header) {
+                            const count = modal.querySelectorAll('.department-item').length;
+                            header.textContent = `Departamentos (${count})`;
+                        }
+                        
+                        // Si no quedan departamentos, mostrar mensaje
+                        if (modal.querySelectorAll('.department-item').length === 0) {
+                            const list = document.getElementById('departmentsList');
+                            if (list) {
+                                list.innerHTML = `
+                                    <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                        <p>No hay departamentos. Haz clic en "Agregar" para crear uno.</p>
+                                    </div>
+                                `;
+                            }
+                        }
+                    }, 300);
+                }
+            }
+            
             this.showToast('Departamento eliminado');
+        } catch (error) {
+            console.error('Error al eliminar departamento:', error);
+            
+            // Si el error es porque está en uso, mostrar mensaje
+            if (error.message && error.message.includes('usando')) {
+                await Modal.alert({
+                    title: 'No se puede eliminar',
+                    message: error.message,
+                    type: 'warning'
+                });
+            } else {
+                this.showToast(error.message || 'Error al eliminar departamento', 'error');
+            }
         }
     },
 

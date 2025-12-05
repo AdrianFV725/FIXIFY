@@ -443,6 +443,26 @@ const FirestoreService = {
     },
 
     // ========================================
+    // METODOS ESPECIFICOS PARA DEPARTAMENTOS
+    // ========================================
+
+    async getDepartments() {
+        return await this.getAll(this.COLLECTIONS.DEPARTMENTS);
+    },
+
+    async getDepartmentById(id) {
+        return await this.getById(this.COLLECTIONS.DEPARTMENTS, id);
+    },
+
+    async saveDepartment(data) {
+        return await this.save(this.COLLECTIONS.DEPARTMENTS, data, data.id || null);
+    },
+
+    async deleteDepartment(id) {
+        return await this.delete(this.COLLECTIONS.DEPARTMENTS, id);
+    },
+
+    // ========================================
     // METODOS PARA ACTIVIDAD
     // ========================================
 
