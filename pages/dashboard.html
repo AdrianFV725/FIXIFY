@@ -135,17 +135,13 @@
                     </div>
                 </div>
 
-                <div class="activity-log-card animated-card" id="activityLogCard">
+                <div class="technicians-card-full animated-card" id="topEmployeesByTickets">
                     <div class="card-header">
-                        <h3 class="card-title">Log de Actividad del Sistema</h3>
-                        <span class="card-subtitle">Actualización en tiempo real</span>
-                        <div class="activity-log-indicator" id="activityLogIndicator">
-                            <span class="indicator-dot"></span>
-                            <span class="indicator-text">En vivo</span>
-                        </div>
+                        <h3 class="card-title">Tickets por Empleado</h3>
+                        <span class="card-subtitle">Distribución de tickets reportados</span>
                     </div>
-                    <div class="activity-log-container" id="activityLogContainer">
-                        <!-- Se renderiza desde dashboard.js -->
+                    <div class="chart-container">
+                        <canvas id="employeesByTicketsChartCanvas"></canvas>
                     </div>
                 </div>
             </section>

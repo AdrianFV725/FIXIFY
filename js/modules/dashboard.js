@@ -41,11 +41,10 @@ const DashboardModule = {
         await this.renderPerformance();
         await this.renderTopTechnicians();
         await this.renderFinancialSummary();
-        await this.renderActivityLog();
+        await this.renderTopEmployeesByTickets();
 
         // Configurar actualizacion periodica
         this.startAutoRefresh();
-        this.startActivityLogRefresh();
     },
 
     // ========================================
@@ -1073,6 +1072,284 @@ const DashboardModule = {
     },
 
     // ========================================
+    // TOP EMPLEADOS POR TICKETS - Gráfica de Pastel
+    // ========================================
+
+    async renderTopEmployeesByTickets() {
+        const container = document.getElementById('topEmployeesByTickets');
+        if (!container) return;
+        
+        const chartContainer = container.querySelector('.chart-container');
+        if (!chartContainer) return;
+
+        let tickets = [];
+        let employees = [];
+        
+        try {
+            tickets = await Store.getTickets();
+            employees = await Store.getEmployees();
+        } catch (e) {
+            console.warn('No se pudieron obtener datos para empleados:', e);
+        }
+
+        // Contar tickets por empleado (quien reportó el ticket)
+        const employeeStats = {};
+        
+        tickets.forEach(ticket => {
+            // Usar contactoId para identificar al empleado que reportó el ticket
+            const employeeId = ticket.contactoId || ticket.employeeId || ticket.contactId;
+            
+            if (employeeId) {
+                const normalizedId = employeeId.toString();
+                
+                if (!employeeStats[normalizedId]) {
+                    employeeStats[normalizedId] = {
+                        id: normalizedId,
+                        tickets: 0,
+                        open: 0,
+                        inProgress: 0,
+                        resolved: 0,
+                        closed: 0,
+                        name: ticket.contactoNombre || null
+                    };
+                }
+                employeeStats[normalizedId].tickets++;
+                
+                // Contar por estado
+                if (ticket.status === 'open') {
+                    employeeStats[normalizedId].open++;
+                } else if (ticket.status === 'in_progress') {
+                    employeeStats[normalizedId].inProgress++;
+                } else if (ticket.status === 'resolved') {
+                    employeeStats[normalizedId].resolved++;
+                } else if (ticket.status === 'closed') {
+                    employeeStats[normalizedId].closed++;
+                }
+            }
+        });
+
+        // Preparar datos para la gráfica
+        const employeesData = Object.values(employeeStats)
+            .map(stat => {
+                const statId = stat.id?.toString() || '';
+                
+                // Buscar información del empleado
+                const employee = employees.find(e => {
+                    const eId = e.id?.toString() || '';
+                    const eEmail = e.email?.toString() || '';
+                    return eId === statId || eEmail === statId;
+                });
+                
+                // Determinar el nombre a mostrar
+                let fullName = stat.name || null;
+                
+                if (!fullName && employee) {
+                    fullName = `${employee.name || ''} ${employee.lastName || ''}`.trim() || employee.email?.split('@')[0] || 'Sin nombre';
+                }
+                
+                if (!fullName) {
+                    if (statId.includes('@')) {
+                        fullName = statId.split('@')[0];
+                    } else if (statId) {
+                        fullName = `Empleado ${statId.substring(0, 8)}`;
+                    } else {
+                        fullName = 'Sin nombre';
+                    }
+                }
+                
+                return {
+                    name: fullName,
+                    tickets: stat.tickets,
+                    open: stat.open,
+                    inProgress: stat.inProgress,
+                    resolved: stat.resolved,
+                    closed: stat.closed,
+                    id: statId
+                };
+            })
+            .filter(emp => emp.tickets > 0) // Solo empleados con tickets
+            .sort((a, b) => b.tickets - a.tickets); // Ordenar por cantidad de tickets
+
+        // Si no hay empleados con tickets, mostrar estado vacío
+        if (employeesData.length === 0) {
+            const ticketsWithContact = tickets.filter(t => t.contactoId || t.employeeId || t.contactId);
+            chartContainer.innerHTML = `
+                <div class="empty-chart-state">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-tertiary); margin-bottom: 1rem;">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                    </svg>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">No hay tickets reportados por empleados</p>
+                    <p style="color: var(--text-tertiary); font-size: 0.8rem;">Total de tickets: ${tickets.length} | Con contacto: ${ticketsWithContact.length}</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Preparar datos para Chart.js
+        // Limitar a los top 8 empleados para que la gráfica no se vea muy saturada
+        const topEmployees = employeesData.slice(0, 8);
+        const labels = topEmployees.map(emp => emp.name);
+        const values = topEmployees.map(emp => emp.tickets);
+        
+        // Paleta de colores variada y atractiva
+        const vibrantPalette = [
+            '#3b82f6', // Azul brillante
+            '#8b5cf6', // Morado vibrante
+            '#22c55e', // Verde esmeralda
+            '#f97316', // Naranja cálido
+            '#ef4444', // Rojo coral
+            '#06b6d4', // Cian turquesa
+            '#ec4899', // Rosa magenta
+            '#84cc16', // Lima verde
+            '#6366f1', // Índigo
+            '#14b8a6', // Teal
+            '#f59e0b', // Ámbar
+            '#a855f7'  // Púrpura
+        ];
+        
+        // Asignar un color único a cada empleado basado en su índice
+        const colors = topEmployees.map((emp, index) => {
+            return vibrantPalette[index % vibrantPalette.length];
+        });
+
+        // Esperar a que el canvas esté disponible
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (typeof Charts === 'undefined' || !Charts.doughnut) {
+            console.warn('Charts no disponible');
+            return;
+        }
+
+        const canvas = document.getElementById('employeesByTicketsChartCanvas');
+        if (!canvas) {
+            console.warn('Canvas no encontrado para empleados');
+            return;
+        }
+
+        try {
+            Charts.doughnut('employeesByTicketsChartCanvas', {
+                labels: labels,
+                values: values,
+                colors: colors
+            }, {
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'right',
+                        align: 'start',
+                        labels: {
+                            padding: 14,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            font: {
+                                size: 11,
+                                weight: '500',
+                                family: 'Outfit, sans-serif'
+                            },
+                            color: function(context) {
+                                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                                return isDark ? '#b0b0b0' : '#5c5c5c';
+                            },
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    return data.labels.map((label, i) => {
+                                        const value = data.datasets[0].data[i];
+                                        const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                        const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                        return {
+                                            text: `${label} - ${value} tickets (${percentage}%)`,
+                                            fillStyle: data.datasets[0].backgroundColor[i],
+                                            hidden: false,
+                                            index: i
+                                        };
+                                    });
+                                }
+                                return [];
+                            }
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: function(context) {
+                            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                            return isDark ? '#1a1a1a' : '#ffffff';
+                        },
+                        titleColor: function(context) {
+                            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                            return isDark ? '#f5f5f5' : '#1a1a1a';
+                        },
+                        bodyColor: function(context) {
+                            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                            return isDark ? '#b0b0b0' : '#5c5c5c';
+                        },
+                        borderColor: function(context) {
+                            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                            return isDark ? '#2a2a2a' : '#e8e4dc';
+                        },
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            title: function(context) {
+                                return context[0].label;
+                            },
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                
+                                // Obtener estadísticas del empleado
+                                const employeeIndex = context.dataIndex;
+                                const employee = topEmployees[employeeIndex];
+                                
+                                return [
+                                    `Total tickets: ${value}`,
+                                    `Porcentaje: ${percentage}%`,
+                                    `Abiertos: ${employee.open}`,
+                                    `En progreso: ${employee.inProgress}`,
+                                    `Resueltos: ${employee.resolved}`,
+                                    `Cerrados: ${employee.closed}`
+                                ];
+                            }
+                        }
+                    }
+                },
+                layout: {
+                    padding: {
+                        left: 15,
+                        right: 15,
+                        top: 15,
+                        bottom: 15
+                    }
+                },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: 1000,
+                    easing: 'easeOutQuart'
+                },
+                elements: {
+                    arc: {
+                        borderWidth: 2,
+                        borderColor: function(context) {
+                            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                            return isDark ? '#1a1a1a' : '#ffffff';
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error al renderizar gráfico de empleados:', error);
+        }
+    },
+
+    // ========================================
     // RESUMEN FINANCIERO
     // ========================================
 
@@ -1166,83 +1443,6 @@ const DashboardModule = {
         return `$${Math.round(amount).toLocaleString('es-MX')}`;
     },
 
-    // ========================================
-    // LOG DE ACTIVIDAD EN TIEMPO REAL
-    // ========================================
-
-    async renderActivityLog() {
-        const container = document.getElementById('activityLogContainer');
-        if (!container) return;
-
-        let activities = [];
-        try {
-            activities = await Store.getActivityLog(30) || [];
-            // Ordenar por fecha más reciente
-            activities.sort((a, b) => {
-                const dateA = new Date(a.timestamp || a.createdAt || 0);
-                const dateB = new Date(b.timestamp || b.createdAt || 0);
-                return dateB - dateA;
-            });
-        } catch (e) {
-            console.warn('No se pudo obtener log de actividad:', e);
-        }
-
-        if (activities.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-tertiary); margin-bottom: 1rem;">
-                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                    </svg>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">No hay actividad registrada</p>
-                    <p style="color: var(--text-tertiary); font-size: 0.8rem;">Las acciones del sistema aparecerán aquí</p>
-                </div>
-            `;
-            return;
-        }
-
-        // Renderizar actividades
-        const activityHTML = await Promise.all(activities.slice(0, 20).map(async (activity, index) => {
-            const activityType = activity.type || activity.action || 'ticket_created';
-            const icon = this.getActivityIcon(activityType);
-            const description = await this.getActivityDescription(activity);
-            const time = this.timeAgo(activity.timestamp || activity.createdAt);
-            const bgColor = this.getActivityColor(activityType);
-            const textColor = this.getActivityTextColor(activityType);
-            const userName = activity.userName || activity.user || activity.createdBy || 'Sistema';
-
-            return `
-                <div class="activity-log-item" style="animation-delay: ${index * 0.05}s">
-                    <div class="activity-log-icon" style="background: ${bgColor}; color: ${textColor};">
-                        ${icon}
-                    </div>
-                    <div class="activity-log-content">
-                        <div class="activity-log-header">
-                            <span class="activity-log-user">${this.escapeHtml(userName)}</span>
-                            <span class="activity-log-time">${time}</span>
-                        </div>
-                        <div class="activity-log-description">${this.escapeHtml(description.title || description.text || 'Actividad del sistema')}</div>
-                        ${description.text && description.text !== description.title ? `<div class="activity-log-detail">${this.escapeHtml(description.text)}</div>` : ''}
-                    </div>
-                </div>
-            `;
-        }));
-
-        container.innerHTML = activityHTML.join('');
-        
-        // Scroll automático suave al top cuando hay nuevas actividades
-        if (container.scrollTop === 0) {
-            container.scrollTop = 0;
-        }
-    },
-
-    startActivityLogRefresh() {
-        // Actualizar cada 2 segundos
-        this.activityLogInterval = setInterval(async () => {
-            await this.renderActivityLog();
-        }, 2000);
-    },
-
     getTicketStatusColor(status) {
         const colors = {
             open: { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' },
@@ -1251,180 +1451,6 @@ const DashboardModule = {
             closed: { bg: 'rgba(107, 114, 128, 0.15)', color: '#6b7280' }
         };
         return colors[status] || colors.open;
-    },
-
-    // ========================================
-    // HELPER FUNCTIONS PARA LOG DE ACTIVIDAD
-    // ========================================
-
-    getActivityIcon(type) {
-        const icons = {
-            ticket_created: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path></svg>`,
-            ticket_updated: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`,
-            machine_assigned: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line></svg>`,
-            machine_unassigned: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>`,
-            license_assigned: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline></svg>`,
-            license_unassigned: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="8 17 3 12 8 7"></polyline></svg>`,
-            employee_created: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>`,
-            user_created: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`,
-            user_login: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>`,
-            user_login_google: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>`,
-            user_logout: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>`,
-            comment_added: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`,
-            status_changed: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>`
-        };
-        return icons[type] || icons.ticket_created;
-    },
-
-    getActivityColor(type) {
-        const colors = {
-            ticket_created: 'rgba(59, 130, 246, 0.15)',
-            ticket_updated: 'rgba(139, 92, 246, 0.15)',
-            machine_assigned: 'rgba(34, 197, 94, 0.15)',
-            machine_unassigned: 'rgba(239, 68, 68, 0.15)',
-            license_assigned: 'rgba(249, 115, 22, 0.15)',
-            license_unassigned: 'rgba(239, 68, 68, 0.15)',
-            employee_created: 'rgba(168, 85, 247, 0.15)',
-            user_created: 'rgba(59, 130, 246, 0.15)',
-            user_login: 'rgba(34, 197, 94, 0.15)',
-            user_login_google: 'rgba(34, 197, 94, 0.15)',
-            user_logout: 'rgba(107, 114, 128, 0.15)',
-            comment_added: 'rgba(139, 92, 246, 0.15)',
-            status_changed: 'rgba(34, 197, 94, 0.15)'
-        };
-        return colors[type] || 'rgba(107, 114, 128, 0.15)';
-    },
-
-    getActivityTextColor(type) {
-        const colors = {
-            ticket_created: '#3b82f6',
-            ticket_updated: '#8b5cf6',
-            machine_assigned: '#22c55e',
-            machine_unassigned: '#ef4444',
-            license_assigned: '#f97316',
-            license_unassigned: '#ef4444',
-            employee_created: '#a855f7',
-            user_created: '#3b82f6',
-            user_login: '#22c55e',
-            user_login_google: '#22c55e',
-            user_logout: '#6b7280',
-            comment_added: '#8b5cf6',
-            status_changed: '#22c55e'
-        };
-        return colors[type] || '#6b7280';
-    },
-
-    async getActivityDescription(activity) {
-        try {
-            const type = activity.type || activity.action || '';
-            const data = activity.data || activity.details || {};
-            
-            if (type.includes('ticket')) {
-                let ticket = null;
-                if (data.ticketId) {
-                    try {
-                        ticket = await Store.getTicketById(data.ticketId);
-                    } catch (e) {}
-                }
-                
-                if (type === 'ticket_created' || type === 'ticket.created') {
-                    return {
-                        title: 'Ticket creado',
-                        text: ticket ? (ticket.title || ticket.folio || 'Sin título') : (data.title || data.ticketFolio || 'Nuevo ticket')
-                    };
-                } else if (type === 'ticket_updated' || type === 'ticket.updated') {
-                    return {
-                        title: 'Ticket actualizado',
-                        text: ticket ? (ticket.title || ticket.folio || 'Sin título') : (data.title || data.ticketFolio || 'Ticket actualizado')
-                    };
-                } else if (type === 'comment_added' || type === 'comment.added') {
-                    return {
-                        title: 'Comentario agregado',
-                        text: ticket ? (ticket.title || ticket.folio || 'Sin título') : (data.ticketFolio || 'En un ticket')
-                    };
-                } else if (type === 'status_changed' || type === 'status.changed') {
-                    const statusLabels = {
-                        open: 'Abierto',
-                        in_progress: 'En Progreso',
-                        resolved: 'Resuelto',
-                        closed: 'Cerrado'
-                    };
-                    const fromLabel = statusLabels[data.from] || data.from || 'Desconocido';
-                    const toLabel = statusLabels[data.to] || data.to || 'Desconocido';
-                    return {
-                        title: 'Estado de ticket cambiado',
-                        text: ticket ? (ticket.title || ticket.folio || 'Sin título') : (data.ticketFolio || 'Ticket') + `: ${fromLabel} → ${toLabel}`
-                    };
-                }
-            }
-            
-            if (type.includes('machine') || type.includes('máquina')) {
-                if (type === 'machine_assigned') {
-                    return {
-                        title: 'Máquina asignada',
-                        text: data.machineName || data.machineId || 'Máquina'
-                    };
-                } else if (type === 'machine_unassigned') {
-                    return {
-                        title: 'Máquina desasignada',
-                        text: data.machineName || data.machineId || 'Máquina'
-                    };
-                }
-            }
-            
-            if (type.includes('license') || type.includes('licencia')) {
-                if (type === 'license_assigned') {
-                    return {
-                        title: 'Licencia asignada',
-                        text: data.licenseName || data.software || 'Licencia'
-                    };
-                } else if (type === 'license_unassigned') {
-                    return {
-                        title: 'Licencia desasignada',
-                        text: data.licenseName || data.software || 'Licencia'
-                    };
-                }
-            }
-            
-            if (type.includes('employee') || type.includes('empleado')) {
-                return {
-                    title: 'Empleado creado',
-                    text: data.employeeName || 'Nuevo empleado'
-                };
-            }
-            
-            if (type.includes('user') || type.includes('usuario')) {
-                if (type === 'user_login' || type === 'user_login_google') {
-                    return {
-                        title: 'Inicio de sesión',
-                        text: data.email || 'Usuario'
-                    };
-                } else if (type === 'user_logout') {
-                    return {
-                        title: 'Cierre de sesión',
-                        text: data.email || 'Usuario'
-                    };
-                } else {
-                    return {
-                        title: 'Usuario creado',
-                        text: data.userName || data.email || 'Nuevo usuario'
-                    };
-                }
-            }
-            
-            // Descripción genérica
-            return {
-                title: activity.type || activity.action || 'Actividad',
-                text: activity.description || activity.message || data.title || 'Acción realizada en el sistema'
-            };
-        } catch (e) {
-            console.warn('Error al obtener descripción de actividad:', e);
-        }
-        
-        return {
-            title: 'Actividad del sistema',
-            text: activity.type || activity.description || 'Acción realizada'
-        };
     },
 
     // ========================================
@@ -1477,18 +1503,12 @@ const DashboardModule = {
             await this.renderPerformance();
             await this.renderTopTechnicians();
             await this.renderFinancialSummary();
+            await this.renderTopEmployeesByTickets();
             await this.renderShortcuts();
             if (typeof Sidebar !== 'undefined' && Sidebar.updateBadges) {
                 Sidebar.updateBadges();
             }
         }, 5 * 60 * 1000); // 5 minutos
-    },
-
-    // Limpiar intervalos al salir
-    destroy() {
-        if (this.activityLogInterval) {
-            clearInterval(this.activityLogInterval);
-        }
     }
 };
 
