@@ -73,53 +73,80 @@
                 </div>
             </section>
 
-            <!-- KPIs principales -->
-            <section class="kpi-grid" id="kpiGrid">
-                <!-- Se renderiza desde dashboard.js -->
+            <!-- Métricas clave animadas -->
+            <section class="metrics-section">
+                <div class="metrics-grid" id="metricsGrid">
+                    <!-- Se renderiza desde dashboard.js -->
+                </div>
             </section>
 
-            <!-- Actividad reciente y alertas -->
-            <section class="activity-alerts-section">
-                <div class="activity-card" id="recentActivity">
-                    <div class="card-header">
-                        <h3 class="card-title">Actividad Reciente</h3>
-                        <span class="card-subtitle">Lo que has usado últimamente</span>
+            <!-- Dashboard principal reorganizado -->
+            <section class="dashboard-compact-grid">
+                <!-- Primera fila: Gráficas principales -->
+                <div class="chart-card animated-card" id="ticketsStatusChart">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Estado de Tickets</h3>
+                        <span class="chart-subtitle">Distribución actual</span>
                     </div>
-                    <div class="activity-list" id="activityList">
+                    <div class="chart-container">
+                        <canvas id="ticketsStatusCanvas"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card animated-card" id="ticketsTrendChart">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Tendencia Semanal</h3>
+                        <span class="chart-subtitle">Últimos 7 días</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="ticketsTrendCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Segunda fila: Rendimiento y Resumen Financiero -->
+                <div class="performance-card animated-card" id="performanceMetrics">
+                    <div class="card-header">
+                        <h3 class="card-title">Rendimiento del Sistema</h3>
+                        <span class="card-subtitle">Métricas clave</span>
+                    </div>
+                    <div class="performance-content" id="performanceContent">
                         <!-- Se renderiza desde dashboard.js -->
                     </div>
                 </div>
-                <div class="alerts-card" id="urgentAlerts">
+
+                <div class="financial-card animated-card" id="financialSummary">
                     <div class="card-header">
-                        <h3 class="card-title">Alertas Urgentes</h3>
-                        <span class="card-subtitle">Requieren atención inmediata</span>
+                        <h3 class="card-title">Resumen Financiero</h3>
+                        <span class="card-subtitle">Licencias y costos</span>
                     </div>
-                    <div class="alerts-list" id="alertsList">
+                    <div class="financial-content" id="financialContent">
                         <!-- Se renderiza desde dashboard.js -->
                     </div>
                 </div>
-            </section>
 
-            <!-- Graficas principales -->
-            <section class="charts-grid">
-                <div class="chart-card" id="ticketsTrendChart">
-                    <!-- Grafica: Tendencia de tickets por mes -->
+                <!-- Tercera fila: Técnicos Más Activos y Log de Actividad (lado a lado) -->
+                <div class="technicians-card-full animated-card" id="topTechnicians">
+                    <div class="card-header">
+                        <h3 class="card-title">Técnicos Más Activos</h3>
+                        <span class="card-subtitle">Distribución de tickets atendidos</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="techniciansChartCanvas"></canvas>
+                    </div>
                 </div>
-                <div class="chart-card" id="machineFailuresChart">
-                    <!-- Grafica: Maquinas con mas fallas -->
-                </div>
-            </section>
 
-            <!-- Resumen rapido -->
-            <section class="quick-stats-grid">
-                <div class="stat-card" id="recentTickets">
-                    <!-- Lista: Ultimos tickets creados -->
-                </div>
-                <div class="stat-card" id="expiringLicenses">
-                    <!-- Lista: Licencias proximas a vencer -->
-                </div>
-                <div class="stat-card" id="urgentTickets">
-                    <!-- Tickets urgentes -->
+                <div class="activity-log-card animated-card" id="activityLogCard">
+                    <div class="card-header">
+                        <h3 class="card-title">Log de Actividad del Sistema</h3>
+                        <span class="card-subtitle">Actualización en tiempo real</span>
+                        <div class="activity-log-indicator" id="activityLogIndicator">
+                            <span class="indicator-dot"></span>
+                            <span class="indicator-text">En vivo</span>
+                        </div>
+                    </div>
+                    <div class="activity-log-container" id="activityLogContainer">
+                        <!-- Se renderiza desde dashboard.js -->
+                    </div>
                 </div>
             </section>
         </div>

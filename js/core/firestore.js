@@ -469,13 +469,48 @@ const FirestoreService = {
     async logActivity(type, details = {}) {
         const auth = getFirebaseAuth();
         const currentUser = auth?.currentUser;
+        
+        // Obtener información completa del usuario
+        let userName = 'Sistema';
+        let userEmail = 'unknown';
+        let userRole = 'user';
+        
+        if (currentUser) {
+            userEmail = currentUser.email || 'unknown';
+            // Intentar obtener información del usuario desde Store
+            try {
+                if (window.Store) {
+                    const userData = await Store.getUserByEmail(userEmail);
+                    if (userData) {
+                        userName = userData.name || userEmail.split('@')[0];
+                        userRole = userData.role || 'user';
+                    } else {
+                        // Intentar buscar en empleados
+                        const employees = await Store.getEmployees();
+                        const employee = employees.find(e => e.email === userEmail);
+                        if (employee) {
+                            userName = `${employee.name || ''} ${employee.lastName || ''}`.trim() || userEmail.split('@')[0];
+                            userRole = 'employee';
+                        } else {
+                            userName = userEmail.split('@')[0];
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Error al obtener información del usuario para log:', e);
+                userName = userEmail.split('@')[0];
+            }
+        }
 
         await this.save(this.COLLECTIONS.ACTIVITY_LOG, {
             type,
             details,
             userId: currentUser?.uid || 'anonymous',
-            userEmail: currentUser?.email || 'unknown',
-            timestamp: new Date().toISOString()
+            userEmail: userEmail,
+            userName: userName,
+            userRole: userRole,
+            timestamp: new Date().toISOString(),
+            createdAt: new Date().toISOString()
         });
     },
 
@@ -484,15 +519,61 @@ const FirestoreService = {
             const db = getFirebaseDb();
             if (!db) return [];
 
-            const snapshot = await db.collection(this.COLLECTIONS.ACTIVITY_LOG)
-                .orderBy('timestamp', 'desc')
-                .limit(limit)
-                .get();
+            // Intentar ordenar por timestamp, si falla intentar por createdAt
+            let snapshot;
+            try {
+                snapshot = await db.collection(this.COLLECTIONS.ACTIVITY_LOG)
+                    .orderBy('timestamp', 'desc')
+                    .limit(limit)
+                    .get();
+            } catch (orderError) {
+                // Si falla por falta de índice, intentar por createdAt
+                try {
+                    snapshot = await db.collection(this.COLLECTIONS.ACTIVITY_LOG)
+                        .orderBy('createdAt', 'desc')
+                        .limit(limit)
+                        .get();
+                } catch (createAtError) {
+                    // Si también falla, obtener sin ordenar y ordenar en memoria
+                    console.warn('No se pudo ordenar en Firestore, ordenando en memoria');
+                    snapshot = await db.collection(this.COLLECTIONS.ACTIVITY_LOG)
+                        .limit(limit * 2) // Obtener más para asegurar que tenemos suficientes después de ordenar
+                        .get();
+                    
+                    const activities = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    
+                    // Ordenar en memoria por timestamp o createdAt
+                    activities.sort((a, b) => {
+                        const dateA = new Date(a.timestamp || a.createdAt || 0);
+                        const dateB = new Date(b.timestamp || b.createdAt || 0);
+                        return dateB - dateA;
+                    });
+                    
+                    return activities.slice(0, limit);
+                }
+            }
 
-            return snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            const activities = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    type: data.type || data.action,
+                    action: data.type || data.action,
+                    data: data.details || data.data || {},
+                    details: data.details || data.data || {},
+                    timestamp: data.timestamp || data.createdAt,
+                    createdAt: data.createdAt || data.timestamp,
+                    userName: data.userName || data.user || 'Sistema',
+                    userEmail: data.userEmail || 'unknown',
+                    userRole: data.userRole || 'user',
+                    userId: data.userId || 'anonymous'
+                };
+            });
+            
+            return activities;
         } catch (error) {
             console.error('Error al obtener actividad:', error);
             return [];

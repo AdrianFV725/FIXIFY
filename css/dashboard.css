@@ -1019,14 +1019,18 @@ body.dashboard-body {
 
 .page-content {
     flex: 1;
-    padding: 1.5rem 2rem;
+    padding: 1rem 1.5rem;
     overflow-x: hidden;
     max-width: 100%;
     box-sizing: border-box;
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 0.75rem;
+}
+
+.page-content > section {
+    width: 100%;
 }
 
 .page-content > * {
@@ -1060,7 +1064,7 @@ body.dashboard-body {
    ======================================== */
 
 .shortcuts-section {
-    margin-bottom: 2.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .shortcuts-section .section-title {
@@ -1227,21 +1231,25 @@ body.dashboard-body {
 }
 
 .card-header {
-    margin-bottom: 1.25rem;
-    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--border-color);
 }
 
 .card-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 0.25rem;
+    line-height: 1.3;
+    overflow: visible;
 }
 
 .card-subtitle {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-tertiary);
+    line-height: 1.4;
+    overflow: visible;
 }
 
 .activity-list,
@@ -1660,9 +1668,11 @@ body.dashboard-body {
 .chart-card {
     background: var(--card-bg);
     border-radius: 16px;
-    padding: 1.75rem;
+    padding: 1.25rem;
     border: 1px solid var(--border-color);
     transition: all var(--transition-fast);
+    display: flex;
+    flex-direction: column;
 }
 
 .chart-card:hover {
@@ -1682,7 +1692,17 @@ body.dashboard-body {
 
 .chart-container {
     position: relative;
-    height: 250px;
+    height: auto;
+    min-height: 280px;
+    max-height: none;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0.75rem 0.5rem;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .chart-highlight {
@@ -1690,6 +1710,91 @@ body.dashboard-body {
     padding: 1rem;
     background: var(--bg-tertiary);
     border-radius: 10px;
+}
+
+/* Resúmenes de gráficos */
+.chart-status-summary,
+.chart-summary {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.chart-status-summary {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    max-width: 100%;
+}
+
+.chart-summary {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+    width: 100%;
+}
+
+.chart-summary > div {
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Asegurar que los canvas de Chart.js no se corten */
+.chart-container canvas {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Ajustar el contenedor del canvas para mejor espaciado */
+.chart-container {
+    position: relative;
+}
+
+.chart-container > canvas {
+    max-height: 320px;
+    max-width: 100%;
+    width: 100% !important;
+    height: auto !important;
+}
+
+/* Ajustar padding interno de las tarjetas para evitar cortes */
+.chart-card,
+.performance-card,
+.financial-card,
+.technicians-card-full,
+.activity-log-card {
+    overflow: visible;
+    box-sizing: border-box;
+}
+
+.chart-card .chart-container {
+    overflow: hidden;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Asegurar que el contenido dentro de las tarjetas no se desborde */
+.chart-card > *,
+.performance-card > *,
+.financial-card > * {
+    box-sizing: border-box;
+}
+
+/* Mejorar el espaciado de los elementos dentro de los gráficos */
+.chart-container > * {
+    box-sizing: border-box;
 }
 
 /* ========================================
@@ -3028,5 +3133,944 @@ body.dashboard-body {
 
 .ticket-card[data-priority="low"] {
     border-left-color: #6b7280 !important;
+}
+
+/* ========================================
+   NUEVO DASHBOARD - ESTILOS Y ANIMACIONES
+   ======================================== */
+
+/* Animaciones de entrada */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.animated-card {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+}
+
+/* Métricas animadas */
+.metrics-section {
+    margin-bottom: 0.75rem;
+}
+
+.shortcuts-section {
+    margin-bottom: 0.75rem;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+}
+
+.metric-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    border-color: var(--accent-primary);
+}
+
+.metric-card:hover::before {
+    transform: scaleX(1);
+}
+
+.metric-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.metric-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.metric-change {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+}
+
+.metric-change-up {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.metric-change-down {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.metric-change-neutral {
+    color: var(--text-tertiary);
+    background: rgba(107, 114, 128, 0.1);
+}
+
+.metric-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    line-height: 1;
+}
+
+.metric-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.metric-description {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+
+/* Dashboard grid principal - Layout compacto reorganizado */
+.dashboard-compact-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    align-items: stretch;
+}
+
+/* Primera fila: Gráficas principales (2 columnas) */
+.dashboard-compact-grid .chart-card {
+    min-height: auto;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Segunda fila: Rendimiento y Financiero (2 columnas) */
+.dashboard-compact-grid .performance-card,
+.dashboard-compact-grid .financial-card {
+    min-height: auto;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Tercera fila: Técnicos y Log de Actividad (lado a lado, mismo tamaño) */
+.dashboard-compact-grid .technicians-card-full,
+.dashboard-compact-grid .activity-log-card {
+    min-height: auto;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Contenedor de gráfica en técnicos */
+.technicians-card-full .chart-container {
+    flex: 1;
+    min-height: 280px;
+}
+
+.technicians-card-full .card-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.technicians-card-full .technicians-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: none;
+    overflow-y: auto;
+    margin-top: 0.5rem;
+}
+
+/* Cuando está en grid dentro de technicians-card-full (para la tarjeta full-width legacy) */
+.technicians-card-full .technicians-list.grid-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    overflow-y: visible;
+}
+
+@media (max-width: 1200px) {
+    .dashboard-compact-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-compact-grid .technicians-card-full,
+    .dashboard-compact-grid .activity-log-card {
+        grid-column: 1;
+    }
+    
+    .technicians-card-full .technicians-list {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1024px) {
+    .dashboard-compact-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .dashboard-compact-grid .chart-card {
+        min-height: auto;
+    }
+    
+    .dashboard-compact-grid .performance-card,
+    .dashboard-compact-grid .financial-card {
+        min-height: auto;
+    }
+}
+
+/* Dashboard grid principal - Legacy (mantener para compatibilidad) */
+.dashboard-main-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    align-items: start;
+}
+
+.charts-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    transition: all var(--transition-fast);
+    height: auto;
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.chart-card:hover {
+    box-shadow: 0 8px 30px var(--shadow-color);
+}
+
+.chart-header {
+    margin-bottom: 0.75rem;
+    flex-shrink: 0;
+}
+
+.card-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    flex-shrink: 0;
+}
+
+.chart-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    line-height: 1.3;
+    overflow: visible;
+}
+
+.chart-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+    overflow: visible;
+}
+
+.performance-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.performance-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    min-height: auto;
+    height: auto;
+}
+
+.performance-card .card-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.performance-card .performance-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.performance-card .technicians-list {
+    flex: 1 1 auto;
+    max-height: none;
+    overflow-y: visible;
+}
+
+@media (max-width: 768px) {
+    .performance-card .performance-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.performance-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.performance-metric {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.performance-metric:hover {
+    background: var(--accent-light);
+    transform: translateX(4px);
+}
+
+.performance-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.performance-content-info {
+    flex: 1;
+}
+
+.performance-label {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    margin-bottom: 0.25rem;
+}
+
+.performance-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Top técnicos */
+.technicians-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: none;
+    overflow-y: visible;
+}
+
+/* Cuando está en grid (para la tarjeta full-width legacy) - solo si tiene la clase grid-layout */
+.technicians-card-full .technicians-list.grid-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.technicians-card-full .technician-item {
+    margin: 0;
+}
+
+.technicians-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.technicians-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.technicians-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.technician-item {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    animation: fadeInLeft 0.6s ease-out forwards;
+    opacity: 0;
+    border: 1px solid var(--border-color);
+}
+
+.technician-item:hover {
+    background: var(--accent-light);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow-color);
+    border-color: var(--accent-primary);
+}
+
+/* El hover ya está definido arriba */
+
+.technician-rank {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+    min-width: 32px;
+    text-align: center;
+}
+
+.technician-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.technician-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.technician-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.technician-stats {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+.technician-progress {
+    width: 100%;
+    flex-shrink: 0;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease-out;
+}
+
+/* Resumen financiero */
+.financial-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    height: auto;
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.financial-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+
+.financial-metric {
+    padding: 0.75rem;
+    background: linear-gradient(135deg, var(--accent-light), rgba(139, 92, 246, 0.1));
+    border-radius: 10px;
+    border-left: 4px solid var(--accent-primary);
+    flex-shrink: 0;
+}
+
+.financial-label {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.financial-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.financial-upcoming {
+    margin-top: 0.5rem;
+    flex-shrink: 0;
+}
+
+.financial-upcoming-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+.financial-upcoming-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.financial-upcoming-item:last-child {
+    margin-bottom: 0;
+}
+
+.financial-upcoming-amount {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.financial-upcoming-date {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+/* Grid de información */
+.info-grid-section {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+/* Sección de log de actividad - Ahora está dentro del grid */
+.activity-log-section {
+    width: 100%;
+    margin-bottom: 0;
+    margin-top: 0;
+}
+
+/* Cuando activity-log-card está dentro del grid */
+.dashboard-compact-grid .activity-log-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.recent-tickets-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+
+.tickets-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.tickets-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.tickets-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tickets-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.ticket-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+    animation: fadeInLeft 0.6s ease-out forwards;
+    opacity: 0;
+}
+
+.ticket-item:hover {
+    background: var(--accent-light);
+    transform: translateX(4px);
+}
+
+.ticket-item-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.ticket-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.ticket-item-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ticket-item-meta {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+/* Empty states */
+.empty-state {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: auto;
+    overflow: visible;
+}
+
+.empty-chart-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    text-align: center;
+    min-height: auto;
+    overflow: visible;
+}
+
+.technician-item-suggestion {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.technician-item-suggestion:hover {
+    background: var(--accent-light);
+    transform: translateX(4px);
+}
+
+/* Log de Actividad en Tiempo Real */
+.activity-log-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: auto;
+    height: auto;
+}
+
+.activity-log-card .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.activity-log-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+.indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+.indicator-text {
+    font-weight: 500;
+    color: #22c55e;
+}
+
+.activity-log-container {
+    overflow-y: auto;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-right: 0.5rem;
+    flex: 1;
+    min-height: 200px;
+}
+
+/* Cuando está dentro del grid, ajustar altura */
+.dashboard-compact-grid .activity-log-container {
+    max-height: 400px;
+}
+
+.activity-log-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.activity-log-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.activity-log-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.activity-log-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+.activity-log-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    animation: fadeInLeft 0.4s ease-out forwards;
+    opacity: 0;
+}
+
+.activity-log-item:hover {
+    background: var(--accent-light);
+    transform: translateX(4px);
+}
+
+.activity-log-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.activity-log-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+    gap: 0.5rem;
+}
+
+.activity-log-user {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.activity-log-time {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+.activity-log-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.activity-log-detail {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 1399px) {
+    .dashboard-main-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+    
+    .charts-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .info-grid-section {
+        grid-template-columns: 1fr 2fr;
+    }
+}
+
+@media (max-width: 1024px) {
+    .dashboard-main-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .info-grid-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1024px) {
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .info-grid-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-main-grid {
+        gap: 1rem;
+    }
+    
+    .performance-section {
+        gap: 1rem;
+    }
 }
 

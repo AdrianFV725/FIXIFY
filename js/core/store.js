@@ -550,6 +550,9 @@ const Store = {
     },
 
     async saveTicket(ticket) {
+        const isNew = !ticket.id;
+        const oldTicket = ticket.id ? await this.getTicketById(ticket.id) : null;
+        
         if (this.useFirestore && window.FirestoreService) {
             try {
                 if (!ticket.id) {
@@ -563,8 +566,36 @@ const Store = {
                         user: Auth?.getCurrentUser()?.name || 'Admin'
                     }];
                 }
-                return await FirestoreService.saveTicket(ticket);
-            } catch (e) {}
+                const savedTicket = await FirestoreService.saveTicket(ticket);
+                
+                // Registrar actividad
+                if (isNew) {
+                    await this.logActivity('ticket_created', {
+                        ticketId: savedTicket.id,
+                        ticketFolio: savedTicket.folio,
+                        title: savedTicket.title,
+                        status: savedTicket.status,
+                        category: savedTicket.category
+                    });
+                } else if (oldTicket && oldTicket.status !== ticket.status) {
+                    await this.logActivity('status_changed', {
+                        ticketId: ticket.id,
+                        ticketFolio: ticket.folio,
+                        from: oldTicket.status,
+                        to: ticket.status
+                    });
+                } else {
+                    await this.logActivity('ticket_updated', {
+                        ticketId: ticket.id,
+                        ticketFolio: ticket.folio,
+                        title: ticket.title
+                    });
+                }
+                
+                return savedTicket;
+            } catch (e) {
+                console.warn('Error al guardar ticket en Firestore:', e);
+            }
         }
         
         const tickets = await this.getTickets();
@@ -572,6 +603,22 @@ const Store = {
         
         if (index >= 0) {
             tickets[index] = { ...tickets[index], ...ticket, updatedAt: new Date().toISOString() };
+            
+            // Registrar actividad de actualización
+            if (oldTicket && oldTicket.status !== ticket.status) {
+                await this.logActivity('status_changed', {
+                    ticketId: ticket.id,
+                    ticketFolio: ticket.folio,
+                    from: oldTicket.status,
+                    to: ticket.status
+                });
+            } else {
+                await this.logActivity('ticket_updated', {
+                    ticketId: ticket.id,
+                    ticketFolio: ticket.folio,
+                    title: ticket.title
+                });
+            }
         } else {
             ticket.id = this.generateId('TKT');
             ticket.folio = await this.generateFolio();
@@ -588,6 +635,15 @@ const Store = {
             if (ticket.machineId) {
                 await this.incrementMachineTicketCount(ticket.machineId);
             }
+            
+            // Registrar actividad de creación
+            await this.logActivity('ticket_created', {
+                ticketId: ticket.id,
+                ticketFolio: ticket.folio,
+                title: ticket.title,
+                status: ticket.status,
+                category: ticket.category
+            });
         }
         
         this.setLocal(this.KEYS.TICKETS, tickets);
@@ -614,7 +670,17 @@ const Store = {
         ticket.comments = ticket.comments || [];
         ticket.comments.push(comment);
         
-        return await this.saveTicket(ticket);
+        const savedTicket = await this.saveTicket(ticket);
+        
+        // Registrar actividad de comentario
+        await this.logActivity('comment_added', {
+            ticketId: ticketId,
+            ticketFolio: ticket.folio,
+            commentId: comment.id,
+            commentPreview: comment.text ? comment.text.substring(0, 50) : ''
+        });
+        
+        return savedTicket;
     },
 
     async updateTicketStatus(ticketId, newStatus, note = '') {
@@ -637,7 +703,18 @@ const Store = {
             ticket.resolvedAt = new Date().toISOString();
         }
         
-        return await this.saveTicket(ticket);
+        const savedTicket = await this.saveTicket(ticket);
+        
+        // Registrar actividad de cambio de estado (ya se registra en saveTicket, pero lo hacemos explícito)
+        await this.logActivity('status_changed', {
+            ticketId: ticketId,
+            ticketFolio: ticket.folio,
+            from: oldStatus,
+            to: newStatus,
+            note: note
+        });
+        
+        return savedTicket;
     },
 
     async incrementMachineTicketCount(machineId) {
@@ -1155,21 +1232,58 @@ const Store = {
     // ========================================
 
     async logActivity(action, data = {}) {
+        // Obtener información completa del usuario
+        const currentUser = Auth?.getCurrentUser();
+        let userName = 'Sistema';
+        let userEmail = 'unknown';
+        let userRole = 'user';
+        
+        if (currentUser) {
+            userEmail = currentUser.email || 'unknown';
+            userName = currentUser.name || userEmail.split('@')[0];
+            userRole = currentUser.role || 'user';
+        } else {
+            // Intentar obtener desde localStorage/sessionStorage
+            try {
+                const userJson = localStorage.getItem('fixify-user') || sessionStorage.getItem('fixify-user');
+                if (userJson) {
+                    const user = JSON.parse(userJson);
+                    userEmail = user.email || 'unknown';
+                    userName = user.name || userEmail.split('@')[0];
+                    userRole = user.role || 'user';
+                }
+            } catch (e) {}
+        }
+        
         if (this.useFirestore && window.FirestoreService) {
             try {
-                await FirestoreService.logActivity(action, data);
+                await FirestoreService.logActivity(action, {
+                    ...data,
+                    userName: userName,
+                    userEmail: userEmail,
+                    userRole: userRole
+                });
                 return;
-            } catch (e) {}
+            } catch (e) {
+                console.warn('Error al registrar actividad en Firestore:', e);
+            }
         }
         
         const log = this.getLocal(this.KEYS.ACTIVITY_LOG) || [];
         
         log.unshift({
             id: this.generateId('LOG'),
-            action,
-            data,
+            type: action,
+            action: action,
+            data: data,
+            details: data,
             timestamp: new Date().toISOString(),
-            user: Auth?.getCurrentUser()?.name || 'Admin'
+            createdAt: new Date().toISOString(),
+            user: userName,
+            userName: userName,
+            userEmail: userEmail,
+            userRole: userRole,
+            userId: currentUser?.id || 'anonymous'
         });
         
         if (log.length > 500) {

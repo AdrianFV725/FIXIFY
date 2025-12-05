@@ -123,13 +123,39 @@ const Charts = {
                     tension: ds.tension ?? 0.3,
                     fill: ds.fill ?? true,
                     pointRadius: ds.pointRadius ?? 4,
-                    pointHoverRadius: ds.pointHoverRadius ?? 6
+                    pointHoverRadius: ds.pointHoverRadius ?? 6,
+                    pointBorderWidth: 2,
+                    pointBackgroundColor: '#ffffff'
                 }))
             },
             options: this.mergeOptions({
+                responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: data.datasets?.length > 1
+                        display: data.datasets?.length > 1,
+                        position: 'top',
+                        align: 'center',
+                        labels: {
+                            padding: 12,
+                            usePointStyle: true,
+                            boxWidth: 8,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
                     }
                 }
             }, options)
@@ -199,6 +225,9 @@ const Charts = {
 
         this.destroy(canvasId);
 
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const borderColor = isDark ? '#1a1a1a' : '#ffffff';
+
         const config = {
             type: 'doughnut',
             data: {
@@ -206,8 +235,10 @@ const Charts = {
                 datasets: [{
                     data: data.values || [],
                     backgroundColor: data.colors || this.palette.slice(0, data.values?.length || 5),
-                    borderWidth: 0,
-                    hoverOffset: 8
+                    borderWidth: options.borderWidth !== undefined ? options.borderWidth : 2,
+                    borderColor: options.borderColor || borderColor,
+                    hoverOffset: options.hoverOffset || 12,
+                    hoverBorderWidth: options.hoverBorderWidth || 3
                 }]
             },
             options: {
@@ -217,12 +248,28 @@ const Charts = {
                     ...this.getBaseConfig().plugins,
                     legend: {
                         position: options.legendPosition || 'right',
+                        align: options.legendAlign || 'center',
                         labels: {
                             ...this.getBaseConfig().plugins.legend.labels,
-                            padding: 16,
-                            usePointStyle: true
-                        }
+                            padding: options.legendPadding !== undefined ? options.legendPadding : 16,
+                            usePointStyle: options.usePointStyle !== undefined ? options.usePointStyle : true,
+                            pointStyle: options.pointStyle || 'circle',
+                            boxWidth: options.boxWidth || 12,
+                            boxHeight: options.boxHeight || 12
+                        },
+                        ...(options.legend || {})
+                    },
+                    tooltip: {
+                        ...this.getBaseConfig().plugins.tooltip,
+                        ...(options.tooltip || {})
                     }
+                },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: options.animationDuration || 1000,
+                    easing: options.animationEasing || 'easeOutQuart',
+                    ...(options.animation || {})
                 },
                 ...options
             }
