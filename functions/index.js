@@ -67,27 +67,55 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
         const configDoc = await admin.firestore().collection("settings").doc("slack").get();
         if (configDoc.exists) {
           slackConfig = configDoc.data();
+          logger.info("Configuración de Slack obtenida", {
+            ticketId,
+            hasUserIds: !!slackConfig.slackUserIds,
+            userIdsCount: Array.isArray(slackConfig.slackUserIds) ? slackConfig.slackUserIds.length : 0,
+            userIds: Array.isArray(slackConfig.slackUserIds) ? slackConfig.slackUserIds : []
+          });
+        } else {
+          logger.info("No existe configuración de Slack en Firestore", { ticketId });
         }
       } catch (configError) {
         logger.warn("No se pudo obtener configuración de Slack, usando valores por defecto", {
           error: configError.message,
+          ticketId
         });
       }
 
       // Determinar usuarios a notificar
       let slackUserIds = [];
-      if (slackConfig && slackConfig.slackUserIds && slackConfig.slackUserIds.length > 0) {
-        slackUserIds = slackConfig.slackUserIds;
+      
+      // Si existe configuración de Slack (aunque esté vacía), usar solo esa configuración
+      if (slackConfig && slackConfig.hasOwnProperty('slackUserIds')) {
+        // Usar los IDs de la configuración, incluso si el array está vacío
+        slackUserIds = Array.isArray(slackConfig.slackUserIds) 
+          ? slackConfig.slackUserIds.filter(id => id && id.trim() !== '')
+          : [];
+        logger.info("Usando configuración de Slack desde Firestore", {
+          ticketId,
+          userIdsCount: slackUserIds.length,
+          userIds: slackUserIds
+        });
       } else if (IT_USER_ID) {
-        // Fallback al usuario del secret si no hay configuración
+        // Solo usar fallback si NO existe configuración en absoluto
         const cleanUserId = IT_USER_ID.trim().replace(/\n/g, '').replace(/\r/g, '');
         if (cleanUserId) {
           slackUserIds = [cleanUserId];
+          logger.info("Usando fallback IT_USER_ID (no hay configuración en Firestore)", {
+            ticketId,
+            userId: cleanUserId
+          });
         }
       }
 
+      // Si no hay usuarios configurados, no enviar notificación
       if (slackUserIds.length === 0) {
-        logger.warn("No hay usuarios de Slack configurados, saltando notificación", { ticketId });
+        logger.info("No hay usuarios de Slack configurados, saltando notificación", { 
+          ticketId,
+          hasConfig: !!slackConfig,
+          configHasUserIds: slackConfig?.slackUserIds?.length > 0
+        });
         return null;
       }
 
