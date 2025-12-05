@@ -442,6 +442,8 @@ const NotificationsCenter = {
         
         if (this.isOpen) {
             console.log('NotificationsCenter: Abriendo panel...');
+            // Marcar todas las notificaciones como leídas cuando se abre el panel
+            this.markAllAsRead();
             panel.classList.add('active');
             this.renderPanel();
         } else {
