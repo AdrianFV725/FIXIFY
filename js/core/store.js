@@ -1448,19 +1448,59 @@ const Store = {
     },
 
     async saveSlackSettings(settings) {
+        // Asegurar que slackUserIds sea siempre un array, incluso si está vacío
+        const slackUserIds = Array.isArray(settings.slackUserIds) 
+            ? settings.slackUserIds.filter(id => id && typeof id === 'string' && id.trim() !== '')
+            : [];
+        
         const slackSettings = {
             id: 'slack',
-            slackUserIds: settings.slackUserIds || [],
+            slackUserIds: slackUserIds, // Siempre un array, puede estar vacío
             customMessage: settings.customMessage || '',
             updatedAt: new Date().toISOString(),
             updatedBy: Auth?.getCurrentUser()?.name || 'Admin'
         };
 
+        console.log('Guardando configuración de Slack:', {
+            userIdsCount: slackUserIds.length,
+            userIds: slackUserIds,
+            isEmpty: slackUserIds.length === 0
+        });
+
         if (this.useFirestore && window.FirestoreService) {
             try {
-                await FirestoreService.save(this.KEYS.SETTINGS, slackSettings, 'slack');
+                const db = getFirebaseDb();
+                if (db) {
+                    // Obtener el documento actual para preservar otros campos si existen
+                    const currentDoc = await db.collection(this.KEYS.SETTINGS).doc('slack').get();
+                    const currentData = currentDoc.exists ? currentDoc.data() : {};
+                    
+                    // Crear objeto de actualización que sobrescribe explícitamente slackUserIds
+                    const updateData = {
+                        ...currentData, // Preservar otros campos
+                        slackUserIds: slackUserIds, // Array explícito, puede estar vacío - SOBRESCRIBIR
+                        customMessage: slackSettings.customMessage || currentData.customMessage || '',
+                        updatedAt: slackSettings.updatedAt,
+                        updatedBy: slackSettings.updatedBy,
+                        id: 'slack'
+                    };
+                    
+                    // Usar set con merge: false para asegurar que slackUserIds se sobrescriba completamente
+                    // Esto es importante cuando queremos establecer un array vacío
+                    await db.collection(this.KEYS.SETTINGS).doc('slack').set(updateData, { merge: false });
+                    
+                    console.log('Configuración de Slack guardada en Firestore (sobrescritura completa):', {
+                        userIdsCount: slackUserIds.length,
+                        userIds: slackUserIds,
+                        isEmpty: slackUserIds.length === 0,
+                        updateData: updateData
+                    });
+                } else {
+                    await FirestoreService.save(this.KEYS.SETTINGS, slackSettings, 'slack');
+                }
             } catch (e) {
                 console.error('Error al guardar configuración de Slack:', e);
+                throw e; // Re-lanzar para que el módulo pueda manejarlo
             }
         }
         

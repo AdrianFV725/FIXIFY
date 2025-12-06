@@ -67,11 +67,26 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
         const configDoc = await admin.firestore().collection("settings").doc("slack").get();
         if (configDoc.exists) {
           slackConfig = configDoc.data();
-          logger.info("Configuración de Slack obtenida", {
+          
+          // Log detallado de lo que se obtuvo
+          const rawUserIds = slackConfig.slackUserIds;
+          const isArray = Array.isArray(rawUserIds);
+          const arrayLength = isArray ? rawUserIds.length : 0;
+          const filteredUserIds = isArray 
+            ? rawUserIds.filter(id => id && typeof id === 'string' && id.trim() !== '')
+            : [];
+          
+          logger.info("Configuración de Slack obtenida de Firestore", {
             ticketId,
-            hasUserIds: !!slackConfig.slackUserIds,
-            userIdsCount: Array.isArray(slackConfig.slackUserIds) ? slackConfig.slackUserIds.length : 0,
-            userIds: Array.isArray(slackConfig.slackUserIds) ? slackConfig.slackUserIds : []
+            documentExists: true,
+            hasUserIdsProperty: slackConfig.hasOwnProperty('slackUserIds'),
+            isArray: isArray,
+            rawType: typeof rawUserIds,
+            rawValue: rawUserIds,
+            arrayLength: arrayLength,
+            filteredCount: filteredUserIds.length,
+            filteredUserIds: filteredUserIds,
+            isEmpty: filteredUserIds.length === 0
           });
         } else {
           logger.info("No existe configuración de Slack en Firestore", { ticketId });
@@ -79,26 +94,47 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
       } catch (configError) {
         logger.warn("No se pudo obtener configuración de Slack, usando valores por defecto", {
           error: configError.message,
-          ticketId
+          ticketId,
+          stack: configError.stack
         });
       }
 
       // Determinar usuarios a notificar
       let slackUserIds = [];
+      let usingConfig = false;
       
-      // Si existe configuración de Slack (aunque esté vacía), usar solo esa configuración
-      if (slackConfig && slackConfig.hasOwnProperty('slackUserIds')) {
-        // Usar los IDs de la configuración, incluso si el array está vacío
-        slackUserIds = Array.isArray(slackConfig.slackUserIds) 
-          ? slackConfig.slackUserIds.filter(id => id && id.trim() !== '')
-          : [];
-        logger.info("Usando configuración de Slack desde Firestore", {
-          ticketId,
-          userIdsCount: slackUserIds.length,
-          userIds: slackUserIds
-        });
-      } else if (IT_USER_ID) {
-        // Solo usar fallback si NO existe configuración en absoluto
+      // Si existe configuración de Slack, usar solo esa configuración (incluso si está vacía)
+      if (slackConfig) {
+        // Verificar si tiene la propiedad slackUserIds (puede ser array vacío)
+        if (slackConfig.hasOwnProperty('slackUserIds')) {
+          usingConfig = true;
+          // Filtrar IDs válidos (no vacíos, no null, no undefined)
+          if (Array.isArray(slackConfig.slackUserIds)) {
+            slackUserIds = slackConfig.slackUserIds
+              .filter(id => id && typeof id === 'string' && id.trim() !== '')
+              .map(id => id.trim());
+          } else {
+            slackUserIds = [];
+          }
+          logger.info("Usando configuración de Slack desde Firestore", {
+            ticketId,
+            userIdsCount: slackUserIds.length,
+            userIds: slackUserIds,
+            originalArrayLength: Array.isArray(slackConfig.slackUserIds) ? slackConfig.slackUserIds.length : 0,
+            isEmpty: slackUserIds.length === 0
+          });
+        } else {
+          // El documento existe pero no tiene slackUserIds, tratarlo como array vacío
+          usingConfig = true;
+          slackUserIds = [];
+          logger.info("Configuración de Slack existe pero no tiene slackUserIds, tratando como vacío", {
+            ticketId
+          });
+        }
+      }
+      
+      // Solo usar fallback si NO existe configuración en absoluto
+      if (!usingConfig && IT_USER_ID) {
         const cleanUserId = IT_USER_ID.trim().replace(/\n/g, '').replace(/\r/g, '');
         if (cleanUserId) {
           slackUserIds = [cleanUserId];

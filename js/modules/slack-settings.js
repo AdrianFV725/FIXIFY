@@ -387,17 +387,37 @@ const SlackSettingsModule = {
     async saveUsers() {
         try {
             this.collectUsers();
-            const validUserIds = this.settings.slackUserIds.filter(id => id.trim() !== '');
+            // Filtrar IDs vacíos o inválidos
+            const validUserIds = this.settings.slackUserIds
+                .filter(id => id && typeof id === 'string' && id.trim() !== '')
+                .map(id => id.trim());
             
             // Guardar solo los usuarios (mantener el mensaje actual)
             const currentSettings = await Store.getSlackSettings();
-            this.settings.slackUserIds = validUserIds;
+            this.settings.slackUserIds = validUserIds; // Array puede estar vacío
             this.settings.customMessage = currentSettings.customMessage || '';
             
+            console.log('Guardando configuración de Slack:', {
+                userIdsCount: validUserIds.length,
+                userIds: validUserIds,
+                isEmpty: validUserIds.length === 0
+            });
+            
             await Store.saveSlackSettings(this.settings);
-            console.log('Usuarios guardados automáticamente:', validUserIds);
+            
+            console.log('Usuarios guardados automáticamente en Firestore:', {
+                userIdsCount: validUserIds.length,
+                userIds: validUserIds,
+                isEmpty: validUserIds.length === 0
+            });
+            
+            // Mostrar notificación si se eliminaron todos
+            if (validUserIds.length === 0) {
+                this.showSuccessMessage('✓ Todos los usuarios de Slack eliminados. No se enviarán notificaciones.');
+            }
         } catch (error) {
             console.error('Error al guardar usuarios:', error);
+            Notifications.error('Error al guardar la configuración de Slack');
         }
     },
 
