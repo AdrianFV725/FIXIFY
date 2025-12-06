@@ -49,6 +49,13 @@ const TicketsModule = {
     // Cargar preferencia de vista desde localStorage
     loadViewPreference() {
         try {
+            // En móvil, siempre usar vista de tarjetas
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                this.currentView = 'cards';
+                return;
+            }
+            
             const savedView = localStorage.getItem(this.VIEW_PREFERENCE_KEY);
             console.log('[Tickets] Vista guardada en localStorage:', savedView);
             if (savedView && (savedView === 'table' || savedView === 'cards')) {
@@ -590,8 +597,14 @@ const TicketsModule = {
     // ========================================
 
     setView(view) {
-        this.currentView = view;
-        this.saveViewPreference(); // Guardar la preferencia
+        // En móvil, forzar siempre vista de tarjetas
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+            this.currentView = 'cards';
+        } else {
+            this.currentView = view;
+            this.saveViewPreference(); // Guardar la preferencia solo en desktop
+        }
         this.updateViewVisibility();
         this.updateViewToggleButtons();
     },

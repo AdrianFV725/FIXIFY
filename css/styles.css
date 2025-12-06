@@ -828,12 +828,47 @@ body {
 }
 
 /* ========================================
-   RESPONSIVE
+   RESPONSIVE - MOBILE FIRST
    ======================================== */
 
-@media (max-width: 480px) {
+/* Tablets y pantallas medianas */
+@media (max-width: 768px) {
     body {
         padding: 1rem;
+    }
+    
+    .login-container {
+        max-width: 100%;
+    }
+    
+    .login-card {
+        padding: 2.5rem 2rem;
+        border-radius: 20px;
+        min-height: auto;
+    }
+    
+    .theme-toggle {
+        top: 1rem;
+        right: 1rem;
+        width: 44px;
+        height: 44px;
+    }
+    
+    .shape-1 {
+        width: 500px;
+        height: 500px;
+    }
+    
+    .shape-2 {
+        width: 350px;
+        height: 350px;
+    }
+}
+
+/* Móviles grandes */
+@media (max-width: 480px) {
+    body {
+        padding: 0.75rem;
     }
     
     .login-card {
@@ -855,15 +890,23 @@ body {
         font-size: 1.5rem;
     }
     
+    .login-subtitle {
+        font-size: 0.9rem;
+    }
+    
     .form-options {
         flex-direction: column;
         align-items: flex-start;
         gap: 1rem;
     }
     
+    .forgot-link {
+        font-size: 0.8rem;
+    }
+    
     .theme-toggle {
-        top: 1rem;
-        right: 1rem;
+        top: 0.75rem;
+        right: 0.75rem;
         width: 42px;
         height: 42px;
     }
@@ -876,6 +919,16 @@ body {
     .shape-2 {
         width: 300px;
         height: 300px;
+    }
+    
+    .shape-3 {
+        width: 200px;
+        height: 200px;
+    }
+    
+    .shape-4 {
+        width: 150px;
+        height: 150px;
     }
     
     /* Ajustes para pantalla de éxito en móvil */
@@ -910,6 +963,63 @@ body {
     
     .success-user-name {
         max-width: 150px;
+    }
+    
+    .notification {
+        top: 1rem;
+        left: 1rem;
+        right: 1rem;
+        transform: translateX(0) translateY(-100px);
+        max-width: calc(100% - 2rem);
+    }
+    
+    .notification.show {
+        transform: translateX(0) translateY(0);
+    }
+    
+    .notification-content {
+        padding: 0.875rem 1.25rem;
+    }
+}
+
+/* Móviles pequeños */
+@media (max-width: 360px) {
+    body {
+        padding: 0.5rem;
+    }
+    
+    .login-card {
+        padding: 1.5rem 1.25rem;
+    }
+    
+    .logo-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1.1rem;
+    }
+    
+    .logo-text {
+        font-size: 1.35rem;
+    }
+    
+    .login-title {
+        font-size: 1.35rem;
+    }
+    
+    .form-input {
+        font-size: 0.9rem;
+        height: 48px;
+    }
+    
+    .submit-btn,
+    .google-btn {
+        height: 48px;
+        font-size: 0.9rem;
+    }
+    
+    .theme-toggle {
+        width: 40px;
+        height: 40px;
     }
 }
 
@@ -1687,7 +1797,7 @@ body {
 }
 
 /* Responsive para el modal */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     .modal-overlay {
         padding: 1rem;
     }
@@ -1695,7 +1805,19 @@ body {
     .modal-container {
         padding: 2rem 1.5rem;
         border-radius: 20px;
-        max-width: 100%;
+        max-width: calc(100% - 2rem);
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-overlay {
+        padding: 0.75rem;
+    }
+    
+    .modal-container {
+        padding: 1.75rem 1.25rem;
+        border-radius: 18px;
+        max-width: calc(100% - 1.5rem);
     }
     
     .modal-icon {
@@ -1720,6 +1842,31 @@ body {
     .modal-close {
         width: 36px;
         height: 36px;
+        top: 0.75rem;
+        right: 0.75rem;
+    }
+    
+    .modal-form {
+        gap: 1.25rem;
+    }
+    
+    .back-link {
+        font-size: 0.9rem;
+        padding: 0.625rem 1rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .modal-container {
+        padding: 1.5rem 1rem;
+    }
+    
+    .modal-title {
+        font-size: 1.35rem;
+    }
+    
+    .modal-subtitle {
+        font-size: 0.85rem;
     }
 }
 
