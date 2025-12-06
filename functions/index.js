@@ -47,6 +47,59 @@ exports.notifySlackOnTicketCreated = onDocumentCreated(
       return null;
     }
 
+    // Verificar que el ticket fue creado por un empleado (no por admin)
+    const createdByEmail = ticket.createdBy;
+    if (!createdByEmail) {
+      logger.info("Ticket no tiene createdBy, saltando notificación", { ticketId });
+      return null;
+    }
+
+    // Obtener el usuario que creó el ticket para verificar su rol
+    let creatorRole = null;
+    try {
+      // Buscar en la colección de usuarios
+      const usersSnapshot = await admin.firestore()
+        .collection("users")
+        .where("email", "==", createdByEmail.toLowerCase())
+        .limit(1)
+        .get();
+
+      if (!usersSnapshot.empty) {
+        const userData = usersSnapshot.docs[0].data();
+        creatorRole = userData.role;
+        logger.info("Usuario creador encontrado", {
+          ticketId,
+          email: createdByEmail,
+          role: creatorRole
+        });
+      } else {
+        logger.info("Usuario creador no encontrado en users, verificando si es admin por defecto", {
+          ticketId,
+          email: createdByEmail
+        });
+        // Si no se encuentra, verificar si es el admin por defecto
+        if (createdByEmail.toLowerCase() === "admin@brands.mx") {
+          creatorRole = "admin";
+        }
+      }
+    } catch (userError) {
+      logger.warn("Error al buscar usuario creador", {
+        ticketId,
+        email: createdByEmail,
+        error: userError.message
+      });
+    }
+
+    // Solo enviar notificación si el creador es un empleado
+    if (creatorRole !== "employee") {
+      logger.info("Ticket creado por usuario que no es empleado, saltando notificación", {
+        ticketId,
+        email: createdByEmail,
+        role: creatorRole
+      });
+      return null;
+    }
+
     // Obtener valores de los secrets
     const SLACK_BOT_TOKEN = slackBotToken.value();
     const IT_USER_ID = slackItUserId.value();
